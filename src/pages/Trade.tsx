@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey, Transaction as SolanaTransaction } from "@solana/web3.js";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ interface TokenInfo {
   mint: string;
 }
 
-interface Transaction {
+interface TradeTransaction {
   id: string;
   type: "buy" | "sell";
   amount: number;
@@ -51,7 +51,7 @@ const generateChartData = () => {
   return data;
 };
 
-const DEMO_TRANSACTIONS: Transaction[] = [
+const DEMO_TRANSACTIONS: TradeTransaction[] = [
   { id: "1", type: "buy", amount: 1500000, price: 0.00001765, timestamp: Date.now() - 300000, wallet: "7Np...abc" },
   { id: "2", type: "sell", amount: 500000, price: 0.00001720, timestamp: Date.now() - 900000, wallet: "8Kp...def" },
   { id: "3", type: "buy", amount: 2500000, price: 0.00001680, timestamp: Date.now() - 1800000, wallet: "2Lp...ghi" },
@@ -73,7 +73,7 @@ const TradePage = () => {
   const [userBalance, setUserBalance] = useState("0");
   const [playing, setPlaying] = useState(false);
   const [chartData] = useState(generateChartData());
-  const [transactions] = useState<Transaction[]>(DEMO_TRANSACTIONS);
+  const [transactions] = useState<TradeTransaction[]>(DEMO_TRANSACTIONS);
 
   useEffect(() => {
     if (activeMint) loadTokenInfo();
@@ -142,7 +142,7 @@ const TradePage = () => {
       const mintPubkey = new PublicKey(activeMint);
       const tokenAmount = BigInt(Math.floor(parseFloat(buyAmount) / tokenInfo.price * 1e9));
       const instruction = await buyTokensInstruction(connection, publicKey, mintPubkey, tokenAmount);
-      const transaction = new Transaction().add(instruction);
+      const transaction = new SolanaTransaction().add(instruction);
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, "confirmed");
       toast.success(`Bought tokens! TX: ${signature.slice(0, 8)}...`);
@@ -163,7 +163,7 @@ const TradePage = () => {
       const mintPubkey = new PublicKey(activeMint);
       const tokenAmount = BigInt(Math.floor(parseFloat(sellAmount) * 1e9));
       const instruction = await sellTokensInstruction(connection, publicKey, mintPubkey, tokenAmount);
-      const transaction = new Transaction().add(instruction);
+      const transaction = new SolanaTransaction().add(instruction);
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, "confirmed");
       toast.success(`Sold tokens! TX: ${signature.slice(0, 8)}...`);
