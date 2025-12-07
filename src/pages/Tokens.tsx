@@ -353,7 +353,6 @@ function TokenRow({ token }: { token: AudioTokenData }) {
         <Button
           size="sm"
           className="bg-noiz-green hover:bg-noiz-green/80 text-primary-foreground"
-          onClick={(e) => e.stopPropagation()}
         >
           Trade
         </Button>
