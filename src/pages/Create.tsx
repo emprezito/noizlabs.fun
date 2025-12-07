@@ -1,4 +1,6 @@
 import { useState, useRef } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { Keypair, Transaction } from "@solana/web3.js";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -6,11 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Upload, Music, Image, Check, Loader2 } from "lucide-react";
+import { Upload, Music, Image, Check, Loader2, AlertCircle } from "lucide-react";
+import { createAudioTokenInstruction, CreateAudioTokenParams } from "@/lib/solana/program";
 
 type TokenCreationRoute = "bonding-curve" | "manual-lp";
 
 const CreatePage = () => {
+  const { connection } = useConnection();
+  const { publicKey, sendTransaction, connected } = useWallet();
+  
   const [route, setRoute] = useState<TokenCreationRoute>("bonding-curve");
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -51,22 +57,84 @@ const CreatePage = () => {
     }
   };
 
+  const uploadToIPFS = async (file: File): Promise<string> => {
+    // For now, return a mock IPFS URL
+    // In production, integrate with NFT.Storage, Pinata, or similar
+    return `https://ipfs.io/ipfs/mock-${Date.now()}`;
+  };
+
   const handleMint = async () => {
+    if (!connected || !publicKey) {
+      toast.error("Please connect your wallet first!");
+      return;
+    }
+
     if (!name || !symbol || !audioFile) {
       toast.error("Please fill all required fields!");
       return;
     }
 
     setLoading(true);
-    
-    // Simulate token creation (replace with actual Solana integration)
-    setTimeout(() => {
-      const mockMintAddress = `${Math.random().toString(36).substring(2, 10)}...${Math.random().toString(36).substring(2, 6)}`;
-      setMintAddress(mockMintAddress);
+
+    try {
+      // Upload files to IPFS (mock for now)
+      const audioUri = await uploadToIPFS(audioFile);
+      
+      // Create metadata JSON
+      const metadata = {
+        name,
+        symbol,
+        description,
+        audio: audioUri,
+        image: imageFile ? await uploadToIPFS(imageFile) : undefined,
+      };
+      
+      // Upload metadata to IPFS
+      const metadataUri = `https://ipfs.io/ipfs/metadata-${Date.now()}`;
+
+      // Generate a new mint keypair
+      const mintKeypair = Keypair.generate();
+
+      // Create the instruction
+      const params: CreateAudioTokenParams = {
+        name,
+        symbol,
+        metadataUri,
+        totalSupply: BigInt(1_000_000_000 * 1e9), // 1 billion tokens with 9 decimals
+        initialPrice: BigInt(10_000), // 0.00001 SOL initial price
+      };
+
+      const instruction = await createAudioTokenInstruction(
+        connection,
+        publicKey,
+        mintKeypair.publicKey,
+        params
+      );
+
+      // Create and send transaction
+      const transaction = new Transaction().add(instruction);
+      transaction.feePayer = publicKey;
+      
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      
+      // Sign with mint keypair (partial sign)
+      transaction.partialSign(mintKeypair);
+
+      const signature = await sendTransaction(transaction, connection);
+      
+      // Wait for confirmation
+      await connection.confirmTransaction(signature, "confirmed");
+
+      setMintAddress(mintKeypair.publicKey.toString());
       setSuccess(true);
-      setLoading(false);
       toast.success("Token created successfully!");
-    }, 2000);
+    } catch (error: any) {
+      console.error("Error creating token:", error);
+      toast.error(error.message || "Failed to create token");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -78,6 +146,16 @@ const CreatePage = () => {
             <h1 className="text-4xl md:text-5xl font-black text-center mb-8 font-display gradient-text">
               Create Your Audio Token
             </h1>
+
+            {/* Wallet Connection Warning */}
+            {!connected && (
+              <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                <p className="text-foreground">
+                  Please connect your wallet to create tokens. Click the "Connect Wallet" button in the navigation.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-6">
               {/* Route Selection */}
@@ -367,7 +445,7 @@ const CreatePage = () => {
               {/* Create Button */}
               <Button
                 onClick={handleMint}
-                disabled={loading || !name || !symbol || !audioFile}
+                disabled={loading || !name || !symbol || !audioFile || !connected}
                 variant="hero"
                 size="xl"
                 className="w-full"
@@ -377,6 +455,8 @@ const CreatePage = () => {
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                     Creating Token...
                   </>
+                ) : !connected ? (
+                  "Connect Wallet First"
                 ) : (
                   "🚀 Create Token"
                 )}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import WalletButton from "./WalletButton";
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -51,9 +51,9 @@ const Navbar = () => {
 
           {/* Connect Wallet */}
           <div className="flex items-center gap-2">
-            <Button variant="hero" size="sm" className="hidden sm:flex">
-              Connect Wallet
-            </Button>
+            <div className="hidden sm:block">
+              <WalletButton />
+            </div>
 
             {/* Mobile menu button */}
             <button
@@ -87,9 +87,9 @@ const Navbar = () => {
                   {item.name}
                 </Link>
               ))}
-              <Button variant="hero" size="sm" className="mt-2">
-                Connect Wallet
-              </Button>
+              <div className="mt-2">
+                <WalletButton />
+              </div>
             </div>
           </div>
         )}
