@@ -82,6 +82,13 @@ const TradePage = () => {
   useEffect(() => {
     if (!activeMint || !tokenInfo) return;
 
+    // Validate mint address before creating PublicKey
+    try {
+      new PublicKey(activeMint);
+    } catch {
+      return; // Invalid mint, don't set up subscription
+    }
+
     try {
       const mintPubkey = new PublicKey(activeMint);
       const [curvePDA] = getBondingCurvePDA(mintPubkey);
@@ -145,9 +152,19 @@ const TradePage = () => {
   }, [activeMint]);
 
   const loadTokenInfo = async () => {
+    if (!activeMint) return;
+    
+    // Validate mint address
+    let mintPubkey: PublicKey;
+    try {
+      mintPubkey = new PublicKey(activeMint);
+    } catch {
+      toast.error("Invalid mint address format");
+      return;
+    }
+
     setLoading(true);
     try {
-      const mintPubkey = new PublicKey(activeMint);
       const [audioToken, bondingCurve] = await Promise.all([
         fetchAudioToken(connection, mintPubkey),
         fetchBondingCurve(connection, mintPubkey),
@@ -168,19 +185,14 @@ const TradePage = () => {
           mint: activeMint,
         });
       } else {
-        // Demo fallback
-        setTokenInfo({
-          name: "Demo Token", symbol: "DEMO", audioUri: "", totalSupply: 1000000000,
-          price: 0.00001765, solReserves: 15.5, tokenReserves: 850000000, mint: activeMint,
-        });
+        toast.error("Token not found on-chain");
+        setTokenInfo(null);
       }
       setUserBalance("1500000");
     } catch (error) {
       console.error("Error loading token:", error);
-      setTokenInfo({
-        name: "Demo Token", symbol: "DEMO", audioUri: "", totalSupply: 1000000000,
-        price: 0.00001765, solReserves: 15.5, tokenReserves: 850000000, mint: activeMint,
-      });
+      toast.error("Failed to load token data");
+      setTokenInfo(null);
     }
     setLoading(false);
   };
