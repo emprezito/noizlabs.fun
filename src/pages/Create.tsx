@@ -8,10 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Upload, Music, Image, Check, Loader2, AlertCircle } from "lucide-react";
+import { Music, Image, Check, Loader2, AlertCircle, Settings } from "lucide-react";
 import { createAudioTokenInstruction, CreateAudioTokenParams } from "@/lib/solana/program";
+import { uploadTokenMetadata } from "@/lib/pinata";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 type TokenCreationRoute = "bonding-curve" | "manual-lp";
+
+// Store Pinata keys in localStorage for convenience (user can configure)
+const PINATA_API_KEY_STORAGE = "noizlabs_pinata_api_key";
+const PINATA_SECRET_STORAGE = "noizlabs_pinata_secret";
 
 const CreatePage = () => {
   const { connection } = useConnection();
@@ -27,8 +40,18 @@ const CreatePage = () => {
   const [disableFreezing, setDisableFreezing] = useState(false);
   const [makeImmutable, setMakeImmutable] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadingIPFS, setUploadingIPFS] = useState(false);
   const [success, setSuccess] = useState(false);
   const [mintAddress, setMintAddress] = useState("");
+  
+  // Pinata configuration
+  const [pinataApiKey, setPinataApiKey] = useState(() => 
+    localStorage.getItem(PINATA_API_KEY_STORAGE) || ""
+  );
+  const [pinataSecret, setPinataSecret] = useState(() => 
+    localStorage.getItem(PINATA_SECRET_STORAGE) || ""
+  );
+  const [showPinataConfig, setShowPinataConfig] = useState(false);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +68,13 @@ const CreatePage = () => {
     }
   };
 
+  const savePinataConfig = () => {
+    localStorage.setItem(PINATA_API_KEY_STORAGE, pinataApiKey);
+    localStorage.setItem(PINATA_SECRET_STORAGE, pinataSecret);
+    setShowPinataConfig(false);
+    toast.success("Pinata configuration saved!");
+  };
+
   const calculateCost = () => {
     if (route === "bonding-curve") {
       return 0.02;
@@ -57,11 +87,7 @@ const CreatePage = () => {
     }
   };
 
-  const uploadToIPFS = async (file: File): Promise<string> => {
-    // For now, return a mock IPFS URL
-    // In production, integrate with NFT.Storage, Pinata, or similar
-    return `https://ipfs.io/ipfs/mock-${Date.now()}`;
-  };
+  const isPinataConfigured = pinataApiKey && pinataSecret;
 
   const handleMint = async () => {
     if (!connected || !publicKey) {
@@ -74,23 +100,34 @@ const CreatePage = () => {
       return;
     }
 
+    if (!isPinataConfigured) {
+      toast.error("Please configure Pinata API keys first!");
+      setShowPinataConfig(true);
+      return;
+    }
+
     setLoading(true);
+    setUploadingIPFS(true);
 
     try {
-      // Upload files to IPFS (mock for now)
-      const audioUri = await uploadToIPFS(audioFile);
+      // Upload files to Pinata IPFS
+      toast.info("Uploading files to IPFS...");
+      const uploadResult = await uploadTokenMetadata(
+        audioFile,
+        imageFile,
+        { name, symbol, description },
+        pinataApiKey,
+        pinataSecret
+      );
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || "Failed to upload to IPFS");
+      }
+
+      setUploadingIPFS(false);
+      toast.success("Files uploaded to IPFS!");
       
-      // Create metadata JSON
-      const metadata = {
-        name,
-        symbol,
-        description,
-        audio: audioUri,
-        image: imageFile ? await uploadToIPFS(imageFile) : undefined,
-      };
-      
-      // Upload metadata to IPFS
-      const metadataUri = `https://ipfs.io/ipfs/metadata-${Date.now()}`;
+      const metadataUri = uploadResult.url!;
 
       // Generate a new mint keypair
       const mintKeypair = Keypair.generate();
@@ -134,6 +171,7 @@ const CreatePage = () => {
       toast.error(error.message || "Failed to create token");
     } finally {
       setLoading(false);
+      setUploadingIPFS(false);
     }
   };
 
@@ -143,16 +181,74 @@ const CreatePage = () => {
       <main className="gradient-hero pt-24 pb-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-black text-center mb-8 font-display gradient-text">
-              Create Your Audio Token
-            </h1>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+              <h1 className="text-4xl md:text-5xl font-black font-display gradient-text">
+                Create Your Audio Token
+              </h1>
+              
+              {/* Pinata Configuration Button */}
+              <Dialog open={showPinataConfig} onOpenChange={setShowPinataConfig}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Settings className="w-4 h-4" />
+                    {isPinataConfigured ? "IPFS ✓" : "Configure IPFS"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Pinata IPFS Configuration</DialogTitle>
+                    <DialogDescription>
+                      Enter your Pinata API keys to enable IPFS uploads. Get free keys at{" "}
+                      <a href="https://pinata.cloud" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                        pinata.cloud
+                      </a>
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <div>
+                      <Label>Pinata API Key</Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter your API key"
+                        value={pinataApiKey}
+                        onChange={(e) => setPinataApiKey(e.target.value)}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label>Pinata Secret Key</Label>
+                      <Input
+                        type="password"
+                        placeholder="Enter your secret key"
+                        value={pinataSecret}
+                        onChange={(e) => setPinataSecret(e.target.value)}
+                        className="mt-2"
+                      />
+                    </div>
+                    <Button onClick={savePinataConfig} className="w-full">
+                      Save Configuration
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
 
             {/* Wallet Connection Warning */}
             {!connected && (
               <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
                 <p className="text-foreground">
-                  Please connect your wallet to create tokens. Click the "Connect Wallet" button in the navigation.
+                  Please connect your wallet to create tokens.
+                </p>
+              </div>
+            )}
+            
+            {/* Pinata Warning */}
+            {!isPinataConfigured && (
+              <div className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-xl flex items-center gap-3">
+                <Settings className="w-5 h-5 text-accent flex-shrink-0" />
+                <p className="text-foreground">
+                  Configure Pinata IPFS to upload your audio files. Click "Configure IPFS" above.
                 </p>
               </div>
             )}
@@ -445,7 +541,7 @@ const CreatePage = () => {
               {/* Create Button */}
               <Button
                 onClick={handleMint}
-                disabled={loading || !name || !symbol || !audioFile || !connected}
+                disabled={loading || !name || !symbol || !audioFile || !connected || !isPinataConfigured}
                 variant="hero"
                 size="xl"
                 className="w-full"
@@ -453,10 +549,12 @@ const CreatePage = () => {
                 {loading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                    Creating Token...
+                    {uploadingIPFS ? "Uploading to IPFS..." : "Creating Token..."}
                   </>
                 ) : !connected ? (
                   "Connect Wallet First"
+                ) : !isPinataConfigured ? (
+                  "Configure IPFS First"
                 ) : (
                   "🚀 Create Token"
                 )}
