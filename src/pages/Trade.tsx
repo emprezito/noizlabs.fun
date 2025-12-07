@@ -246,7 +246,7 @@ const TradePage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="gradient-hero pt-24 pb-20 min-h-screen">
+      <main className="pt-24 pb-20 min-h-screen">
         <div className="container mx-auto px-4 max-w-6xl">
           <Link to="/tokens" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6">
             <ArrowLeft className="w-4 h-4" /> Back to Tokens
@@ -259,22 +259,22 @@ const TradePage = () => {
             </div>
           )}
 
-          <div className="bg-card rounded-2xl shadow-noiz-lg p-6 mb-6">
+          <div className="bg-card rounded-xl border border-border p-6 mb-6">
             <Label>Token Mint Address</Label>
             <div className="flex gap-3 mt-2">
               <Input placeholder="Enter mint address..." value={mintInput} onChange={(e) => setMintInput(e.target.value)} className="flex-1" />
-              <Button onClick={handleSearch} variant="hero">Load Token</Button>
+              <Button onClick={handleSearch}>Load Token</Button>
             </div>
           </div>
 
-          {loading && <div className="bg-card rounded-2xl p-12 text-center"><Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" /></div>}
+          {loading && <div className="bg-card rounded-xl p-12 text-center border border-border"><Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" /></div>}
 
           {!loading && tokenInfo && (
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
+                <div className="bg-card rounded-xl border border-border p-6">
                   <div className="flex items-start gap-6">
-                    <button onClick={() => setPlaying(!playing)} className="w-20 h-20 gradient-primary rounded-2xl flex items-center justify-center">
+                    <button onClick={() => setPlaying(!playing)} className="w-20 h-20 bg-primary rounded-xl flex items-center justify-center">
                       {playing ? <Pause className="w-8 h-8 text-primary-foreground" /> : <Play className="w-8 h-8 text-primary-foreground ml-1" />}
                     </button>
                     <div className="flex-1">

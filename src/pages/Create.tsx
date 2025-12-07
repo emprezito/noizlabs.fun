@@ -180,11 +180,11 @@ const CreatePage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="gradient-hero pt-24 pb-20">
+      <main className="pt-24 pb-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-              <h1 className="text-4xl md:text-5xl font-black font-display gradient-text">
+              <h1 className="text-4xl md:text-5xl font-bold text-primary">
                 Create Your Audio Token
               </h1>
               
@@ -528,10 +528,10 @@ const CreatePage = () => {
               </div>
 
               {/* Cost Summary */}
-              <div className="gradient-cta rounded-2xl shadow-noiz-lg p-6 text-primary-foreground">
+              <div className="bg-primary rounded-xl p-6 text-primary-foreground">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-lg font-semibold">Total Cost:</span>
-                  <span className="text-3xl font-bold font-display">
+                  <span className="text-3xl font-bold">
                     {calculateCost()} SOL
                   </span>
                 </div>
@@ -544,8 +544,7 @@ const CreatePage = () => {
               <Button
                 onClick={handleMint}
                 disabled={loading || !name || !symbol || !audioFile || !connected || !isPinataConfigured}
-                variant="hero"
-                size="xl"
+                size="lg"
                 className="w-full"
               >
                 {loading ? (
@@ -564,8 +563,8 @@ const CreatePage = () => {
 
               {/* Success Message */}
               {success && (
-                <div className="bg-noiz-green/10 border-2 border-noiz-green/30 rounded-2xl p-6">
-                  <h3 className="text-2xl font-bold text-noiz-green mb-4 font-display">
+                <div className="bg-primary/10 border border-primary/30 rounded-xl p-6">
+                  <h3 className="text-2xl font-bold text-primary mb-4">
                     ✅ Token Created Successfully!
                   </h3>
                   <div className="space-y-3">

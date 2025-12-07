@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
-        display: ["Space Grotesk", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -62,10 +62,10 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
         noiz: {
-          purple: "hsl(var(--noiz-purple))",
-          pink: "hsl(var(--noiz-pink))",
-          blue: "hsl(var(--noiz-blue))",
           green: "hsl(var(--noiz-green))",
+          blue: "hsl(var(--noiz-blue))",
+          purple: "hsl(var(--noiz-purple))",
+          red: "hsl(var(--noiz-red))",
           yellow: "hsl(var(--noiz-yellow))",
           orange: "hsl(var(--noiz-orange))",
         },

@@ -206,21 +206,21 @@ const TokensPage = () => {
   ) / 1e9;
 
   return (
-    <div className="min-h-screen bg-foreground text-primary-foreground">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <main className="pt-20 pb-12">
         <div className="container mx-auto px-4">
           {/* Header */}
           <div className="mb-6 flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2 font-display">🎵 Audio Tokens</h1>
-              <p className="text-primary-foreground/60">
+              <h1 className="text-3xl font-bold mb-2 text-foreground">🎵 Audio Tokens</h1>
+              <p className="text-muted-foreground">
                 Discover and trade audio meme tokens
               </p>
             </div>
             {/* Live Indicator */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
-              isLive ? "bg-noiz-green/20 text-noiz-green" : "bg-muted text-muted-foreground"
+              isLive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
             }`}>
               {isLive ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
               {isLive ? "Live" : "Demo Mode"}
@@ -228,7 +228,7 @@ const TokensPage = () => {
           </div>
 
           {/* Search & Filters Bar */}
-          <div className="mb-6 flex flex-col md:flex-row gap-4 items-center bg-card/10 rounded-lg p-4">
+          <div className="mb-6 flex flex-col md:flex-row gap-4 items-center bg-card rounded-lg p-4 border border-border">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
@@ -236,7 +236,7 @@ const TokensPage = () => {
                 placeholder="Search tokens..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-card/20 border-border/30 text-primary-foreground placeholder:text-muted-foreground"
+                className="pl-10"
               />
             </div>
 
@@ -246,7 +246,6 @@ const TokensPage = () => {
                 onClick={() => setFilter("all")}
                 variant={filter === "all" ? "default" : "outline"}
                 size="sm"
-                className={filter === "all" ? "" : "bg-card/20 border-border/30 text-primary-foreground hover:bg-card/30"}
               >
                 All
               </Button>
@@ -254,7 +253,6 @@ const TokensPage = () => {
                 onClick={() => setFilter("trending")}
                 variant={filter === "trending" ? "default" : "outline"}
                 size="sm"
-                className={filter === "trending" ? "" : "bg-card/20 border-border/30 text-primary-foreground hover:bg-card/30"}
               >
                 <TrendingUp className="w-4 h-4 mr-1" />
                 Trending
@@ -263,7 +261,6 @@ const TokensPage = () => {
                 onClick={() => setFilter("new")}
                 variant={filter === "new" ? "default" : "outline"}
                 size="sm"
-                className={filter === "new" ? "" : "bg-card/20 border-border/30 text-primary-foreground hover:bg-card/30"}
               >
                 <Sparkles className="w-4 h-4 mr-1" />
                 New
@@ -272,7 +269,6 @@ const TokensPage = () => {
                 onClick={fetchAllTokens}
                 variant="outline"
                 size="sm"
-                className="bg-card/20 border-border/30 text-primary-foreground hover:bg-card/30"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
@@ -281,19 +277,19 @@ const TokensPage = () => {
 
           {/* Stats Bar */}
           <div className="mb-6 grid grid-cols-3 gap-4">
-            <div className="bg-card/10 rounded-lg p-4">
-              <p className="text-primary-foreground/60 text-sm">Total Tokens</p>
-              <p className="text-2xl font-bold font-display">{tokens.length}</p>
+            <div className="bg-card rounded-lg p-4 border border-border">
+              <p className="text-muted-foreground text-sm">Total Tokens</p>
+              <p className="text-2xl font-bold text-foreground">{tokens.length}</p>
             </div>
-            <div className="bg-card/10 rounded-lg p-4">
-              <p className="text-primary-foreground/60 text-sm">Showing</p>
-              <p className="text-2xl font-bold text-noiz-purple font-display">
+            <div className="bg-card rounded-lg p-4 border border-border">
+              <p className="text-muted-foreground text-sm">Showing</p>
+              <p className="text-2xl font-bold text-accent">
                 {filteredTokens.length}
               </p>
             </div>
-            <div className="bg-card/10 rounded-lg p-4">
-              <p className="text-primary-foreground/60 text-sm">Total Volume</p>
-              <p className="text-2xl font-bold text-noiz-green font-display">
+            <div className="bg-card rounded-lg p-4 border border-border">
+              <p className="text-muted-foreground text-sm">Total Volume</p>
+              <p className="text-2xl font-bold text-primary">
                 {totalVolume.toFixed(2)} SOL
               </p>
             </div>
@@ -303,14 +299,14 @@ const TokensPage = () => {
           {loading && (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-              <p className="mt-4 text-primary-foreground/60">Loading tokens...</p>
+              <p className="mt-4 text-muted-foreground">Loading tokens...</p>
             </div>
           )}
 
           {/* Tokens Table Header */}
           {!loading && filteredTokens.length > 0 && (
-            <div className="bg-card/10 rounded-t-lg">
-              <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm text-primary-foreground/60 font-semibold border-b border-border/20">
+            <div className="bg-card rounded-t-lg border border-border border-b-0">
+              <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm text-muted-foreground font-semibold">
                 <div className="col-span-3">Token</div>
                 <div className="col-span-2 text-right">Price</div>
                 <div className="col-span-2 text-right">24h %</div>
@@ -323,16 +319,16 @@ const TokensPage = () => {
 
           {/* Tokens List */}
           {!loading && (
-            <div className="bg-card/10 rounded-b-lg">
+            <div className="bg-card rounded-b-lg border border-border border-t-0">
               {filteredTokens.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-primary-foreground/60 text-lg">No tokens found</p>
-                  <p className="text-primary-foreground/40 text-sm mt-2">
+                  <p className="text-muted-foreground text-lg">No tokens found</p>
+                  <p className="text-muted-foreground/60 text-sm mt-2">
                     Try a different search or filter
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-border/20">
+                <div className="divide-y divide-border">
                   {filteredTokens.map((token) => (
                     <TokenRow key={token.mint} token={token} />
                   ))}
@@ -382,13 +378,13 @@ function TokenRow({ token }: { token: AudioTokenData }) {
   return (
     <Link
       to={`/trade?mint=${token.mint}`}
-      className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-card/20 transition-colors cursor-pointer group"
+      className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 transition-colors cursor-pointer group"
     >
       {/* Token Info */}
       <div className="col-span-3 flex items-center gap-3">
         <button
           onClick={togglePlay}
-          className="w-10 h-10 gradient-primary rounded-full flex items-center justify-center hover:opacity-80 transition-opacity flex-shrink-0"
+          className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors flex-shrink-0"
         >
           {playing ? (
             <Pause className="w-4 h-4 text-primary-foreground" />
@@ -397,17 +393,17 @@ function TokenRow({ token }: { token: AudioTokenData }) {
           )}
         </button>
         <div className="min-w-0">
-          <p className="font-bold text-primary-foreground truncate group-hover:text-noiz-purple transition-colors">
+          <p className="font-bold text-foreground truncate group-hover:text-primary transition-colors">
             {token.name}
           </p>
-          <p className="text-sm text-primary-foreground/60 truncate">${token.symbol}</p>
+          <p className="text-sm text-muted-foreground truncate">${token.symbol}</p>
         </div>
       </div>
 
       {/* Price */}
       <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-primary-foreground">{price.toFixed(8)} SOL</p>
-        <p className="text-xs text-primary-foreground/40">${priceInUSD.toFixed(6)}</p>
+        <p className="font-semibold text-foreground">{price.toFixed(8)} SOL</p>
+        <p className="text-xs text-muted-foreground">${priceInUSD.toFixed(6)}</p>
       </div>
 
       {/* 24h Change */}
@@ -415,7 +411,7 @@ function TokenRow({ token }: { token: AudioTokenData }) {
         <div
           className={`px-3 py-1 rounded-lg font-semibold ${
             priceChange >= 0
-              ? "bg-noiz-green/10 text-noiz-green"
+              ? "bg-primary/10 text-primary"
               : "bg-destructive/10 text-destructive"
           }`}
         >
@@ -426,22 +422,19 @@ function TokenRow({ token }: { token: AudioTokenData }) {
 
       {/* Market Cap */}
       <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-primary-foreground">{marketCap.toFixed(2)} SOL</p>
-        <p className="text-xs text-primary-foreground/40">${(marketCap * 200).toFixed(0)}</p>
+        <p className="font-semibold text-foreground">{marketCap.toFixed(2)} SOL</p>
+        <p className="text-xs text-muted-foreground">${(marketCap * 200).toFixed(0)}</p>
       </div>
 
       {/* Volume */}
       <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-primary-foreground">{volume.toFixed(2)} SOL</p>
-        <p className="text-xs text-primary-foreground/40">${(volume * 200).toFixed(0)}</p>
+        <p className="font-semibold text-foreground">{volume.toFixed(2)} SOL</p>
+        <p className="text-xs text-muted-foreground">${(volume * 200).toFixed(0)}</p>
       </div>
 
       {/* Actions */}
       <div className="col-span-1 flex items-center justify-end">
-        <Button
-          size="sm"
-          className="bg-noiz-green hover:bg-noiz-green/80 text-primary-foreground"
-        >
+        <Button size="sm">
           Trade
         </Button>
       </div>

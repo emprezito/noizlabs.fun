@@ -2,112 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @layer base {
   :root {
-    --background: 270 50% 95%;
-    --foreground: 240 10% 15%;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 95%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 15%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 15%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 271 81% 56%;
+    --primary: 142 71% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 330 81% 60%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 270 30% 92%;
-    --muted-foreground: 240 5% 46%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
     --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 270 20% 88%;
-    --input: 270 20% 88%;
-    --ring: 271 81% 56%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 142 71% 45%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
-    /* Custom NoizLabs tokens */
-    --noiz-purple: 271 81% 56%;
-    --noiz-pink: 330 81% 60%;
-    --noiz-blue: 217 91% 60%;
+    /* Custom tokens */
     --noiz-green: 142 71% 45%;
+    --noiz-blue: 217 91% 60%;
+    --noiz-purple: 271 81% 56%;
+    --noiz-red: 0 72% 51%;
     --noiz-yellow: 45 93% 58%;
     --noiz-orange: 25 95% 53%;
 
-    /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(270 50% 92%) 0%, hsl(330 50% 95%) 50%, hsl(217 50% 92%) 100%);
-    --gradient-primary: linear-gradient(135deg, hsl(var(--noiz-purple)) 0%, hsl(var(--noiz-pink)) 100%);
-    --gradient-cta: linear-gradient(90deg, hsl(var(--noiz-purple)) 0%, hsl(var(--noiz-pink)) 50%, hsl(var(--noiz-blue)) 100%);
-    --gradient-card-purple: linear-gradient(135deg, hsl(270 50% 97%) 0%, hsl(330 50% 97%) 100%);
-    --gradient-card-pink: linear-gradient(135deg, hsl(330 50% 97%) 0%, hsl(217 50% 97%) 100%);
-    --gradient-card-blue: linear-gradient(135deg, hsl(217 50% 97%) 0%, hsl(270 50% 97%) 100%);
-    --gradient-card-green: linear-gradient(135deg, hsl(142 50% 97%) 0%, hsl(160 50% 97%) 100%);
-    --gradient-card-yellow: linear-gradient(135deg, hsl(45 50% 97%) 0%, hsl(25 50% 97%) 100%);
-    --gradient-card-red: linear-gradient(135deg, hsl(0 50% 97%) 0%, hsl(330 50% 97%) 100%);
-
     /* Shadows */
-    --shadow-sm: 0 2px 8px -2px hsl(var(--noiz-purple) / 0.1);
-    --shadow-md: 0 8px 24px -8px hsl(var(--noiz-purple) / 0.15);
-    --shadow-lg: 0 16px 48px -12px hsl(var(--noiz-purple) / 0.2);
-    --shadow-xl: 0 24px 64px -16px hsl(var(--noiz-purple) / 0.25);
+    --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 8px 24px -8px hsl(0 0% 0% / 0.4);
+    --shadow-lg: 0 16px 48px -12px hsl(0 0% 0% / 0.5);
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 240 10% 8%;
-    --foreground: 0 0% 95%;
-
-    --card: 240 10% 12%;
-    --card-foreground: 0 0% 95%;
-
-    --popover: 240 10% 12%;
-    --popover-foreground: 0 0% 95%;
-
-    --primary: 271 81% 60%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 330 81% 55%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 240 10% 18%;
-    --muted-foreground: 240 5% 65%;
-
-    --accent: 217 91% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 240 10% 18%;
-    --input: 240 10% 18%;
-    --ring: 271 81% 60%;
-
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 142 71% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 142 71% 45%;
   }
 }
 
@@ -123,20 +72,11 @@
 
 @layer utilities {
   .gradient-hero {
-    background: var(--gradient-hero);
-  }
-
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
-
-  .gradient-cta {
-    background: var(--gradient-cta);
+    @apply bg-background;
   }
 
   .gradient-text {
-    @apply bg-clip-text text-transparent;
-    background: var(--gradient-cta);
+    @apply text-primary;
   }
 
   .shadow-noiz-sm {
@@ -150,42 +90,11 @@
   .shadow-noiz-lg {
     box-shadow: var(--shadow-lg);
   }
-
-  .shadow-noiz-xl {
-    box-shadow: var(--shadow-xl);
-  }
-}
-
-/* Custom animations */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 20px hsl(var(--noiz-purple) / 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px hsl(var(--noiz-pink) / 0.4);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-glow {
-  animation: glow 2s ease-in-out infinite;
 }
 
 /* Solana Wallet Adapter Overrides */
 .wallet-adapter-button {
-  @apply !bg-primary !text-primary-foreground !font-medium !rounded-xl !px-4 !py-2 !h-auto !text-sm hover:!bg-primary/90 !transition-colors;
+  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto !text-sm hover:!bg-primary/90 !transition-colors;
 }
 
 .wallet-adapter-button-trigger {
@@ -209,5 +118,5 @@
 }
 
 .wallet-button-wrapper .wallet-adapter-button {
-  @apply !bg-primary !text-primary-foreground !font-medium !rounded-xl !px-4 !py-2 !h-auto;
+  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto;
 }

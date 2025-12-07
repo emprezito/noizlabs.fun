@@ -183,12 +183,12 @@ const DiscoverPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="gradient-hero pt-24 pb-20 min-h-screen">
+      <main className="pt-24 pb-20 min-h-screen">
         <div className="container mx-auto px-4">
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h1 className="text-4xl font-bold text-foreground font-display">
+              <h1 className="text-4xl font-bold text-foreground">
                 🎧 Discover Audio Clips
               </h1>
               <p className="text-muted-foreground mt-2">
@@ -196,7 +196,7 @@ const DiscoverPage = () => {
               </p>
             </div>
 
-            <Button onClick={() => setShowUploadModal(true)} variant="hero">
+            <Button onClick={() => setShowUploadModal(true)}>
               <Plus className="w-5 h-5 mr-2" />
               Upload Audio
             </Button>
@@ -209,9 +209,6 @@ const DiscoverPage = () => {
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 variant={selectedCategory === cat ? "default" : "outline"}
-                className={`whitespace-nowrap ${
-                  selectedCategory === cat ? "" : "bg-card"
-                }`}
               >
                 {cat}
               </Button>
@@ -220,11 +217,11 @@ const DiscoverPage = () => {
 
           {/* Audio Feed */}
           {filteredClips.length === 0 ? (
-            <div className="text-center py-20 bg-card rounded-2xl shadow-noiz-lg">
+            <div className="text-center py-20 bg-card rounded-xl border border-border">
               <p className="text-muted-foreground text-xl mb-4">
                 No audio clips yet in this category!
               </p>
-              <Button onClick={() => setShowUploadModal(true)} variant="hero">
+              <Button onClick={() => setShowUploadModal(true)}>
                 Upload First Clip
               </Button>
             </div>
@@ -233,13 +230,13 @@ const DiscoverPage = () => {
               {filteredClips.map((clip) => (
                 <div
                   key={clip.id}
-                  className="bg-card rounded-2xl shadow-noiz-lg overflow-hidden hover:shadow-noiz-xl transition-shadow"
+                  className="bg-card rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
                 >
                   {/* Header */}
-                  <div className="gradient-primary p-4 text-primary-foreground">
+                  <div className="bg-primary p-4 text-primary-foreground">
                     <h3 className="font-bold text-lg mb-1">{clip.title}</h3>
                     <p className="text-sm text-primary-foreground/80">by {clip.creator}</p>
-                    <span className="inline-block mt-2 px-2 py-1 bg-card/20 rounded-full text-xs">
+                    <span className="inline-block mt-2 px-2 py-1 bg-background/20 rounded-full text-xs">
                       {clip.category}
                     </span>
                   </div>
@@ -248,7 +245,7 @@ const DiscoverPage = () => {
                   <div className="p-4 bg-muted">
                     <Button
                       onClick={() => handlePlay(clip.id)}
-                      variant={playingClip === clip.id ? "secondary" : "hero"}
+                      variant={playingClip === clip.id ? "secondary" : "default"}
                       className="w-full"
                     >
                       {playingClip === clip.id ? (
@@ -308,7 +305,6 @@ const DiscoverPage = () => {
 
                     <Button
                       onClick={() => handleMintClick(clip)}
-                      variant="hero"
                       className="w-full"
                     >
                       <Coins className="w-4 h-4 mr-2" />
@@ -332,7 +328,7 @@ const DiscoverPage = () => {
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold font-display">
+            <DialogTitle className="text-2xl font-bold">
               Upload Audio Clip
             </DialogTitle>
           </DialogHeader>
@@ -386,7 +382,6 @@ const DiscoverPage = () => {
             <Button
               onClick={handleUpload}
               disabled={loading || !uploadTitle || !uploadFile}
-              variant="hero"
               className="w-full"
             >
               {loading ? (
