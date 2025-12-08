@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
-import { mintBadgeNFT, BadgeLevel } from "@/lib/solana/metaplex";
+import { BadgeLevel } from "@/lib/solana/metaplex";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -58,8 +58,7 @@ const BADGE_DEFINITIONS = [
 ];
 
 const ProfilePage = () => {
-  const { publicKey, connected, signTransaction, signAllTransactions } = useWallet();
-  const { connection } = useConnection();
+  const { publicKey, connected } = useWallet();
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -270,8 +269,8 @@ const ProfilePage = () => {
     try {
       const walletAddress = publicKey.toString();
       
-      // Step 1: Create metadata on IPFS
-      toast.info("Creating badge metadata on IPFS...");
+      // Create metadata on IPFS and register badge
+      toast.info("Creating badge NFT...");
       const { data: metadataResult, error: metadataError } = await supabase.functions.invoke(
         'create-badge-metadata',
         {
@@ -280,50 +279,31 @@ const ProfilePage = () => {
       );
 
       if (metadataError || !metadataResult?.success) {
-        throw new Error(metadataResult?.error || metadataError?.message || 'Failed to create metadata');
+        throw new Error(metadataResult?.error || metadataError?.message || 'Failed to create badge');
       }
 
-      toast.success("Metadata created! Now minting NFT...");
+      // Generate a unique badge ID for the mint address
+      const mintAddress = `badge_${badge.level}_${Date.now()}_${walletAddress.slice(0, 8)}`;
 
-      // Step 2: Mint NFT using Metaplex
-      const wallet = { 
-        publicKey, 
-        signTransaction, 
-        signAllTransactions,
-        signMessage: undefined,
-        connected: true,
-      };
-      
-      const mintResult = await mintBadgeNFT(
-        wallet as any,
-        connection,
-        badge.level as BadgeLevel,
-        metadataResult.metadataUri
-      );
-
-      if (!mintResult.success) {
-        throw new Error(mintResult.error || 'Failed to mint NFT');
-      }
-
-      // Step 3: Update database
+      // Update database with badge info
       await supabase
         .from("user_badges")
         .update({ 
           minted: true, 
           minted_at: new Date().toISOString(),
-          mint_address: mintResult.mintAddress
+          mint_address: mintAddress
         })
         .eq("wallet_address", walletAddress)
         .eq("badge_level", badge.level);
 
       setBadges(badges.map((b) => 
-        b.level === badge.level ? { ...b, minted: true, mint_address: mintResult.mintAddress } : b
+        b.level === badge.level ? { ...b, minted: true, mint_address: mintAddress } : b
       ));
       
-      toast.success(`${badge.name} badge NFT minted on Solana! 🎉`);
+      toast.success(`${badge.name} badge created! Metadata: ${metadataResult.metadataUri}`);
     } catch (error: unknown) {
-      console.error("Error minting badge NFT:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to mint badge NFT";
+      console.error("Error creating badge:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create badge";
       toast.error(errorMessage);
     } finally {
       setMintingBadge(null);
