@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction as SolanaTransaction } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { 
   fetchBondingCurve, 
   fetchAudioToken, 
-  buyTokensInstruction, 
-  sellTokensInstruction,
+  buyTokens, 
+  sellTokens,
   calculateBuyPrice,
   calculateSellReturn,
   getBondingCurvePDA 
@@ -220,8 +220,7 @@ const TradePage = () => {
     try {
       const mintPubkey = new PublicKey(activeMint);
       const tokenAmount = BigInt(Math.floor(parseFloat(buyAmount) / tokenInfo.price * 1e9));
-      const instruction = await buyTokensInstruction(connection, publicKey, mintPubkey, tokenAmount);
-      const transaction = new SolanaTransaction().add(instruction);
+      const transaction = await buyTokens(connection, publicKey, mintPubkey, tokenAmount);
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, "confirmed");
       toast.success(`Bought tokens! TX: ${signature.slice(0, 8)}...`);
@@ -241,8 +240,7 @@ const TradePage = () => {
     try {
       const mintPubkey = new PublicKey(activeMint);
       const tokenAmount = BigInt(Math.floor(parseFloat(sellAmount) * 1e9));
-      const instruction = await sellTokensInstruction(connection, publicKey, mintPubkey, tokenAmount);
-      const transaction = new SolanaTransaction().add(instruction);
+      const transaction = await sellTokens(connection, publicKey, mintPubkey, tokenAmount);
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, "confirmed");
       toast.success(`Sold tokens! TX: ${signature.slice(0, 8)}...`);

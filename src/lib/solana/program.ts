@@ -1,7 +1,9 @@
+import { Program, AnchorProvider, BN, Idl } from "@coral-xyz/anchor";
 import {
   Connection,
   PublicKey,
-  TransactionInstruction,
+  Keypair,
+  Transaction,
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
@@ -10,15 +12,17 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
-import { PROGRAM_ID, AUDIO_TOKEN_SEED, BONDING_CURVE_SEED, PLATFORM_FEE_ACCOUNT } from "./idl";
+import { PROGRAM_ID, AUDIO_TOKEN_SEED, BONDING_CURVE_SEED, PLATFORM_FEE_ACCOUNT, IDL } from "./idl";
 
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );
 
+export const programId = new PublicKey(PROGRAM_ID);
 const platformFeeAccount = new PublicKey(PLATFORM_FEE_ACCOUNT);
 
-export const programId = new PublicKey(PROGRAM_ID);
+// Platform fee percentage (0.25%)
+export const PLATFORM_FEE_PERCENT = 0.0025;
 
 // Derive PDAs
 export function getAudioTokenPDA(mint: PublicKey): [PublicKey, number] {
@@ -35,7 +39,7 @@ export function getBondingCurvePDA(mint: PublicKey): [PublicKey, number] {
   );
 }
 
-export async function getMetadataAddress(mint: PublicKey): Promise<PublicKey> {
+export function getMetadataAddress(mint: PublicKey): PublicKey {
   const [metadataAddress] = PublicKey.findProgramAddressSync(
     [
       Buffer.from("metadata"),
@@ -47,147 +51,157 @@ export async function getMetadataAddress(mint: PublicKey): Promise<PublicKey> {
   return metadataAddress;
 }
 
-// Anchor instruction discriminators from IDL
-// create_audio_token_with_curve: [255, 206, 35, 219, 45, 31, 125, 182]
-const CREATE_AUDIO_TOKEN_WITH_CURVE_DISCRIMINATOR = Buffer.from([
-  0xff, 0xce, 0x23, 0xdb, 0x2d, 0x1f, 0x7d, 0xb6
-]);
-// buy_tokens: [189, 21, 230, 133, 247, 2, 110, 42]
-const BUY_TOKENS_DISCRIMINATOR = Buffer.from([
-  0xbd, 0x15, 0xe6, 0x85, 0xf7, 0x02, 0x6e, 0x2a
-]);
-// sell_tokens: [114, 242, 25, 12, 62, 126, 92, 2]
-const SELL_TOKENS_DISCRIMINATOR = Buffer.from([
-  0x72, 0xf2, 0x19, 0x0c, 0x3e, 0x7e, 0x5c, 0x02
-]);
-
-// Create instruction data
-function encodeString(str: string): Buffer {
-  const strBuffer = Buffer.from(str, "utf-8");
-  const lenBuffer = Buffer.alloc(4);
-  lenBuffer.writeUInt32LE(strBuffer.length, 0);
-  return Buffer.concat([lenBuffer, strBuffer]);
+// Create a read-only provider for fetching data
+function getReadOnlyProvider(connection: Connection): AnchorProvider {
+  const dummyWallet = {
+    publicKey: PublicKey.default,
+    signTransaction: async <T>(tx: T): Promise<T> => tx,
+    signAllTransactions: async <T>(txs: T[]): Promise<T[]> => txs,
+  };
+  return new AnchorProvider(connection, dummyWallet as any, {
+    commitment: "confirmed",
+  });
 }
 
-function encodeU64(value: bigint): Buffer {
-  const buffer = Buffer.alloc(8);
-  buffer.writeBigUInt64LE(value, 0);
-  return buffer;
+// Get the program instance
+export function getProgram(connection: Connection): Program {
+  const provider = getReadOnlyProvider(connection);
+  return new Program(IDL as unknown as Idl, provider);
 }
 
 export interface CreateAudioTokenParams {
   name: string;
   symbol: string;
-  metadataUri: string; // IPFS URI for metadata
+  metadataUri: string;
   totalSupply: bigint;
   initialPrice: bigint;
 }
 
-export async function createAudioTokenInstruction(
+// Create audio token with bonding curve using Anchor
+export async function createAudioTokenWithCurve(
   connection: Connection,
   creator: PublicKey,
-  mint: PublicKey,
+  mintKeypair: Keypair,
   params: CreateAudioTokenParams
-): Promise<TransactionInstruction> {
+): Promise<Transaction> {
+  const program = getProgram(connection);
+  const mint = mintKeypair.publicKey;
+
   const [audioTokenPDA] = getAudioTokenPDA(mint);
   const [bondingCurvePDA] = getBondingCurvePDA(mint);
-  const metadataAddress = await getMetadataAddress(mint);
+  const metadataAddress = getMetadataAddress(mint);
   const curveTokenAccount = await getAssociatedTokenAddress(mint, bondingCurvePDA, true);
 
-  // Encode instruction data matching Anchor's format:
-  // discriminator + name + symbol + metadata_uri + total_supply + initial_price
-  const data = Buffer.concat([
-    CREATE_AUDIO_TOKEN_WITH_CURVE_DISCRIMINATOR,
-    encodeString(params.name),
-    encodeString(params.symbol),
-    encodeString(params.metadataUri),
-    encodeU64(params.totalSupply),
-    encodeU64(params.initialPrice),
-  ]);
-
-  // Account order must match CreateAudioTokenWithCurve struct
-  return new TransactionInstruction({
-    programId,
-    keys: [
-      { pubkey: audioTokenPDA, isSigner: false, isWritable: true },
-      { pubkey: bondingCurvePDA, isSigner: false, isWritable: true },
-      { pubkey: mint, isSigner: true, isWritable: true },
-      { pubkey: curveTokenAccount, isSigner: false, isWritable: true },
-      { pubkey: metadataAddress, isSigner: false, isWritable: true },
-      { pubkey: creator, isSigner: true, isWritable: true },
-      { pubkey: TOKEN_METADATA_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-    ],
-    data,
+  console.log("Creating token with Anchor SDK:", {
+    program: program.programId.toString(),
+    audioToken: audioTokenPDA.toString(),
+    bondingCurve: bondingCurvePDA.toString(),
+    mint: mint.toString(),
+    curveTokenAccount: curveTokenAccount.toString(),
+    metadataAccount: metadataAddress.toString(),
+    creator: creator.toString(),
   });
+
+  const tx = await program.methods
+    .createAudioTokenWithCurve(
+      params.name.slice(0, 50),
+      params.symbol.slice(0, 10),
+      params.metadataUri.slice(0, 200),
+      new BN(params.totalSupply.toString()),
+      new BN(params.initialPrice.toString())
+    )
+    .accounts({
+      audioToken: audioTokenPDA,
+      bondingCurve: bondingCurvePDA,
+      mint: mint,
+      curveTokenAccount: curveTokenAccount,
+      metadataAccount: metadataAddress,
+      creator: creator,
+      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      rent: SYSVAR_RENT_PUBKEY,
+    })
+    .transaction();
+
+  tx.feePayer = creator;
+  const { blockhash } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  
+  // Partial sign with mint keypair
+  tx.partialSign(mintKeypair);
+
+  return tx;
 }
 
-export async function buyTokensInstruction(
+// Buy tokens using Anchor
+export async function buyTokens(
   connection: Connection,
   buyer: PublicKey,
   mint: PublicKey,
   amount: bigint
-): Promise<TransactionInstruction> {
+): Promise<Transaction> {
+  const program = getProgram(connection);
+
   const [bondingCurvePDA] = getBondingCurvePDA(mint);
   const curveTokenAccount = await getAssociatedTokenAddress(mint, bondingCurvePDA, true);
   const buyerTokenAccount = await getAssociatedTokenAddress(mint, buyer);
 
-  const data = Buffer.concat([
-    BUY_TOKENS_DISCRIMINATOR,
-    encodeU64(amount),
-  ]);
+  const tx = await program.methods
+    .buyTokens(new BN(amount.toString()))
+    .accounts({
+      bondingCurve: bondingCurvePDA,
+      mint: mint,
+      curveTokenAccount: curveTokenAccount,
+      buyerTokenAccount: buyerTokenAccount,
+      buyer: buyer,
+      platformFeeAccount: platformFeeAccount,
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      rent: SYSVAR_RENT_PUBKEY,
+    })
+    .transaction();
 
-  // Account order must match BuyTokens struct
-  return new TransactionInstruction({
-    programId,
-    keys: [
-      { pubkey: bondingCurvePDA, isSigner: false, isWritable: true },
-      { pubkey: mint, isSigner: false, isWritable: true },
-      { pubkey: curveTokenAccount, isSigner: false, isWritable: true },
-      { pubkey: buyerTokenAccount, isSigner: false, isWritable: true },
-      { pubkey: buyer, isSigner: true, isWritable: true },
-      { pubkey: platformFeeAccount, isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-    ],
-    data,
-  });
+  tx.feePayer = buyer;
+  const { blockhash } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+
+  return tx;
 }
 
-export async function sellTokensInstruction(
+// Sell tokens using Anchor
+export async function sellTokens(
   connection: Connection,
   seller: PublicKey,
   mint: PublicKey,
   amount: bigint
-): Promise<TransactionInstruction> {
+): Promise<Transaction> {
+  const program = getProgram(connection);
+
   const [bondingCurvePDA] = getBondingCurvePDA(mint);
   const curveTokenAccount = await getAssociatedTokenAddress(mint, bondingCurvePDA, true);
   const sellerTokenAccount = await getAssociatedTokenAddress(mint, seller);
 
-  const data = Buffer.concat([
-    SELL_TOKENS_DISCRIMINATOR,
-    encodeU64(amount),
-  ]);
+  const tx = await program.methods
+    .sellTokens(new BN(amount.toString()))
+    .accounts({
+      bondingCurve: bondingCurvePDA,
+      mint: mint,
+      curveTokenAccount: curveTokenAccount,
+      sellerTokenAccount: sellerTokenAccount,
+      seller: seller,
+      platformFeeAccount: platformFeeAccount,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .transaction();
 
-  // Account order must match SellTokens struct
-  return new TransactionInstruction({
-    programId,
-    keys: [
-      { pubkey: bondingCurvePDA, isSigner: false, isWritable: true },
-      { pubkey: mint, isSigner: false, isWritable: true },
-      { pubkey: curveTokenAccount, isSigner: false, isWritable: true },
-      { pubkey: sellerTokenAccount, isSigner: false, isWritable: true },
-      { pubkey: seller, isSigner: true, isWritable: true },
-      { pubkey: platformFeeAccount, isSigner: false, isWritable: true },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    ],
-    data,
-  });
+  tx.feePayer = seller;
+  const { blockhash } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+
+  return tx;
 }
 
 // Fetch bonding curve data
@@ -269,7 +283,7 @@ export async function fetchAudioToken(
   const symbol = data.slice(offset, offset + symbolLen).toString("utf-8");
   offset += symbolLen;
 
-  // Read audio URI (metadata_uri in Rust)
+  // Read audio URI
   const audioUriLen = data.readUInt32LE(offset);
   offset += 4;
   const audioUri = data.slice(offset, offset + audioUriLen).toString("utf-8");
@@ -293,13 +307,10 @@ export async function fetchAudioToken(
     audioUri,
     mint: mintPubkey.toString(),
     totalSupply: Number(totalSupply) / 1e9,
-    createdAt: Number(createdAt) * 1000, // Convert to milliseconds
+    createdAt: Number(createdAt) * 1000,
     bump,
   };
 }
-
-// Platform fee percentage (0.25%)
-export const PLATFORM_FEE_PERCENT = 0.0025;
 
 // Calculate buy price based on constant product formula
 export function calculateBuyPrice(
@@ -315,7 +326,7 @@ export function calculateBuyPrice(
   const newTokenReserves = tokenReserves - tokenAmount;
   const newSolReserves = k / newTokenReserves;
   const solNeeded = newSolReserves - solReserves;
-  const platformFee = solNeeded * PLATFORM_FEE_PERCENT; // 0.25% fee
+  const platformFee = solNeeded * PLATFORM_FEE_PERCENT;
   
   return solNeeded + platformFee;
 }
@@ -330,7 +341,7 @@ export function calculateSellReturn(
   const newTokenReserves = tokenReserves + tokenAmount;
   const newSolReserves = k / newTokenReserves;
   const solToReturn = solReserves - newSolReserves;
-  const sellFee = solToReturn * PLATFORM_FEE_PERCENT; // 0.25% fee
+  const sellFee = solToReturn * PLATFORM_FEE_PERCENT;
   
   return solToReturn - sellFee;
 }

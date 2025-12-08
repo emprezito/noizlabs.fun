@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Music, Image, Check, Loader2, AlertCircle, Settings } from "lucide-react";
-import { createAudioTokenInstruction, CreateAudioTokenParams } from "@/lib/solana/program";
+import { createAudioTokenWithCurve, CreateAudioTokenParams } from "@/lib/solana/program";
 import { uploadTokenMetadata } from "@/lib/pinata";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import {
@@ -180,29 +180,14 @@ const CreatePage = () => {
         creator: publicKey.toString(),
       });
 
-      const instruction = await createAudioTokenInstruction(
+      const transaction = await createAudioTokenWithCurve(
         connection,
         publicKey,
-        mintKeypair.publicKey,
+        mintKeypair,
         params
       );
       
-      console.log("Instruction accounts:", instruction.keys.map((k, i) => ({
-        index: i,
-        pubkey: k.pubkey.toString(),
-        isSigner: k.isSigner,
-        isWritable: k.isWritable,
-      })));
-
-      // Create and send transaction
-      const transaction = new Transaction().add(instruction);
-      transaction.feePayer = publicKey;
-      
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      
-      // Sign with mint keypair (partial sign)
-      transaction.partialSign(mintKeypair);
+      console.log("Transaction created with Anchor SDK");
 
       const signature = await sendTransaction(transaction, connection);
       
