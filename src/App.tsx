@@ -8,6 +8,7 @@ import Create from "./pages/Create";
 import Tokens from "./pages/Tokens";
 import Trade from "./pages/Trade";
 import Discover from "./pages/Discover";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/tokens" element={<Tokens />} />
           <Route path="/trade" element={<Trade />} />
           <Route path="/discover" element={<Discover />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

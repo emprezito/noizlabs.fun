@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import TopClipsSection from "@/components/TopClipsSection";
-import PointsRewards from "@/components/PointsRewards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2 } from "lucide-react";
+import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, Trophy } from "lucide-react";
 
 interface AudioClip {
   id: string;
@@ -112,12 +111,27 @@ const DiscoverPage = () => {
     setLoading(true);
 
     try {
-      // For now, create a local URL - in production, upload to IPFS/storage
-      const audioUrl = URL.createObjectURL(uploadFile);
       const walletAddress = publicKey?.toString() || null;
       const creatorName = walletAddress 
         ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-3)}`
         : "Anonymous";
+
+      // Upload to IPFS via edge function
+      toast.info("Uploading to IPFS...");
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('fileName', `${uploadTitle.replace(/[^a-zA-Z0-9]/g, '_')}.${uploadFile.name.split('.').pop()}`);
+
+      const { data: funcData, error: funcError } = await supabase.functions.invoke('upload-to-ipfs', {
+        body: formData,
+      });
+
+      if (funcError || !funcData?.success) {
+        throw new Error(funcData?.error || funcError?.message || 'Failed to upload to IPFS');
+      }
+
+      const audioUrl = funcData.url;
+      toast.success("Uploaded to IPFS!");
 
       const { data, error } = await supabase.from("audio_clips").insert({
         title: uploadTitle,
@@ -322,10 +336,24 @@ const DiscoverPage = () => {
             </Button>
           </div>
 
-          {/* Top Section: Top Clips + Rewards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <TopClipsSection />
-            <PointsRewards />
+          {/* Top Section: Top Clips + Leaderboard Link */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2">
+              <TopClipsSection />
+            </div>
+            <div className="bg-card rounded-xl border border-border p-6 flex flex-col items-center justify-center text-center">
+              <Trophy className="w-12 h-12 text-primary mb-4" />
+              <h3 className="text-xl font-bold text-foreground mb-2">Earn Points & Rewards</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                Complete tasks to earn points and climb the leaderboard!
+              </p>
+              <Link to="/leaderboard">
+                <Button>
+                  <Trophy className="w-4 h-4 mr-2" />
+                  View Leaderboard
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Category Filter */}

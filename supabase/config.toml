@@ -1,1 +1,7 @@
 project_id = "fqhyfxdixqhouhrxaufb"
+
+[functions.upload-to-ipfs]
+verify_jwt = false
+
+[functions.reset-tasks]
+verify_jwt = false
