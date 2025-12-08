@@ -163,12 +163,22 @@ const CreatePage = () => {
 
       // Create the instruction - matching Anchor's create_audio_token_with_curve
       const params: CreateAudioTokenParams = {
-        name,
-        symbol,
-        metadataUri, // IPFS URL to the full metadata JSON
+        name: name.slice(0, 50), // Max 50 chars
+        symbol: symbol.slice(0, 10), // Max 10 chars
+        metadataUri: metadataUri.slice(0, 200), // Max 200 chars
         totalSupply: BigInt(1_000_000_000 * 1e9), // 1 billion tokens with 9 decimals
         initialPrice: BigInt(10_000), // 0.00001 SOL initial price
       };
+
+      console.log("Creating token with params:", {
+        name: params.name,
+        symbol: params.symbol,
+        metadataUri: params.metadataUri,
+        totalSupply: params.totalSupply.toString(),
+        initialPrice: params.initialPrice.toString(),
+        mint: mintKeypair.publicKey.toString(),
+        creator: publicKey.toString(),
+      });
 
       const instruction = await createAudioTokenInstruction(
         connection,
@@ -176,6 +186,13 @@ const CreatePage = () => {
         mintKeypair.publicKey,
         params
       );
+      
+      console.log("Instruction accounts:", instruction.keys.map((k, i) => ({
+        index: i,
+        pubkey: k.pubkey.toString(),
+        isSigner: k.isSigner,
+        isWritable: k.isWritable,
+      })));
 
       // Create and send transaction
       const transaction = new Transaction().add(instruction);
