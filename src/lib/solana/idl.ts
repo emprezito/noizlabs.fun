@@ -1,5 +1,5 @@
 // Audio Token Platform IDL (derived from Rust program)
-export const PROGRAM_ID = "BdLFRJjL3SU84L783JgTeDyyuNgQCqa5KD4148f5UX2q";
+export const PROGRAM_ID = "8m6HBVw1n2q6E3YWTkqTE5KyNLhALdfGY7vcXQGMG6Uz";
 
 export interface AudioToken {
   authority: string;
