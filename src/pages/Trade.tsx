@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Search, TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, ExternalLink, AlertCircle, Wifi, WifiOff } from "lucide-react";
 import { Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { 
   fetchBondingCurve, 
   fetchAudioToken, 
@@ -63,6 +64,7 @@ const TradePage = () => {
   const initialMint = searchParams.get("mint") || "";
   const { connection } = useConnection();
   const { publicKey, sendTransaction, connected } = useWallet();
+  const { price: solUsdPrice, formatUsd } = useSolPrice();
 
   const [mintInput, setMintInput] = useState(initialMint);
   const [activeMint, setActiveMint] = useState(initialMint);
@@ -302,9 +304,20 @@ const TradePage = () => {
                         </div>
                       </div>
                       <div className="mt-4 grid grid-cols-4 gap-4 text-sm">
-                        <div><p className="text-muted-foreground">Price</p><p className="font-bold text-noiz-purple">{tokenInfo.price.toFixed(8)} SOL</p></div>
-                        <div><p className="text-muted-foreground">Liquidity</p><p className="font-bold text-noiz-green">{tokenInfo.solReserves.toFixed(2)} SOL</p></div>
-                        <div><p className="text-muted-foreground">Market Cap</p><p className="font-bold">${(tokenInfo.solReserves * 200).toFixed(0)}</p></div>
+                        <div>
+                          <p className="text-muted-foreground">Price</p>
+                          <p className="font-bold text-noiz-purple">{tokenInfo.price.toFixed(8)} SOL</p>
+                          <p className="text-xs text-muted-foreground">{formatUsd(tokenInfo.price)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Liquidity</p>
+                          <p className="font-bold text-noiz-green">{tokenInfo.solReserves.toFixed(2)} SOL</p>
+                          <p className="text-xs text-muted-foreground">{formatUsd(tokenInfo.solReserves)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Market Cap</p>
+                          <p className="font-bold">{formatUsd(tokenInfo.solReserves * 2)}</p>
+                        </div>
                         <div><p className="text-muted-foreground">Your Balance</p><p className="font-bold">{parseInt(userBalance).toLocaleString()}</p></div>
                       </div>
                     </div>
@@ -336,12 +349,20 @@ const TradePage = () => {
                   <TabsContent value="buy" className="space-y-4">
                     <div><Label>Amount (SOL)</Label><Input type="number" placeholder="0.0" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} className="mt-2" /></div>
                     <div className="flex gap-2">{["0.1", "0.5", "1", "5"].map((amt) => <Button key={amt} variant="outline" size="sm" onClick={() => setBuyAmount(amt)}>{amt}</Button>)}</div>
-                    <div className="p-3 bg-muted rounded-lg"><p className="text-sm text-muted-foreground">You'll receive</p><p className="font-bold">{parseInt(estimatedBuyTokens).toLocaleString()} {tokenInfo.symbol}</p></div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">You'll receive</p>
+                      <p className="font-bold">{parseInt(estimatedBuyTokens).toLocaleString()} {tokenInfo.symbol}</p>
+                      {buyAmount && <p className="text-xs text-muted-foreground">Cost: {buyAmount} SOL ({formatUsd(parseFloat(buyAmount) || 0)})</p>}
+                    </div>
                     <Button onClick={handleBuy} disabled={trading || !connected} className="w-full bg-noiz-green hover:bg-noiz-green/80">{trading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{trading ? "Processing..." : "Buy Tokens"}</Button>
                   </TabsContent>
                   <TabsContent value="sell" className="space-y-4">
                     <div><Label>Amount (Tokens)</Label><Input type="number" placeholder="0" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} className="mt-2" /></div>
-                    <div className="p-3 bg-muted rounded-lg"><p className="text-sm text-muted-foreground">You'll receive</p><p className="font-bold">{estimatedSellSol} SOL</p></div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">You'll receive</p>
+                      <p className="font-bold">{estimatedSellSol} SOL</p>
+                      {sellAmount && <p className="text-xs text-muted-foreground">Value: {formatUsd(parseFloat(estimatedSellSol) || 0)}</p>}
+                    </div>
                     <Button onClick={handleSell} disabled={trading || !connected} className="w-full bg-noiz-pink hover:bg-noiz-pink/80">{trading ? "Processing..." : "Sell Tokens"}</Button>
                   </TabsContent>
                 </Tabs>

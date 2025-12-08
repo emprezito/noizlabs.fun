@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, TrendingUp, TrendingDown } from "lucide-react";
 import WalletButton from "./WalletButton";
+import { useSolPrice } from "@/hooks/useSolPrice";
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -16,6 +17,7 @@ const navigation = [
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { price, loading } = useSolPrice();
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -51,8 +53,20 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Connect Wallet */}
-          <div className="flex items-center gap-2">
+          {/* SOL Price & Connect Wallet */}
+          <div className="flex items-center gap-3">
+            {/* SOL Price Ticker */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg text-sm">
+              <span className="text-muted-foreground">SOL</span>
+              {loading ? (
+                <span className="text-foreground font-medium">...</span>
+              ) : (
+                <span className="text-foreground font-bold">
+                  ${price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+            
             <div className="hidden sm:block">
               <WalletButton />
             </div>
