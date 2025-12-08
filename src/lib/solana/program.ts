@@ -47,18 +47,18 @@ export async function getMetadataAddress(mint: PublicKey): Promise<PublicKey> {
   return metadataAddress;
 }
 
-// Anchor instruction discriminators (sha256 hash of "global:<instruction_name>" first 8 bytes)
-// create_audio_token_with_curve: sha256("global:create_audio_token_with_curve")[0..8]
+// Anchor instruction discriminators from IDL
+// create_audio_token_with_curve: [255, 206, 35, 219, 45, 31, 125, 182]
 const CREATE_AUDIO_TOKEN_WITH_CURVE_DISCRIMINATOR = Buffer.from([
-  0x8f, 0x5b, 0x3c, 0x1e, 0x9a, 0x7d, 0x2f, 0x4b
+  0xff, 0xce, 0x23, 0xdb, 0x2d, 0x1f, 0x7d, 0xb6
 ]);
-// buy_tokens: sha256("global:buy_tokens")[0..8]
+// buy_tokens: [189, 21, 230, 133, 247, 2, 110, 42]
 const BUY_TOKENS_DISCRIMINATOR = Buffer.from([
-  0x66, 0x06, 0x3d, 0x12, 0x01, 0xda, 0xeb, 0xea
+  0xbd, 0x15, 0xe6, 0x85, 0xf7, 0x02, 0x6e, 0x2a
 ]);
-// sell_tokens: sha256("global:sell_tokens")[0..8]
+// sell_tokens: [114, 242, 25, 12, 62, 126, 92, 2]
 const SELL_TOKENS_DISCRIMINATOR = Buffer.from([
-  0x33, 0xe6, 0x85, 0xa4, 0x01, 0x7f, 0x83, 0xad
+  0x72, 0xf2, 0x19, 0x0c, 0x3e, 0x7e, 0x5c, 0x02
 ]);
 
 // Create instruction data
