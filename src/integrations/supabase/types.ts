@@ -214,6 +214,7 @@ export type Database = {
           created_at: string
           id: string
           referral_code: string | null
+          referral_earnings: number | null
           referred_by: string | null
           total_points: number | null
           updated_at: string
@@ -224,6 +225,7 @@ export type Database = {
           created_at?: string
           id?: string
           referral_code?: string | null
+          referral_earnings?: number | null
           referred_by?: string | null
           total_points?: number | null
           updated_at?: string
@@ -234,6 +236,7 @@ export type Database = {
           created_at?: string
           id?: string
           referral_code?: string | null
+          referral_earnings?: number | null
           referred_by?: string | null
           total_points?: number | null
           updated_at?: string

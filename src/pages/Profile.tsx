@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
+import { mintBadgeNFT, BadgeLevel } from "@/lib/solana/metaplex";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ interface UserStats {
   referral_code: string | null;
   referred_by: string | null;
   username: string | null;
+  referral_earnings: number;
 }
 
 interface Badge {
@@ -56,7 +58,8 @@ const BADGE_DEFINITIONS = [
 ];
 
 const ProfilePage = () => {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signTransaction, signAllTransactions } = useWallet();
+  const { connection } = useConnection();
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -120,6 +123,7 @@ const ProfilePage = () => {
         referral_code: pointsData?.referral_code || null,
         referred_by: pointsData?.referred_by || null,
         username: pointsData?.username || null,
+        referral_earnings: pointsData?.referral_earnings || 0,
       });
       setUsername(pointsData?.username || "");
 
@@ -259,30 +263,68 @@ const ProfilePage = () => {
     }
   };
 
-  const mintBadgeNFT = async (badge: Badge) => {
+  const mintBadgeNFTHandler = async (badge: Badge) => {
     if (!publicKey || !badge.earned || badge.minted) return;
     
     setMintingBadge(badge.level);
     try {
-      // For now, just mark as minted in DB
-      // In production, this would call the Solana program
+      const walletAddress = publicKey.toString();
+      
+      // Step 1: Create metadata on IPFS
+      toast.info("Creating badge metadata on IPFS...");
+      const { data: metadataResult, error: metadataError } = await supabase.functions.invoke(
+        'create-badge-metadata',
+        {
+          body: { badgeLevel: badge.level, walletAddress },
+        }
+      );
+
+      if (metadataError || !metadataResult?.success) {
+        throw new Error(metadataResult?.error || metadataError?.message || 'Failed to create metadata');
+      }
+
+      toast.success("Metadata created! Now minting NFT...");
+
+      // Step 2: Mint NFT using Metaplex
+      const wallet = { 
+        publicKey, 
+        signTransaction, 
+        signAllTransactions,
+        signMessage: undefined,
+        connected: true,
+      };
+      
+      const mintResult = await mintBadgeNFT(
+        wallet as any,
+        connection,
+        badge.level as BadgeLevel,
+        metadataResult.metadataUri
+      );
+
+      if (!mintResult.success) {
+        throw new Error(mintResult.error || 'Failed to mint NFT');
+      }
+
+      // Step 3: Update database
       await supabase
         .from("user_badges")
         .update({ 
           minted: true, 
           minted_at: new Date().toISOString(),
-          mint_address: `badge_${badge.level}_${Date.now()}` 
+          mint_address: mintResult.mintAddress
         })
-        .eq("wallet_address", publicKey.toString())
+        .eq("wallet_address", walletAddress)
         .eq("badge_level", badge.level);
 
       setBadges(badges.map((b) => 
-        b.level === badge.level ? { ...b, minted: true } : b
+        b.level === badge.level ? { ...b, minted: true, mint_address: mintResult.mintAddress } : b
       ));
       
-      toast.success(`${badge.name} badge NFT minted!`);
-    } catch (error) {
-      toast.error("Failed to mint badge NFT");
+      toast.success(`${badge.name} badge NFT minted on Solana! 🎉`);
+    } catch (error: unknown) {
+      console.error("Error minting badge NFT:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to mint badge NFT";
+      toast.error(errorMessage);
     } finally {
       setMintingBadge(null);
     }
@@ -356,6 +398,17 @@ const ProfilePage = () => {
                   <p className="text-4xl font-bold">{userStats?.total_points?.toLocaleString() || 0}</p>
                   <p className="text-sm text-primary-foreground/80">Total Points</p>
                 </div>
+                
+                {/* Referral Earnings */}
+                {(userStats?.referral_earnings || 0) > 0 && (
+                  <div className="bg-green-500/10 p-3 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Referral Earnings</span>
+                      <span className="font-bold text-green-500">+{userStats?.referral_earnings?.toLocaleString() || 0} pts</span>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="p-4">
                   <Label className="text-sm">Username</Label>
                   <div className="flex gap-2 mt-2">
@@ -496,7 +549,7 @@ const ProfilePage = () => {
                             ) : (
                               <Button
                                 size="sm"
-                                onClick={() => mintBadgeNFT(badge)}
+                                onClick={() => mintBadgeNFTHandler(badge)}
                                 disabled={mintingBadge === badge.level}
                               >
                                 {mintingBadge === badge.level ? (
