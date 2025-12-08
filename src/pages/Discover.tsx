@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import TopClipsSection from "@/components/TopClipsSection";
+import PointsRewards from "@/components/PointsRewards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,67 +34,22 @@ interface AudioClip {
   likes: number;
   shares: number;
   plays: number;
-  createdAt: number;
+  createdAt: string;
   hasLiked?: boolean;
 }
 
 const CATEGORIES = ["All", "Memes", "Music", "Voice", "Sound Effects", "AI Generated", "Other"];
 
-const DEMO_CLIPS: AudioClip[] = [
-  {
-    id: "1",
-    title: "Bruh Sound Effect #2",
-    creator: "7Np...abc",
-    audioUrl: "",
-    category: "Memes",
-    likes: 42,
-    shares: 15,
-    plays: 230,
-    createdAt: Date.now() - 86400000,
-  },
-  {
-    id: "2",
-    title: "Vine Boom Bass",
-    creator: "8Kp...def",
-    audioUrl: "",
-    category: "Memes",
-    likes: 128,
-    shares: 45,
-    plays: 892,
-    createdAt: Date.now() - 172800000,
-  },
-  {
-    id: "3",
-    title: "AI Trump Voice",
-    creator: "2Lp...ghi",
-    audioUrl: "",
-    category: "AI Generated",
-    likes: 67,
-    shares: 23,
-    plays: 456,
-    createdAt: Date.now() - 259200000,
-  },
-  {
-    id: "4",
-    title: "Dramatic Chipmunk",
-    creator: "4Mp...jkl",
-    audioUrl: "",
-    category: "Sound Effects",
-    likes: 89,
-    shares: 34,
-    plays: 567,
-    createdAt: Date.now() - 345600000,
-  },
-];
-
 const DiscoverPage = () => {
   const navigate = useNavigate();
-  const [clips, setClips] = useState<AudioClip[]>(DEMO_CLIPS);
-  const [filteredClips, setFilteredClips] = useState<AudioClip[]>(DEMO_CLIPS);
+  const { publicKey } = useWallet();
+  const [clips, setClips] = useState<AudioClip[]>([]);
+  const [filteredClips, setFilteredClips] = useState<AudioClip[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [playingClip, setPlayingClip] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingClips, setLoadingClips] = useState(true);
 
   // Upload form state
   const [uploadTitle, setUploadTitle] = useState("");
@@ -98,8 +57,43 @@ const DiscoverPage = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   useEffect(() => {
+    fetchClips();
+  }, []);
+
+  useEffect(() => {
     filterClips();
   }, [selectedCategory, clips]);
+
+  const fetchClips = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("audio_clips")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const mappedClips: AudioClip[] = (data || []).map((clip) => ({
+        id: clip.id,
+        title: clip.title,
+        creator: clip.creator,
+        audioUrl: clip.audio_url,
+        category: clip.category || "Other",
+        likes: clip.likes || 0,
+        shares: clip.shares || 0,
+        plays: clip.plays || 0,
+        createdAt: clip.created_at,
+        hasLiked: false,
+      }));
+
+      setClips(mappedClips);
+    } catch (error) {
+      console.error("Error fetching clips:", error);
+      toast.error("Failed to load clips");
+    } finally {
+      setLoadingClips(false);
+    }
+  };
 
   const filterClips = () => {
     if (selectedCategory === "All") {
@@ -117,17 +111,37 @@ const DiscoverPage = () => {
 
     setLoading(true);
 
-    setTimeout(() => {
-      const newClip: AudioClip = {
-        id: Date.now().toString(),
+    try {
+      // For now, create a local URL - in production, upload to IPFS/storage
+      const audioUrl = URL.createObjectURL(uploadFile);
+      const walletAddress = publicKey?.toString() || null;
+      const creatorName = walletAddress 
+        ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-3)}`
+        : "Anonymous";
+
+      const { data, error } = await supabase.from("audio_clips").insert({
         title: uploadTitle,
-        creator: "You...abc",
-        audioUrl: URL.createObjectURL(uploadFile),
+        creator: creatorName,
+        audio_url: audioUrl,
+        category: uploadCategory,
+        wallet_address: walletAddress,
+        likes: 0,
+        shares: 0,
+        plays: 0,
+      }).select().single();
+
+      if (error) throw error;
+
+      const newClip: AudioClip = {
+        id: data.id,
+        title: uploadTitle,
+        creator: creatorName,
+        audioUrl: audioUrl,
         category: uploadCategory,
         likes: 0,
         shares: 0,
         plays: 0,
-        createdAt: Date.now(),
+        createdAt: data.created_at,
       };
 
       setClips([newClip, ...clips]);
@@ -135,49 +149,155 @@ const DiscoverPage = () => {
       setShowUploadModal(false);
       setUploadTitle("");
       setUploadFile(null);
+
+      // Update task progress for uploading
+      if (walletAddress) {
+        await updateTaskProgress(walletAddress, "upload_clips", 1);
+      }
+    } catch (error) {
+      console.error("Error uploading clip:", error);
+      toast.error("Failed to upload clip");
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
-  const handleLike = (clipId: string) => {
+  const updateTaskProgress = async (walletAddress: string, taskType: string, increment: number) => {
+    try {
+      const { data: task } = await supabase
+        .from("user_tasks")
+        .select("*")
+        .eq("wallet_address", walletAddress)
+        .eq("task_type", taskType)
+        .maybeSingle();
+
+      if (task) {
+        const newProgress = (task.progress || 0) + increment;
+        const completed = newProgress >= task.target;
+
+        await supabase
+          .from("user_tasks")
+          .update({ progress: newProgress, completed })
+          .eq("id", task.id);
+      }
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
+  };
+
+  const handleLike = async (clipId: string) => {
+    const clip = clips.find((c) => c.id === clipId);
+    if (!clip) return;
+
+    const newLikes = clip.hasLiked ? clip.likes - 1 : clip.likes + 1;
+
+    // Update local state
     setClips(
-      clips.map((clip) => {
-        if (clip.id === clipId) {
+      clips.map((c) => {
+        if (c.id === clipId) {
           return {
-            ...clip,
-            likes: clip.hasLiked ? clip.likes - 1 : clip.likes + 1,
-            hasLiked: !clip.hasLiked,
+            ...c,
+            likes: newLikes,
+            hasLiked: !c.hasLiked,
           };
         }
-        return clip;
+        return c;
       })
     );
+
+    // Update database
+    try {
+      await supabase
+        .from("audio_clips")
+        .update({ likes: newLikes })
+        .eq("id", clipId);
+
+      // Track interaction
+      if (publicKey && !clip.hasLiked) {
+        await supabase.from("user_interactions").insert({
+          wallet_address: publicKey.toString(),
+          audio_clip_id: clipId,
+          interaction_type: "like",
+        });
+        await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
+      }
+    } catch (error) {
+      console.error("Error updating like:", error);
+    }
   };
 
-  const handleShare = (clipId: string) => {
+  const handleShare = async (clipId: string) => {
     const clip = clips.find((c) => c.id === clipId);
     if (clip) {
       navigator.clipboard.writeText(`${window.location.origin}/discover?clip=${clipId}`);
       toast.success("Link copied to clipboard!");
-      setClips(clips.map((c) => (c.id === clipId ? { ...c, shares: c.shares + 1 } : c)));
+
+      const newShares = clip.shares + 1;
+      setClips(clips.map((c) => (c.id === clipId ? { ...c, shares: newShares } : c)));
+
+      try {
+        await supabase
+          .from("audio_clips")
+          .update({ shares: newShares })
+          .eq("id", clipId);
+
+        if (publicKey) {
+          await supabase.from("user_interactions").insert({
+            wallet_address: publicKey.toString(),
+            audio_clip_id: clipId,
+            interaction_type: "share",
+          });
+          await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
+        }
+      } catch (error) {
+        console.error("Error updating share:", error);
+      }
     }
   };
 
-  const handlePlay = (clipId: string) => {
-    setPlayingClip(playingClip === clipId ? null : clipId);
-    setClips(clips.map((c) => (c.id === clipId ? { ...c, plays: c.plays + 1 } : c)));
+  const handlePlay = async (clipId: string) => {
+    const wasPlaying = playingClip === clipId;
+    setPlayingClip(wasPlaying ? null : clipId);
+
+    if (!wasPlaying) {
+      const clip = clips.find((c) => c.id === clipId);
+      if (clip) {
+        const newPlays = clip.plays + 1;
+        setClips(clips.map((c) => (c.id === clipId ? { ...c, plays: newPlays } : c)));
+
+        try {
+          await supabase
+            .from("audio_clips")
+            .update({ plays: newPlays })
+            .eq("id", clipId);
+
+          if (publicKey) {
+            await supabase.from("user_interactions").insert({
+              wallet_address: publicKey.toString(),
+              audio_clip_id: clipId,
+              interaction_type: "play",
+            });
+            await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
+          }
+        } catch (error) {
+          console.error("Error updating play:", error);
+        }
+      }
+    }
   };
 
   const handleMintClick = (clip: AudioClip) => {
     localStorage.setItem(
       "noizlabs_mint_audio",
       JSON.stringify({
+        id: clip.id,
         title: clip.title,
         audioUrl: clip.audioUrl,
         category: clip.category,
       })
     );
     navigate("/create");
+    toast.success("Audio loaded! Complete the form to mint your token.");
   };
 
   return (
@@ -202,6 +322,12 @@ const DiscoverPage = () => {
             </Button>
           </div>
 
+          {/* Top Section: Top Clips + Rewards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <TopClipsSection />
+            <PointsRewards />
+          </div>
+
           {/* Category Filter */}
           <div className="flex gap-2 overflow-x-auto pb-4 mb-8">
             {CATEGORIES.map((cat) => (
@@ -216,7 +342,12 @@ const DiscoverPage = () => {
           </div>
 
           {/* Audio Feed */}
-          {filteredClips.length === 0 ? (
+          {loadingClips ? (
+            <div className="text-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">Loading clips...</p>
+            </div>
+          ) : filteredClips.length === 0 ? (
             <div className="text-center py-20 bg-card rounded-xl border border-border">
               <p className="text-muted-foreground text-xl mb-4">
                 No audio clips yet in this category!

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Keypair, Transaction } from "@solana/web3.js";
 import Navbar from "@/components/Navbar";
@@ -43,6 +43,8 @@ const CreatePage = () => {
   const [uploadingIPFS, setUploadingIPFS] = useState(false);
   const [success, setSuccess] = useState(false);
   const [mintAddress, setMintAddress] = useState("");
+  const [preloadedAudioUrl, setPreloadedAudioUrl] = useState<string | null>(null);
+  const [preloadedClipId, setPreloadedClipId] = useState<string | null>(null);
   
   // Pinata configuration
   const [pinataApiKey, setPinataApiKey] = useState(() => 
@@ -55,6 +57,31 @@ const CreatePage = () => {
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Load audio from discover page if available
+  useEffect(() => {
+    const storedAudio = localStorage.getItem("noizlabs_mint_audio");
+    if (storedAudio) {
+      try {
+        const audioData = JSON.parse(storedAudio);
+        if (audioData.title) setName(audioData.title);
+        if (audioData.audioUrl) setPreloadedAudioUrl(audioData.audioUrl);
+        if (audioData.id) setPreloadedClipId(audioData.id);
+        // Generate symbol from title
+        if (audioData.title) {
+          const generatedSymbol = audioData.title
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "")
+            .slice(0, 6);
+          setSymbol(generatedSymbol || "TOKEN");
+        }
+        // Clear after loading
+        localStorage.removeItem("noizlabs_mint_audio");
+      } catch (e) {
+        console.error("Error parsing stored audio:", e);
+      }
+    }
+  }, []);
 
   const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -465,11 +492,19 @@ const CreatePage = () => {
                     />
                     <div
                       onClick={() => audioInputRef.current?.click()}
-                      className="mt-2 border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                      className={`mt-2 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+                        preloadedAudioUrl || audioFile 
+                          ? "border-primary/50 bg-primary/5" 
+                          : "border-border hover:border-primary/50"
+                      }`}
                     >
                       <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                      {audioFile ? (
-                        <p className="text-noiz-green font-semibold">
+                      {preloadedAudioUrl ? (
+                        <p className="text-primary font-semibold">
+                          ✅ Audio loaded from Discover
+                        </p>
+                      ) : audioFile ? (
+                        <p className="text-primary font-semibold">
                           ✅ {audioFile.name}
                         </p>
                       ) : (
@@ -480,14 +515,20 @@ const CreatePage = () => {
                     </div>
                   </div>
 
-                  {audioFile && (
+                  {/* Audio preview - preloaded or uploaded */}
+                  {(preloadedAudioUrl || audioFile) && (
                     <div className="bg-muted p-4 rounded-lg">
                       <audio controls className="w-full">
                         <source
-                          src={URL.createObjectURL(audioFile)}
-                          type={audioFile.type}
+                          src={preloadedAudioUrl || (audioFile ? URL.createObjectURL(audioFile) : "")}
+                          type={audioFile?.type || "audio/mpeg"}
                         />
                       </audio>
+                      {preloadedAudioUrl && (
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Audio loaded from Discover page
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -542,7 +583,7 @@ const CreatePage = () => {
               {/* Create Button */}
               <Button
                 onClick={handleMint}
-                disabled={loading || !name || !symbol || !audioFile || !connected || !isPinataConfigured}
+                disabled={loading || !name || !symbol || (!audioFile && !preloadedAudioUrl) || !connected || !isPinataConfigured}
                 size="lg"
                 className="w-full"
               >

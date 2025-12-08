@@ -14,7 +14,234 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audio_clips: {
+        Row: {
+          audio_url: string
+          category: string | null
+          created_at: string
+          creator: string
+          id: string
+          likes: number | null
+          plays: number | null
+          shares: number | null
+          title: string
+          wallet_address: string | null
+        }
+        Insert: {
+          audio_url: string
+          category?: string | null
+          created_at?: string
+          creator: string
+          id?: string
+          likes?: number | null
+          plays?: number | null
+          shares?: number | null
+          title: string
+          wallet_address?: string | null
+        }
+        Update: {
+          audio_url?: string
+          category?: string | null
+          created_at?: string
+          creator?: string
+          id?: string
+          likes?: number | null
+          plays?: number | null
+          shares?: number | null
+          title?: string
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
+      tokens: {
+        Row: {
+          audio_clip_id: string | null
+          audio_url: string | null
+          created_at: string
+          creator_wallet: string
+          id: string
+          initial_price: number
+          metadata_uri: string | null
+          mint_address: string
+          name: string
+          symbol: string
+          total_supply: number
+        }
+        Insert: {
+          audio_clip_id?: string | null
+          audio_url?: string | null
+          created_at?: string
+          creator_wallet: string
+          id?: string
+          initial_price: number
+          metadata_uri?: string | null
+          mint_address: string
+          name: string
+          symbol: string
+          total_supply: number
+        }
+        Update: {
+          audio_clip_id?: string | null
+          audio_url?: string | null
+          created_at?: string
+          creator_wallet?: string
+          id?: string
+          initial_price?: number
+          metadata_uri?: string | null
+          mint_address?: string
+          name?: string
+          symbol?: string
+          total_supply?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tokens_audio_clip_id_fkey"
+            columns: ["audio_clip_id"]
+            isOneToOne: false
+            referencedRelation: "audio_clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trade_history: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          mint_address: string
+          price_lamports: number
+          signature: string | null
+          token_id: string | null
+          trade_type: string
+          wallet_address: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          mint_address: string
+          price_lamports: number
+          signature?: string | null
+          token_id?: string | null
+          trade_type: string
+          wallet_address: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          mint_address?: string
+          price_lamports?: number
+          signature?: string | null
+          token_id?: string | null
+          trade_type?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_interactions: {
+        Row: {
+          audio_clip_id: string | null
+          created_at: string
+          id: string
+          interaction_type: string
+          wallet_address: string
+        }
+        Insert: {
+          audio_clip_id?: string | null
+          created_at?: string
+          id?: string
+          interaction_type: string
+          wallet_address: string
+        }
+        Update: {
+          audio_clip_id?: string | null
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_interactions_audio_clip_id_fkey"
+            columns: ["audio_clip_id"]
+            isOneToOne: false
+            referencedRelation: "audio_clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_points: {
+        Row: {
+          created_at: string
+          id: string
+          total_points: number | null
+          updated_at: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          total_points?: number | null
+          updated_at?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          total_points?: number | null
+          updated_at?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      user_tasks: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          id: string
+          last_reset: string
+          points_reward: number
+          progress: number | null
+          reset_period: string
+          target: number
+          task_type: string
+          wallet_address: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          id?: string
+          last_reset?: string
+          points_reward: number
+          progress?: number | null
+          reset_period: string
+          target: number
+          task_type: string
+          wallet_address: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          id?: string
+          last_reset?: string
+          points_reward?: number
+          progress?: number | null
+          reset_period?: string
+          target?: number
+          task_type?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
