@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Droplets, Loader2 } from "lucide-react";
+import { Menu, X, Droplets, Loader2, Wallet } from "lucide-react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ const Navbar = () => {
   const { price, loading } = useSolPrice();
   const { connection } = useConnection();
   const { publicKey, connected } = useWallet();
+  const { balance, loading: balanceLoading } = useWalletBalance();
 
   const requestAirdrop = async () => {
     if (!publicKey) {
@@ -97,22 +99,37 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Devnet Faucet Button */}
+            {/* Wallet Balance & Devnet Faucet */}
             {connected && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={requestAirdrop}
-                disabled={requestingAirdrop}
-                className="hidden sm:flex items-center gap-2"
-              >
-                {requestingAirdrop ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Droplets className="w-4 h-4" />
-                )}
-                <span className="hidden lg:inline">Get Devnet SOL</span>
-              </Button>
+              <div className="hidden sm:flex items-center gap-2">
+                {/* Balance Display */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 rounded-lg text-sm">
+                  <Wallet className="w-4 h-4 text-primary" />
+                  {balanceLoading ? (
+                    <span className="text-muted-foreground">...</span>
+                  ) : (
+                    <span className="text-foreground font-bold">
+                      {balance?.toFixed(4) ?? "0"} SOL
+                    </span>
+                  )}
+                </div>
+                
+                {/* Faucet Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={requestAirdrop}
+                  disabled={requestingAirdrop}
+                  className="flex items-center gap-2"
+                >
+                  {requestingAirdrop ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Droplets className="w-4 h-4" />
+                  )}
+                  <span className="hidden lg:inline">Get SOL</span>
+                </Button>
+              </div>
             )}
             
             <div className="hidden sm:block">
@@ -151,21 +168,32 @@ const Navbar = () => {
                   {item.name}
                 </Link>
               ))}
-              {/* Mobile Faucet Button */}
+              {/* Mobile Balance & Faucet */}
               {connected && (
-                <Button
-                  variant="outline"
-                  onClick={requestAirdrop}
-                  disabled={requestingAirdrop}
-                  className="w-full flex items-center justify-center gap-2"
-                >
-                  {requestingAirdrop ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Droplets className="w-4 h-4" />
-                  )}
-                  Get Devnet SOL
-                </Button>
+                <div className="space-y-2">
+                  {/* Mobile Balance Display */}
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 rounded-lg">
+                    <Wallet className="w-4 h-4 text-primary" />
+                    <span className="text-foreground font-bold">
+                      {balanceLoading ? "..." : `${balance?.toFixed(4) ?? "0"} SOL`}
+                    </span>
+                  </div>
+                  
+                  {/* Mobile Faucet Button */}
+                  <Button
+                    variant="outline"
+                    onClick={requestAirdrop}
+                    disabled={requestingAirdrop}
+                    className="w-full flex items-center justify-center gap-2"
+                  >
+                    {requestingAirdrop ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Droplets className="w-4 h-4" />
+                    )}
+                    Get Devnet SOL
+                  </Button>
+                </div>
               )}
               <div className="mt-2">
                 <WalletButton />

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Keypair, Transaction } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,24 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Music, Image, Check, Loader2, AlertCircle, Settings } from "lucide-react";
+import { Music, Image, Check, Loader2, AlertCircle, Shield, AlertTriangle } from "lucide-react";
 import { createAudioTokenWithCurve, CreateAudioTokenParams } from "@/lib/solana/program";
-import { uploadTokenMetadata } from "@/lib/pinata";
+import { uploadTokenMetadata } from "@/lib/ipfsUpload";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 type TokenCreationRoute = "bonding-curve" | "manual-lp";
-
-// Store Pinata keys in localStorage for convenience (user can configure)
-const PINATA_API_KEY_STORAGE = "noizlabs_pinata_api_key";
-const PINATA_SECRET_STORAGE = "noizlabs_pinata_secret";
 
 const CreatePage = () => {
   const { connection } = useConnection();
@@ -46,15 +34,6 @@ const CreatePage = () => {
   const [mintAddress, setMintAddress] = useState("");
   const [preloadedAudioUrl, setPreloadedAudioUrl] = useState<string | null>(null);
   const [preloadedClipId, setPreloadedClipId] = useState<string | null>(null);
-  
-  // Pinata configuration
-  const [pinataApiKey, setPinataApiKey] = useState(() => 
-    localStorage.getItem(PINATA_API_KEY_STORAGE) || ""
-  );
-  const [pinataSecret, setPinataSecret] = useState(() => 
-    localStorage.getItem(PINATA_SECRET_STORAGE) || ""
-  );
-  const [showPinataConfig, setShowPinataConfig] = useState(false);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +47,6 @@ const CreatePage = () => {
         if (audioData.title) setName(audioData.title);
         if (audioData.audioUrl) setPreloadedAudioUrl(audioData.audioUrl);
         if (audioData.id) setPreloadedClipId(audioData.id);
-        // Generate symbol from title
         if (audioData.title) {
           const generatedSymbol = audioData.title
             .toUpperCase()
@@ -76,7 +54,6 @@ const CreatePage = () => {
             .slice(0, 6);
           setSymbol(generatedSymbol || "TOKEN");
         }
-        // Clear after loading
         localStorage.removeItem("noizlabs_mint_audio");
       } catch (e) {
         console.error("Error parsing stored audio:", e);
@@ -96,13 +73,6 @@ const CreatePage = () => {
     }
   };
 
-  const savePinataConfig = () => {
-    localStorage.setItem(PINATA_API_KEY_STORAGE, pinataApiKey);
-    localStorage.setItem(PINATA_SECRET_STORAGE, pinataSecret);
-    setShowPinataConfig(false);
-    toast.success("Pinata configuration saved!");
-  };
-
   const calculateCost = () => {
     if (route === "bonding-curve") {
       return 0.02;
@@ -115,8 +85,6 @@ const CreatePage = () => {
     }
   };
 
-  const isPinataConfigured = pinataApiKey && pinataSecret;
-
   const handleMint = async () => {
     if (!connected || !publicKey) {
       toast.error("Please connect your wallet first!");
@@ -128,24 +96,15 @@ const CreatePage = () => {
       return;
     }
 
-    if (!isPinataConfigured) {
-      toast.error("Please configure Pinata API keys first!");
-      setShowPinataConfig(true);
-      return;
-    }
-
     setLoading(true);
     setUploadingIPFS(true);
 
     try {
-      // Upload files to Pinata IPFS
       toast.info("Uploading files to IPFS...");
       const uploadResult = await uploadTokenMetadata(
         audioFile,
         imageFile,
-        { name, symbol, description },
-        pinataApiKey,
-        pinataSecret
+        { name, symbol, description }
       );
 
       if (!uploadResult.success) {
@@ -155,19 +114,15 @@ const CreatePage = () => {
       setUploadingIPFS(false);
       toast.success("Files uploaded to IPFS!");
       
-      // The metadataUri contains all the info (including audio URL inside it)
       const metadataUri = uploadResult.url!;
-
-      // Generate a new mint keypair
       const mintKeypair = Keypair.generate();
 
-      // Create the instruction - matching Anchor's create_audio_token_with_curve
       const params: CreateAudioTokenParams = {
-        name: name.slice(0, 50), // Max 50 chars
-        symbol: symbol.slice(0, 10), // Max 10 chars
-        metadataUri: metadataUri.slice(0, 200), // Max 200 chars
-        totalSupply: BigInt(1_000_000_000 * 1e9), // 1 billion tokens with 9 decimals
-        initialPrice: BigInt(10_000), // 0.00001 SOL initial price
+        name: name.slice(0, 50),
+        symbol: symbol.slice(0, 10),
+        metadataUri: metadataUri.slice(0, 200),
+        totalSupply: BigInt(1_000_000_000 * 1e9),
+        initialPrice: BigInt(10_000),
       };
 
       console.log("Creating token with params:", {
@@ -190,8 +145,6 @@ const CreatePage = () => {
       console.log("Transaction created with Anchor SDK");
 
       const signature = await sendTransaction(transaction, connection);
-      
-      // Wait for confirmation
       await connection.confirmTransaction(signature, "confirmed");
 
       setMintAddress(mintKeypair.publicKey.toString());
@@ -212,56 +165,10 @@ const CreatePage = () => {
       <main className="pt-24 pb-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+            <div className="mb-8">
               <h1 className="text-4xl md:text-5xl font-bold text-primary">
                 Create Your Audio Token
               </h1>
-              
-              {/* Pinata Configuration Button */}
-              <Dialog open={showPinataConfig} onOpenChange={setShowPinataConfig}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Settings className="w-4 h-4" />
-                    {isPinataConfigured ? "IPFS ✓" : "Configure IPFS"}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Pinata IPFS Configuration</DialogTitle>
-                    <DialogDescription>
-                      Enter your Pinata API keys to enable IPFS uploads. Get free keys at{" "}
-                      <a href="https://pinata.cloud" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                        pinata.cloud
-                      </a>
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    <div>
-                      <Label>Pinata API Key</Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter your API key"
-                        value={pinataApiKey}
-                        onChange={(e) => setPinataApiKey(e.target.value)}
-                        className="mt-2"
-                      />
-                    </div>
-                    <div>
-                      <Label>Pinata Secret Key</Label>
-                      <Input
-                        type="password"
-                        placeholder="Enter your secret key"
-                        value={pinataSecret}
-                        onChange={(e) => setPinataSecret(e.target.value)}
-                        className="mt-2"
-                      />
-                    </div>
-                    <Button onClick={savePinataConfig} className="w-full">
-                      Save Configuration
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
             </div>
 
             {/* Wallet Connection Warning */}
@@ -270,16 +177,6 @@ const CreatePage = () => {
                 <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
                 <p className="text-foreground">
                   Please connect your wallet to create tokens.
-                </p>
-              </div>
-            )}
-            
-            {/* Pinata Warning */}
-            {!isPinataConfigured && (
-              <div className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-xl flex items-center gap-3">
-                <Settings className="w-5 h-5 text-accent flex-shrink-0" />
-                <p className="text-foreground">
-                  Configure Pinata IPFS to upload your audio files. Click "Configure IPFS" above.
                 </p>
               </div>
             )}
@@ -292,16 +189,24 @@ const CreatePage = () => {
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Bonding Curve Option */}
+                  {/* Bonding Curve Option - RECOMMENDED */}
                   <button
                     onClick={() => setRoute("bonding-curve")}
-                    className={`p-6 rounded-xl border-2 transition-all text-left ${
+                    className={`relative p-6 rounded-xl border-2 transition-all text-left ${
                       route === "bonding-curve"
-                        ? "border-primary bg-primary/5"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/20"
                         : "border-border hover:border-primary/30"
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-3">
+                    {/* Recommended Badge */}
+                    <div className="absolute -top-3 left-4">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded-full">
+                        <Shield className="w-3 h-3" />
+                        RECOMMENDED
+                      </span>
+                    </div>
+
+                    <div className="flex items-start justify-between mb-3 mt-2">
                       <div className="text-3xl">📈</div>
                       <div
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
@@ -319,38 +224,52 @@ const CreatePage = () => {
                       Bonding Curve
                     </h3>
                     <p className="text-sm text-muted-foreground mb-3">
-                      Automatic price discovery. Instant liquidity. Users trade on your platform.
+                      Transparent, algorithmic pricing with locked liquidity. The safest way to launch.
                     </p>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <span>✅</span>
-                        <span>No liquidity needed</span>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center gap-2 text-primary">
+                        <Shield className="w-3.5 h-3.5" />
+                        <span className="font-semibold">Rug-proof: Liquidity locked in curve</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <span>✅</span>
-                        <span>Fair launch (no rug)</span>
+                        <span>Fair launch - everyone buys at same curve</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <span>✅</span>
-                        <span>Earn platform fees</span>
+                        <span>No upfront liquidity needed</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span>✅</span>
+                        <span>Instant trading on NoizLabs</span>
                       </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <span className="text-xl font-bold text-primary">0.02 SOL</span>
-                      <span className="text-sm text-muted-foreground ml-2">({formatUsd(0.02)})</span>
+                    <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                      <div>
+                        <span className="text-2xl font-bold text-primary">0.02 SOL</span>
+                        <span className="text-sm text-muted-foreground ml-2">({formatUsd(0.02)})</span>
+                      </div>
                     </div>
                   </button>
 
-                  {/* Manual LP Option */}
+                  {/* Manual LP Option - WITH WARNING */}
                   <button
                     onClick={() => setRoute("manual-lp")}
-                    className={`p-6 rounded-xl border-2 transition-all text-left ${
+                    className={`relative p-6 rounded-xl border-2 transition-all text-left ${
                       route === "manual-lp"
                         ? "border-accent bg-accent/5"
-                        : "border-border hover:border-accent/30"
+                        : "border-border hover:border-accent/30 opacity-80"
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-3">
+                    {/* Warning Badge */}
+                    <div className="absolute -top-3 left-4">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-muted text-muted-foreground text-xs font-medium rounded-full">
+                        <AlertTriangle className="w-3 h-3" />
+                        ADVANCED
+                      </span>
+                    </div>
+
+                    <div className="flex items-start justify-between mb-3 mt-2">
                       <div className="text-3xl">🔧</div>
                       <div
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
@@ -370,23 +289,29 @@ const CreatePage = () => {
                     <p className="text-sm text-muted-foreground mb-3">
                       Full control. Add liquidity on Raydium/Orca yourself.
                     </p>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center gap-2 text-destructive/80">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span className="font-medium">Requires manual LP setup</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span>⚠️</span>
+                        <span>Higher risk if LP not locked</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <span>✅</span>
                         <span>Mint to your wallet</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <span>✅</span>
-                        <span>Full control over LP</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>✅</span>
-                        <span>Optional immutability</span>
+                        <span>Trade on external DEXs</span>
                       </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <span className="text-xl font-bold text-accent">{calculateCost()} SOL</span>
-                      <span className="text-sm text-muted-foreground ml-2">({formatUsd(calculateCost())})</span>
+                    <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                      <div>
+                        <span className="text-2xl font-bold text-accent">{route === "manual-lp" ? calculateCost() : 0.5} SOL</span>
+                        <span className="text-sm text-muted-foreground ml-2">({formatUsd(route === "manual-lp" ? calculateCost() : 0.5)})</span>
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -518,7 +443,7 @@ const CreatePage = () => {
                     </div>
                   </div>
 
-                  {/* Audio preview - preloaded or uploaded */}
+                  {/* Audio preview */}
                   {(preloadedAudioUrl || audioFile) && (
                     <div className="bg-muted p-4 rounded-lg">
                       <audio controls className="w-full">
@@ -551,7 +476,7 @@ const CreatePage = () => {
                       <Image className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                       {imageFile ? (
                         <div>
-                          <p className="text-noiz-green font-semibold mb-2">
+                          <p className="text-primary font-semibold mb-2">
                             ✅ {imageFile.name}
                           </p>
                           <img
@@ -588,7 +513,7 @@ const CreatePage = () => {
               {/* Create Button */}
               <Button
                 onClick={handleMint}
-                disabled={loading || !name || !symbol || (!audioFile && !preloadedAudioUrl) || !connected || !isPinataConfigured}
+                disabled={loading || !name || !symbol || (!audioFile && !preloadedAudioUrl) || !connected}
                 size="lg"
                 className="w-full"
               >
@@ -599,8 +524,6 @@ const CreatePage = () => {
                   </>
                 ) : !connected ? (
                   "Connect Wallet First"
-                ) : !isPinataConfigured ? (
-                  "Configure IPFS First"
                 ) : (
                   "🚀 Create Token"
                 )}
