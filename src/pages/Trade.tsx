@@ -67,7 +67,14 @@ const TradePage = () => {
   const { price: solUsdPrice, formatUsd } = useSolPrice();
 
   const [mintInput, setMintInput] = useState(initialMint);
-  const [activeMint, setActiveMint] = useState(initialMint);
+  const [activeMint, setActiveMint] = useState("");
+
+  // Auto-load token when arriving with mint in URL
+  useEffect(() => {
+    if (initialMint && !activeMint) {
+      setActiveMint(initialMint);
+    }
+  }, [initialMint]);
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
   const [loading, setLoading] = useState(false);
