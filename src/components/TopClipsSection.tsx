@@ -25,6 +25,28 @@ const TopClipsSection = () => {
 
   useEffect(() => {
     fetchTopClips();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('top-clips-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'audio_clips'
+        },
+        (payload) => {
+          console.log('Real-time update:', payload);
+          // Refetch to get updated rankings
+          fetchTopClips();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchTopClips = async () => {

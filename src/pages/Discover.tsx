@@ -57,6 +57,61 @@ const DiscoverPage = () => {
 
   useEffect(() => {
     fetchClips();
+
+    // Subscribe to real-time updates for audio_clips
+    const channel = supabase
+      .channel('discover-clips-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'audio_clips'
+        },
+        (payload) => {
+          console.log('Real-time clip update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            // Add new clip to the beginning
+            const newClip = payload.new as any;
+            const mappedClip: AudioClip = {
+              id: newClip.id,
+              title: newClip.title,
+              creator: newClip.creator,
+              audioUrl: newClip.audio_url,
+              category: newClip.category || "Other",
+              likes: newClip.likes || 0,
+              shares: newClip.shares || 0,
+              plays: newClip.plays || 0,
+              createdAt: newClip.created_at,
+              hasLiked: false,
+            };
+            setClips(prev => [mappedClip, ...prev.filter(c => c.id !== newClip.id)]);
+          } else if (payload.eventType === 'UPDATE') {
+            // Update existing clip
+            const updated = payload.new as any;
+            setClips(prev => prev.map(clip => 
+              clip.id === updated.id 
+                ? { 
+                    ...clip, 
+                    likes: updated.likes || 0, 
+                    shares: updated.shares || 0, 
+                    plays: updated.plays || 0 
+                  }
+                : clip
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            // Remove deleted clip
+            const deleted = payload.old as any;
+            setClips(prev => prev.filter(clip => clip.id !== deleted.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
