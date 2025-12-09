@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useConnection } from "@solana/wallet-adapter-react";
 import Navbar from "@/components/Navbar";
@@ -312,6 +312,7 @@ const TokensPage = () => {
 function TokenRow({ token }: { token: AudioTokenData }) {
   const [playing, setPlaying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const getCurrentPrice = () => {
     if (!token.bondingCurveData) return 0;
@@ -339,7 +340,33 @@ function TokenRow({ token }: { token: AudioTokenData }) {
   const togglePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setPlaying(!playing);
+    
+    if (!token.audioUri) {
+      toast.error("No audio available for this token");
+      return;
+    }
+
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
+    } else {
+      // Stop all other audio elements first
+      document.querySelectorAll('audio').forEach(audio => audio.pause());
+      
+      if (!audioRef.current) {
+        audioRef.current = new Audio(token.audioUri);
+        audioRef.current.onended = () => setPlaying(false);
+        audioRef.current.onerror = () => {
+          toast.error("Failed to load audio");
+          setPlaying(false);
+        };
+      }
+      audioRef.current.play().catch(() => {
+        toast.error("Failed to play audio");
+        setPlaying(false);
+      });
+      setPlaying(true);
+    }
   };
 
   const copyMint = (e: React.MouseEvent) => {
@@ -350,6 +377,14 @@ function TokenRow({ token }: { token: AudioTokenData }) {
     toast.success("Mint address copied!");
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
 
   return (
     <Link
