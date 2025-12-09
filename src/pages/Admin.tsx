@@ -42,12 +42,13 @@ interface QuestDefinition {
   reset_period: string;
   icon: string;
   is_active: boolean;
+  social_link: string | null;
 }
 
 const ICON_OPTIONS = [
   "star", "headphones", "heart", "share-2", "upload", "coins", 
   "trending-up", "bar-chart", "line-chart", "zap", "trophy", 
-  "gift", "flame", "rocket", "target", "award"
+  "gift", "flame", "rocket", "target", "award", "twitter", "send"
 ];
 
 const Admin = () => {
@@ -69,6 +70,7 @@ const Admin = () => {
     reset_period: "daily",
     icon: "star",
     is_active: true,
+    social_link: "",
   });
 
   // Check if user is admin
@@ -121,6 +123,7 @@ const Admin = () => {
       reset_period: "daily",
       icon: "star",
       is_active: true,
+      social_link: "",
     });
     setEditingQuest(null);
   };
@@ -136,6 +139,7 @@ const Admin = () => {
       reset_period: quest.reset_period,
       icon: quest.icon,
       is_active: quest.is_active,
+      social_link: quest.social_link || "",
     });
     setDialogOpen(true);
   };
@@ -398,6 +402,19 @@ const Admin = () => {
                     onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="social_link">Social Link (optional)</Label>
+                  <Input
+                    id="social_link"
+                    value={formData.social_link}
+                    onChange={(e) => setFormData({ ...formData, social_link: e.target.value })}
+                    placeholder="e.g., https://x.com/noizlabs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    For social quests: users click to visit this link and complete the quest
+                  </p>
+                </div>
                 
                 <Button onClick={handleSubmit} className="w-full">
                   {editingQuest ? "Update Quest" : "Create Quest"}
@@ -420,7 +437,7 @@ const Admin = () => {
                   <TableHead>Type</TableHead>
                   <TableHead>Target</TableHead>
                   <TableHead>Reward</TableHead>
-                  <TableHead>Reset</TableHead>
+                  <TableHead>Social Link</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -437,7 +454,15 @@ const Admin = () => {
                     <TableCell className="text-muted-foreground font-mono text-sm">{quest.task_type}</TableCell>
                     <TableCell>{quest.target}</TableCell>
                     <TableCell>{quest.points_reward} pts</TableCell>
-                    <TableCell className="capitalize">{quest.reset_period}</TableCell>
+                    <TableCell>
+                      {quest.social_link ? (
+                        <a href={quest.social_link} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm truncate max-w-[150px] block">
+                          {quest.social_link.replace(/^https?:\/\//, '').slice(0, 25)}...
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

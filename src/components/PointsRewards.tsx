@@ -2,7 +2,14 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Star, Zap, TrendingUp, Music, Coins, RefreshCw, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { 
+  Trophy, Star, Zap, TrendingUp, Music, Coins, RefreshCw, Clock, 
+  Heart, Upload, Headphones, BarChart, LineChart, Gift, Flame, 
+  Rocket, Target, Award, Send, Twitter, ExternalLink
+} from "lucide-react";
+import { toast } from "sonner";
+import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
 
 interface Task {
   id: string;
@@ -15,31 +22,57 @@ interface Task {
   last_reset: string;
 }
 
+interface QuestDefinition {
+  id: string;
+  task_type: string;
+  display_name: string;
+  description: string | null;
+  target: number;
+  points_reward: number;
+  reset_period: string;
+  icon: string;
+  is_active: boolean;
+  social_link: string | null;
+}
+
 interface UserPoints {
   total_points: number;
 }
 
-const TASK_LABELS: Record<string, { label: string; icon: any }> = {
-  interact_clips: { label: "Interact with 20 audio clips", icon: Music },
-  upload_clips: { label: "Upload 2 clips", icon: Zap },
-  mint_token: { label: "Mint 1 token", icon: Coins },
-  trading_500: { label: "Complete $500 trading volume", icon: TrendingUp },
-  trading_1000: { label: "Complete $1000 trading volume", icon: TrendingUp },
-  trading_2000: { label: "Complete $2000 trading volume", icon: TrendingUp },
-  trading_2000_weekly: { label: "Complete $2000 trading volume", icon: TrendingUp },
-  trade_5_tokens: { label: "Trade 5 tokens", icon: Star },
+const ICON_MAP: Record<string, any> = {
+  star: Star,
+  headphones: Headphones,
+  heart: Heart,
+  "share-2": ExternalLink,
+  upload: Upload,
+  coins: Coins,
+  "trending-up": TrendingUp,
+  "bar-chart": BarChart,
+  "line-chart": LineChart,
+  zap: Zap,
+  trophy: Trophy,
+  gift: Gift,
+  flame: Flame,
+  rocket: Rocket,
+  target: Target,
+  award: Award,
+  twitter: Twitter,
+  send: Send,
 };
 
 const PointsRewards = () => {
   const { publicKey } = useWallet();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [questDefinitions, setQuestDefinitions] = useState<QuestDefinition[]>([]);
   const [userPoints, setUserPoints] = useState<UserPoints | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeUntilReset, setTimeUntilReset] = useState("");
+  const [completingSocial, setCompletingSocial] = useState<string | null>(null);
 
   useEffect(() => {
     if (publicKey) {
       fetchUserData();
+      fetchQuestDefinitions();
     }
   }, [publicKey]);
 
@@ -61,6 +94,17 @@ const PointsRewards = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const fetchQuestDefinitions = async () => {
+    const { data } = await supabase
+      .from("quest_definitions")
+      .select("*")
+      .eq("is_active", true);
+    
+    if (data) {
+      setQuestDefinitions(data as QuestDefinition[]);
+    }
+  };
+
   const fetchUserData = async () => {
     if (!publicKey) return;
     
@@ -68,6 +112,9 @@ const PointsRewards = () => {
     setLoading(true);
 
     try {
+      // Ensure user has tasks created
+      await ensureUserTasks(walletAddress);
+
       // Get user points
       const { data: points } = await supabase
         .from("user_points")
@@ -132,8 +179,45 @@ const PointsRewards = () => {
     };
   }, [publicKey]);
 
-  const getTaskInfo = (taskType: string) => {
-    return TASK_LABELS[taskType] || { label: taskType, icon: Star };
+  const handleSocialQuest = async (task: Task, questDef: QuestDefinition) => {
+    if (!publicKey || !questDef.social_link) return;
+
+    setCompletingSocial(task.id);
+
+    // Open the social link in a new tab
+    window.open(questDef.social_link, '_blank', 'noopener,noreferrer');
+
+    // Mark the quest as complete after a short delay
+    setTimeout(async () => {
+      try {
+        const completed = await updateTaskProgress(publicKey.toString(), task.task_type, task.target);
+        if (completed) {
+          toast.success(`Quest completed: ${questDef.display_name}! 🎉`);
+        }
+      } catch (error) {
+        console.error("Error completing social quest:", error);
+      } finally {
+        setCompletingSocial(null);
+      }
+    }, 1500);
+  };
+
+  const getQuestDefinition = (taskType: string): QuestDefinition | undefined => {
+    return questDefinitions.find(q => q.task_type === taskType);
+  };
+
+  const getTaskInfo = (task: Task) => {
+    const questDef = getQuestDefinition(task.task_type);
+    if (questDef) {
+      const IconComponent = ICON_MAP[questDef.icon] || Star;
+      return {
+        label: questDef.display_name,
+        icon: IconComponent,
+        socialLink: questDef.social_link,
+        description: questDef.description,
+      };
+    }
+    return { label: task.task_type, icon: Star, socialLink: null, description: null };
   };
 
   if (!publicKey) {
@@ -191,9 +275,11 @@ const PointsRewards = () => {
           </p>
         ) : (
           tasks.map((task) => {
-            const info = getTaskInfo(task.task_type);
+            const info = getTaskInfo(task);
             const Icon = info.icon;
             const progressPercent = Math.min((task.progress / task.target) * 100, 100);
+            const isSocialQuest = !!info.socialLink;
+            const questDef = getQuestDefinition(task.task_type);
 
             return (
               <div
@@ -214,18 +300,42 @@ const PointsRewards = () => {
                       </p>
                     </div>
                   </div>
-                  {task.completed && (
+                  {task.completed ? (
                     <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full font-medium">
                       ✓ Claimed
                     </span>
-                  )}
+                  ) : isSocialQuest && questDef ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSocialQuest(task, questDef)}
+                      disabled={completingSocial === task.id}
+                      className="text-xs gap-1"
+                    >
+                      {completingSocial === task.id ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <ExternalLink className="w-3 h-3" />
+                      )}
+                      Complete
+                    </Button>
+                  ) : null}
                 </div>
-                <div className="flex items-center gap-3">
-                  <Progress value={progressPercent} className="flex-1 h-2" />
-                  <span className="text-xs text-muted-foreground min-w-[60px] text-right">
-                    {task.progress.toLocaleString()}/{task.target.toLocaleString()}
-                  </span>
-                </div>
+                
+                {!isSocialQuest && (
+                  <div className="flex items-center gap-3">
+                    <Progress value={progressPercent} className="flex-1 h-2" />
+                    <span className="text-xs text-muted-foreground min-w-[60px] text-right">
+                      {task.progress.toLocaleString()}/{task.target.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                
+                {isSocialQuest && !task.completed && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Click "Complete" to visit and earn points
+                  </p>
+                )}
               </div>
             );
           })

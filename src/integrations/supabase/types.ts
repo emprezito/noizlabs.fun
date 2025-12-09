@@ -81,6 +81,7 @@ export type Database = {
           is_active: boolean | null
           points_reward: number
           reset_period: string
+          social_link: string | null
           target: number
           task_type: string
           updated_at: string | null
@@ -94,6 +95,7 @@ export type Database = {
           is_active?: boolean | null
           points_reward?: number
           reset_period?: string
+          social_link?: string | null
           target?: number
           task_type: string
           updated_at?: string | null
@@ -107,6 +109,7 @@ export type Database = {
           is_active?: boolean | null
           points_reward?: number
           reset_period?: string
+          social_link?: string | null
           target?: number
           task_type?: string
           updated_at?: string | null

@@ -249,7 +249,7 @@ const DiscoverPage = () => {
 
       // Update task progress for uploading
       if (walletAddress) {
-        await updateTaskProgress(walletAddress, "upload_clips", 1);
+        await updateTaskProgress(walletAddress, "upload_clip", 1);
       }
     } catch (error) {
       console.error("Error uploading clip:", error);

@@ -11,6 +11,7 @@ interface QuestDefinition {
   reset_period: string;
   icon: string;
   is_active: boolean;
+  social_link: string | null;
 }
 
 // Cache for quest definitions

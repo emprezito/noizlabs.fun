@@ -47,6 +47,7 @@ serve(async (req) => {
             reset_period: quest_data.reset_period,
             icon: quest_data.icon,
             is_active: quest_data.is_active,
+            social_link: quest_data.social_link || null,
           })
           .select()
           .single();
@@ -65,6 +66,7 @@ serve(async (req) => {
         if (quest_data.reset_period !== undefined) updateData.reset_period = quest_data.reset_period;
         if (quest_data.icon !== undefined) updateData.icon = quest_data.icon;
         if (quest_data.is_active !== undefined) updateData.is_active = quest_data.is_active;
+        if (quest_data.social_link !== undefined) updateData.social_link = quest_data.social_link || null;
 
         const { data: updated, error: updateError } = await supabase
           .from("quest_definitions")
