@@ -572,15 +572,17 @@ const CreatePage = () => {
 
               {/* Cost Summary */}
               <div className="bg-primary rounded-xl p-6 text-primary-foreground">
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Total Cost:</span>
-                  <span className="text-3xl font-bold">
-                    {calculateCost()} SOL
-                  </span>
+                  <div className="text-right">
+                    <span className="text-3xl font-bold block">
+                      {calculateCost()} SOL
+                    </span>
+                    <span className="text-sm text-primary-foreground/80">
+                      ≈ {formatUsd(calculateCost())}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-sm text-primary-foreground/80">
-                  ≈ ${(calculateCost() * 200).toFixed(2)} USD
-                </p>
               </div>
 
               {/* Create Button */}

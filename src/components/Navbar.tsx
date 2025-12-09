@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, TrendingUp, TrendingDown } from "lucide-react";
+import { Menu, X, Droplets, Loader2 } from "lucide-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -16,8 +20,34 @@ const navigation = [
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [requestingAirdrop, setRequestingAirdrop] = useState(false);
   const location = useLocation();
   const { price, loading } = useSolPrice();
+  const { connection } = useConnection();
+  const { publicKey, connected } = useWallet();
+
+  const requestAirdrop = async () => {
+    if (!publicKey) {
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
+    setRequestingAirdrop(true);
+    try {
+      const signature = await connection.requestAirdrop(publicKey, 1 * LAMPORTS_PER_SOL);
+      await connection.confirmTransaction(signature, "confirmed");
+      toast.success("Received 1 SOL! (Devnet)");
+    } catch (error: any) {
+      console.error("Airdrop error:", error);
+      if (error.message?.includes("429")) {
+        toast.error("Rate limited. Please wait a moment and try again.");
+      } else {
+        toast.error("Airdrop failed. Try again later.");
+      }
+    } finally {
+      setRequestingAirdrop(false);
+    }
+  };
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -66,6 +96,24 @@ const Navbar = () => {
                 </span>
               )}
             </div>
+
+            {/* Devnet Faucet Button */}
+            {connected && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={requestAirdrop}
+                disabled={requestingAirdrop}
+                className="hidden sm:flex items-center gap-2"
+              >
+                {requestingAirdrop ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Droplets className="w-4 h-4" />
+                )}
+                <span className="hidden lg:inline">Get Devnet SOL</span>
+              </Button>
+            )}
             
             <div className="hidden sm:block">
               <WalletButton />
@@ -103,6 +151,22 @@ const Navbar = () => {
                   {item.name}
                 </Link>
               ))}
+              {/* Mobile Faucet Button */}
+              {connected && (
+                <Button
+                  variant="outline"
+                  onClick={requestAirdrop}
+                  disabled={requestingAirdrop}
+                  className="w-full flex items-center justify-center gap-2"
+                >
+                  {requestingAirdrop ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Droplets className="w-4 h-4" />
+                  )}
+                  Get Devnet SOL
+                </Button>
+              )}
               <div className="mt-2">
                 <WalletButton />
               </div>
