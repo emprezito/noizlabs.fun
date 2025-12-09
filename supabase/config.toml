@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.create-badge-metadata]
 verify_jwt = false
+
+[functions.devnet-faucet]
+verify_jwt = false

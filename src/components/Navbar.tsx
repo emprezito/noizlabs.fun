@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, Droplets, Loader2, Wallet, Shield } from "lucide-react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
@@ -26,9 +25,8 @@ const Navbar = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const { price, loading } = useSolPrice();
-  const { connection } = useConnection();
   const { publicKey, connected } = useWallet();
-  const { balance, loading: balanceLoading } = useWalletBalance();
+  const { balance, loading: balanceLoading, refetch: refetchBalance } = useWalletBalance();
 
   // Check if wallet is admin
   useEffect(() => {
@@ -55,16 +53,24 @@ const Navbar = () => {
 
     setRequestingAirdrop(true);
     try {
-      const signature = await connection.requestAirdrop(publicKey, 1 * LAMPORTS_PER_SOL);
-      await connection.confirmTransaction(signature, "confirmed");
-      toast.success("Received 1 SOL! (Devnet)");
-    } catch (error: any) {
-      console.error("Airdrop error:", error);
-      if (error.message?.includes("429")) {
-        toast.error("Rate limited. Please wait a moment and try again.");
-      } else {
-        toast.error("Airdrop failed. Try again later.");
+      const { data, error } = await supabase.functions.invoke("devnet-faucet", {
+        body: { walletAddress: publicKey.toBase58() },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Faucet request failed");
       }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast.success(`Received ${data.amount} SOL! (Devnet)`);
+      // Refetch balance after successful faucet
+      setTimeout(() => refetchBalance(), 2000);
+    } catch (error: any) {
+      console.error("Faucet error:", error);
+      toast.error(error.message || "Faucet request failed. Try again later.");
     } finally {
       setRequestingAirdrop(false);
     }
