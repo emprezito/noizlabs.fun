@@ -93,7 +93,9 @@ const CreatePage = () => {
       return;
     }
 
-    if (!name || !symbol || !audioFile) {
+    // Check for audio - either uploaded file or preloaded from Discover page
+    const hasAudio = audioFile || preloadedAudioUrl;
+    if (!name || !symbol || !hasAudio) {
       toast.error("Please fill all required fields!");
       return;
     }
@@ -106,7 +108,8 @@ const CreatePage = () => {
       const uploadResult = await uploadTokenMetadata(
         audioFile,
         imageFile,
-        { name, symbol, description }
+        { name, symbol, description },
+        preloadedAudioUrl
       );
 
       if (!uploadResult.success) {

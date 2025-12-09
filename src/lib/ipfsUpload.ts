@@ -63,21 +63,38 @@ export async function uploadMetadataToIPFS(
 
 /**
  * Upload audio, optional image, and create Metaplex-compliant metadata
+ * @param audioFile - File object for audio, or null if using preloaded URL
+ * @param imageFile - Optional image file
+ * @param tokenData - Token name, symbol, description
+ * @param preloadedAudioUrl - Optional pre-existing audio URL (e.g., from Discover page)
  */
 export async function uploadTokenMetadata(
-  audioFile: File,
+  audioFile: File | null,
   imageFile: File | null,
   tokenData: {
     name: string;
     symbol: string;
     description: string;
-  }
+  },
+  preloadedAudioUrl?: string | null
 ): Promise<TokenMetadataResult> {
   try {
-    // Upload audio file
-    const audioResult = await uploadFileToIPFS(audioFile, `${tokenData.symbol}-audio`);
-    if (!audioResult.success) {
-      return { success: false, error: audioResult.error || 'Failed to upload audio' };
+    let audioUrl: string;
+    let audioType = "audio/mpeg";
+
+    // If we have an audio file, upload it; otherwise use the preloaded URL
+    if (audioFile) {
+      const audioResult = await uploadFileToIPFS(audioFile, `${tokenData.symbol}-audio`);
+      if (!audioResult.success) {
+        return { success: false, error: audioResult.error || 'Failed to upload audio' };
+      }
+      audioUrl = audioResult.url!;
+      audioType = audioFile.type || "audio/mpeg";
+    } else if (preloadedAudioUrl) {
+      // Use the preloaded audio URL directly (already on IPFS from Discover upload)
+      audioUrl = preloadedAudioUrl;
+    } else {
+      return { success: false, error: 'No audio file or URL provided' };
     }
 
     // Upload image file if provided
@@ -94,8 +111,8 @@ export async function uploadTokenMetadata(
       name: tokenData.name,
       symbol: tokenData.symbol,
       description: tokenData.description,
-      image: imageUrl || audioResult.url, // Use audio as fallback for image
-      animation_url: audioResult.url, // Audio file
+      image: imageUrl || audioUrl, // Use audio as fallback for image
+      animation_url: audioUrl, // Audio file
       external_url: `https://noizlabs.app/tokens`,
       attributes: [
         {
@@ -110,8 +127,8 @@ export async function uploadTokenMetadata(
       properties: {
         files: [
           {
-            uri: audioResult.url,
-            type: audioFile.type || "audio/mpeg"
+            uri: audioUrl,
+            type: audioType
           },
           ...(imageUrl ? [{
             uri: imageUrl,
@@ -132,7 +149,7 @@ export async function uploadTokenMetadata(
       success: true,
       url: metadataResult.url,
       hash: metadataResult.hash,
-      audioUrl: audioResult.url,
+      audioUrl,
       imageUrl
     };
   } catch (error: any) {
