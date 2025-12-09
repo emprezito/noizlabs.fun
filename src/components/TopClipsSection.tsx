@@ -9,6 +9,7 @@ interface AudioClip {
   title: string;
   creator: string;
   audio_url: string;
+  cover_image_url: string | null;
   category: string;
   likes: number;
   shares: number;
@@ -138,6 +139,17 @@ const TopClipsSection = () => {
           >
             {/* Rank */}
             <div className="w-8 flex-shrink-0">{getRankIcon(index)}</div>
+
+            {/* Cover Image */}
+            {clip.cover_image_url && (
+              <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
+                <img 
+                  src={clip.cover_image_url} 
+                  alt={clip.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
 
             {/* Info */}
             <div className="flex-1 min-w-0">

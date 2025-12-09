@@ -36,6 +36,7 @@ export type Database = {
         Row: {
           audio_url: string
           category: string | null
+          cover_image_url: string | null
           created_at: string
           creator: string
           id: string
@@ -48,6 +49,7 @@ export type Database = {
         Insert: {
           audio_url: string
           category?: string | null
+          cover_image_url?: string | null
           created_at?: string
           creator: string
           id?: string
@@ -60,6 +62,7 @@ export type Database = {
         Update: {
           audio_url?: string
           category?: string | null
+          cover_image_url?: string | null
           created_at?: string
           creator?: string
           id?: string

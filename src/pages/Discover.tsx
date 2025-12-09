@@ -30,6 +30,7 @@ interface AudioClip {
   title: string;
   creator: string;
   audioUrl: string;
+  coverImageUrl: string | null;
   category: string;
   likes: number;
   shares: number;
@@ -55,6 +56,7 @@ const DiscoverPage = () => {
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadCategory, setUploadCategory] = useState("Memes");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCoverImage, setUploadCoverImage] = useState<File | null>(null);
 
   useEffect(() => {
     fetchClips();
@@ -90,6 +92,7 @@ const DiscoverPage = () => {
               title: newClip.title,
               creator: newClip.creator,
               audioUrl: newClip.audio_url,
+              coverImageUrl: newClip.cover_image_url || null,
               category: newClip.category || "Other",
               likes: newClip.likes || 0,
               shares: newClip.shares || 0,
@@ -160,6 +163,7 @@ const DiscoverPage = () => {
         title: clip.title,
         creator: clip.creator,
         audioUrl: clip.audio_url,
+        coverImageUrl: clip.cover_image_url || null,
         category: clip.category || "Other",
         likes: clip.likes || 0,
         shares: clip.shares || 0,
@@ -186,8 +190,8 @@ const DiscoverPage = () => {
   };
 
   const handleUpload = async () => {
-    if (!uploadFile || !uploadTitle) {
-      toast.error("Please fill all fields!");
+    if (!uploadFile || !uploadTitle || !uploadCoverImage) {
+      toast.error("Please fill all fields including cover image!");
       return;
     }
 
@@ -199,27 +203,44 @@ const DiscoverPage = () => {
         ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-3)}`
         : "Anonymous";
 
-      // Upload to IPFS via edge function
-      toast.info("Uploading to IPFS...");
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      formData.append('fileName', `${uploadTitle.replace(/[^a-zA-Z0-9]/g, '_')}.${uploadFile.name.split('.').pop()}`);
+      // Upload audio to IPFS via edge function
+      toast.info("Uploading audio to IPFS...");
+      const audioFormData = new FormData();
+      audioFormData.append('file', uploadFile);
+      audioFormData.append('fileName', `${uploadTitle.replace(/[^a-zA-Z0-9]/g, '_')}.${uploadFile.name.split('.').pop()}`);
 
-      const { data: funcData, error: funcError } = await supabase.functions.invoke('upload-to-ipfs', {
-        body: formData,
+      const { data: audioFuncData, error: audioFuncError } = await supabase.functions.invoke('upload-to-ipfs', {
+        body: audioFormData,
       });
 
-      if (funcError || !funcData?.success) {
-        throw new Error(funcData?.error || funcError?.message || 'Failed to upload to IPFS');
+      if (audioFuncError || !audioFuncData?.success) {
+        throw new Error(audioFuncData?.error || audioFuncError?.message || 'Failed to upload audio to IPFS');
       }
 
-      const audioUrl = funcData.url;
+      const audioUrl = audioFuncData.url;
+      
+      // Upload cover image to IPFS
+      toast.info("Uploading cover image to IPFS...");
+      const imageFormData = new FormData();
+      imageFormData.append('file', uploadCoverImage);
+      imageFormData.append('fileName', `${uploadTitle.replace(/[^a-zA-Z0-9]/g, '_')}_cover.${uploadCoverImage.name.split('.').pop()}`);
+
+      const { data: imageFuncData, error: imageFuncError } = await supabase.functions.invoke('upload-to-ipfs', {
+        body: imageFormData,
+      });
+
+      if (imageFuncError || !imageFuncData?.success) {
+        throw new Error(imageFuncData?.error || imageFuncError?.message || 'Failed to upload cover image to IPFS');
+      }
+
+      const coverImageUrl = imageFuncData.url;
       toast.success("Uploaded to IPFS!");
 
       const { data, error } = await supabase.from("audio_clips").insert({
         title: uploadTitle,
         creator: creatorName,
         audio_url: audioUrl,
+        cover_image_url: coverImageUrl,
         category: uploadCategory,
         wallet_address: walletAddress,
         likes: 0,
@@ -234,6 +255,7 @@ const DiscoverPage = () => {
         title: uploadTitle,
         creator: creatorName,
         audioUrl: audioUrl,
+        coverImageUrl: coverImageUrl,
         category: uploadCategory,
         likes: 0,
         shares: 0,
@@ -246,6 +268,7 @@ const DiscoverPage = () => {
       setShowUploadModal(false);
       setUploadTitle("");
       setUploadFile(null);
+      setUploadCoverImage(null);
 
       // Update task progress for uploading
       if (walletAddress) {
@@ -453,13 +476,33 @@ const DiscoverPage = () => {
                   key={clip.id}
                   className="bg-card rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
                 >
-                  {/* Header */}
-                  <div className="bg-primary p-4 text-primary-foreground">
-                    <h3 className="font-bold text-lg mb-1">{clip.title}</h3>
-                    <p className="text-sm text-primary-foreground/80">by {clip.creator}</p>
-                    <span className="inline-block mt-2 px-2 py-1 bg-background/20 rounded-full text-xs">
-                      {clip.category}
-                    </span>
+                  {/* Header with Cover Image */}
+                  <div className="relative">
+                    {clip.coverImageUrl ? (
+                      <div className="relative h-40 overflow-hidden">
+                        <img 
+                          src={clip.coverImageUrl} 
+                          alt={clip.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-4 text-primary-foreground">
+                          <h3 className="font-bold text-lg mb-1">{clip.title}</h3>
+                          <p className="text-sm text-primary-foreground/80">by {clip.creator}</p>
+                          <span className="inline-block mt-2 px-2 py-1 bg-background/20 rounded-full text-xs">
+                            {clip.category}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-primary p-4 text-primary-foreground">
+                        <h3 className="font-bold text-lg mb-1">{clip.title}</h3>
+                        <p className="text-sm text-primary-foreground/80">by {clip.creator}</p>
+                        <span className="inline-block mt-2 px-2 py-1 bg-background/20 rounded-full text-xs">
+                          {clip.category}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Audio Player */}
@@ -583,6 +626,25 @@ const DiscoverPage = () => {
             </div>
 
             <div>
+              <Label>Cover Image</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setUploadCoverImage(e.target.files?.[0] || null)}
+                className="mt-2"
+              />
+              {uploadCoverImage && (
+                <div className="mt-2 rounded-lg overflow-hidden">
+                  <img 
+                    src={URL.createObjectURL(uploadCoverImage)} 
+                    alt="Cover preview"
+                    className="w-full h-32 object-cover"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
               <Label>Audio File</Label>
               <Input
                 type="file"
@@ -602,7 +664,7 @@ const DiscoverPage = () => {
 
             <Button
               onClick={handleUpload}
-              disabled={loading || !uploadTitle || !uploadFile}
+              disabled={loading || !uploadTitle || !uploadFile || !uploadCoverImage}
               className="w-full"
             >
               {loading ? (
