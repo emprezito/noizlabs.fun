@@ -66,13 +66,25 @@ const TradePage = () => {
   const { publicKey, sendTransaction, connected } = useWallet();
   const { price: solUsdPrice, formatUsd } = useSolPrice();
 
-  const [mintInput, setMintInput] = useState(initialMint);
+  const [mintInput, setMintInput] = useState(initialMint.trim());
   const [activeMint, setActiveMint] = useState("");
+
+  // Validate if a string is a valid Solana public key
+  const isValidMintAddress = (address: string): boolean => {
+    if (!address || address.length < 32 || address.length > 44) return false;
+    try {
+      new PublicKey(address.trim());
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   // Auto-load token when arriving with mint in URL
   useEffect(() => {
-    if (initialMint && !activeMint) {
-      setActiveMint(initialMint);
+    const trimmedMint = initialMint.trim();
+    if (trimmedMint && !activeMint && isValidMintAddress(trimmedMint)) {
+      setActiveMint(trimmedMint);
     }
   }, [initialMint]);
   const [buyAmount, setBuyAmount] = useState("");
@@ -215,8 +227,13 @@ const TradePage = () => {
   };
 
   const handleSearch = () => {
-    if (!mintInput) { toast.error("Please enter a mint address"); return; }
-    setActiveMint(mintInput);
+    const trimmed = mintInput.trim();
+    if (!trimmed) { toast.error("Please enter a mint address"); return; }
+    if (!isValidMintAddress(trimmed)) { 
+      toast.error("Invalid mint address format. Must be a valid Solana address (32-44 characters)"); 
+      return; 
+    }
+    setActiveMint(trimmed);
   };
 
   const handleBuy = async () => {
