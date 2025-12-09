@@ -148,8 +148,22 @@ const CreatePage = () => {
       );
       
       console.log("Transaction created with Anchor SDK");
+      console.log("Transaction instructions:", transaction.instructions);
+      console.log("Transaction signers needed:", transaction.signatures.map(s => s.publicKey?.toString()));
 
-      const signature = await sendTransaction(transaction, connection);
+      let signature: string;
+      try {
+        signature = await sendTransaction(transaction, connection, {
+          signers: [mintKeypair],
+        });
+      } catch (walletErr: any) {
+        console.error("Wallet Error Object:", walletErr);
+        console.error("Wallet Error Message:", walletErr.message);
+        console.error("Wallet Error Logs:", walletErr.logs);
+        console.error("Wallet Error Name:", walletErr.name);
+        throw walletErr;
+      }
+      
       await connection.confirmTransaction(signature, "confirmed");
 
       const walletAddress = publicKey.toString();
