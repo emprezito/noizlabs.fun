@@ -5,9 +5,10 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Wifi, WifiOff } from "lucide-react";
+import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Wifi, WifiOff, Copy, Check } from "lucide-react";
 import { fetchAllTokensWithCurves, TokenWithCurve, getBondingCurvePDA } from "@/lib/solana/fetchTokens";
 import { PublicKey } from "@solana/web3.js";
+import { toast } from "sonner";
 
 interface AudioTokenData {
   mint: string;
@@ -25,43 +26,9 @@ interface AudioTokenData {
   };
 }
 
-// Demo tokens for fallback
-const DEMO_TOKENS: AudioTokenData[] = [
-  {
-    mint: "8m6HBVw1n2q6E3YWTk...",
-    name: "Bruh Sound Effect",
-    symbol: "BRUH",
-    audioUri: "",
-    authority: "7Np...abc",
-    totalSupply: "1000000000",
-    createdAt: Date.now() - 86400000,
-    bondingCurveData: {
-      solReserves: "15000000000",
-      tokenReserves: "850000000000000000",
-      tokensSold: "150000000000000000",
-      price: 0.00001765,
-    },
-  },
-  {
-    mint: "9k7HBVw1n2q6E3YWTk...",
-    name: "Vine Boom",
-    symbol: "BOOM",
-    audioUri: "",
-    authority: "8Kp...def",
-    totalSupply: "1000000000",
-    createdAt: Date.now() - 172800000,
-    bondingCurveData: {
-      solReserves: "25000000000",
-      tokenReserves: "750000000000000000",
-      tokensSold: "250000000000000000",
-      price: 0.00003333,
-    },
-  },
-];
-
 const TokensPage = () => {
   const { connection } = useConnection();
-  const [tokens, setTokens] = useState<AudioTokenData[]>(DEMO_TOKENS);
+  const [tokens, setTokens] = useState<AudioTokenData[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<"all" | "trending" | "new">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,12 +67,11 @@ const TokensPage = () => {
         // Set up real-time subscriptions
         setupSubscriptions(tokensWithCurves);
       } else {
-        // Use demo data if no tokens found
-        setTokens(DEMO_TOKENS);
+        setTokens([]);
       }
     } catch (error) {
       console.error("Error fetching tokens:", error);
-      setTokens(DEMO_TOKENS);
+      setTokens([]);
     }
     setLoading(false);
   }, [connection, convertToUIFormat]);
@@ -345,6 +311,7 @@ const TokensPage = () => {
 
 function TokenRow({ token }: { token: AudioTokenData }) {
   const [playing, setPlaying] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const getCurrentPrice = () => {
     if (!token.bondingCurveData) return 0;
@@ -373,6 +340,15 @@ function TokenRow({ token }: { token: AudioTokenData }) {
     e.preventDefault();
     e.stopPropagation();
     setPlaying(!playing);
+  };
+
+  const copyMint = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(token.mint);
+    setCopied(true);
+    toast.success("Mint address copied!");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -433,7 +409,18 @@ function TokenRow({ token }: { token: AudioTokenData }) {
       </div>
 
       {/* Actions */}
-      <div className="col-span-1 flex items-center justify-end">
+      <div className="col-span-1 flex items-center justify-end gap-2">
+        <button
+          onClick={copyMint}
+          className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+          title="Copy mint address"
+        >
+          {copied ? (
+            <Check className="w-4 h-4 text-primary" />
+          ) : (
+            <Copy className="w-4 h-4 text-muted-foreground" />
+          )}
+        </button>
         <Button size="sm">
           Trade
         </Button>
