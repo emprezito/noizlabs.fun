@@ -19,22 +19,26 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    // Get day of week (0 = Sunday, 1 = Monday, etc.)
-    const dayOfWeek = now.getDay();
-    const isMonday = dayOfWeek === 1;
-    
-    // Calculate week start for weekly reset (stored separately to avoid TS narrowing issues)
-    const weekStart = new Date(todayStart);
-    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    weekStart.setDate(weekStart.getDate() - daysToSubtract);
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     console.log(`Running task reset at ${now.toISOString()}`);
-    console.log(`Is Monday: ${isMonday}`);
+    console.log(`Today start (UTC): ${todayStart.toISOString()}`);
 
-    // Reset daily tasks where last_reset is before today
-    const { data: dailyTasks, error: dailyError } = await supabase
+    // First, convert any remaining weekly tasks to daily
+    const { data: convertedTasks, error: convertError } = await supabase
+      .from('user_tasks')
+      .update({ reset_period: 'daily' })
+      .eq('reset_period', 'weekly')
+      .select();
+
+    if (convertError) {
+      console.error('Error converting weekly tasks:', convertError);
+    } else if (convertedTasks && convertedTasks.length > 0) {
+      console.log(`Converted ${convertedTasks.length} weekly tasks to daily`);
+    }
+
+    // Reset ALL daily tasks where last_reset is before today (UTC midnight)
+    const { data: resetTasks, error: resetError } = await supabase
       .from('user_tasks')
       .update({ 
         progress: 0, 
@@ -45,39 +49,19 @@ serve(async (req) => {
       .lt('last_reset', todayStart.toISOString())
       .select();
 
-    if (dailyError) {
-      console.error('Error resetting daily tasks:', dailyError);
+    if (resetError) {
+      console.error('Error resetting daily tasks:', resetError);
     } else {
-      console.log(`Reset ${dailyTasks?.length || 0} daily tasks`);
-    }
-
-    // Reset weekly tasks on Monday
-    if (isMonday) {
-
-      const { data: weeklyTasks, error: weeklyError } = await supabase
-        .from('user_tasks')
-        .update({ 
-          progress: 0, 
-          completed: false, 
-          last_reset: now.toISOString() 
-        })
-        .eq('reset_period', 'weekly')
-        .lt('last_reset', weekStart.toISOString())
-        .select();
-
-      if (weeklyError) {
-        console.error('Error resetting weekly tasks:', weeklyError);
-      } else {
-        console.log(`Reset ${weeklyTasks?.length || 0} weekly tasks`);
-      }
+      console.log(`Reset ${resetTasks?.length || 0} daily tasks`);
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Tasks reset successfully',
-        dailyReset: dailyTasks?.length || 0,
-        weeklyReset: isMonday ? 'checked' : 'skipped (not Monday)'
+        message: 'All daily quests reset successfully',
+        tasksReset: resetTasks?.length || 0,
+        tasksConverted: convertedTasks?.length || 0,
+        resetTime: now.toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
