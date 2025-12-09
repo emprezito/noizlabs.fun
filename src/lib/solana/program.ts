@@ -313,20 +313,29 @@ export async function fetchAudioToken(
 }
 
 // Calculate buy price based on constant product formula
+// When sol_reserves = 0, use initial_price as base price
 export function calculateBuyPrice(
   tokenAmount: number,
   solReserves: number,
-  tokenReserves: number
+  tokenReserves: number,
+  initialPrice?: number
 ): number {
   if (tokenReserves <= tokenAmount) {
     return Infinity;
+  }
+  
+  // If no SOL in reserves yet, use initial price
+  if (solReserves === 0 && initialPrice) {
+    const solNeeded = tokenAmount * initialPrice;
+    const platformFee = solNeeded / 100; // 1% fee in Rust
+    return solNeeded + platformFee;
   }
   
   const k = solReserves * tokenReserves;
   const newTokenReserves = tokenReserves - tokenAmount;
   const newSolReserves = k / newTokenReserves;
   const solNeeded = newSolReserves - solReserves;
-  const platformFee = solNeeded * PLATFORM_FEE_PERCENT;
+  const platformFee = solNeeded / 100; // 1% fee matches Rust
   
   return solNeeded + platformFee;
 }
@@ -337,11 +346,15 @@ export function calculateSellReturn(
   solReserves: number,
   tokenReserves: number
 ): number {
+  if (solReserves === 0) {
+    return 0; // Can't sell if no SOL in reserves
+  }
+  
   const k = solReserves * tokenReserves;
   const newTokenReserves = tokenReserves + tokenAmount;
   const newSolReserves = k / newTokenReserves;
   const solToReturn = solReserves - newSolReserves;
-  const sellFee = solToReturn * PLATFORM_FEE_PERCENT;
+  const sellFee = solToReturn / 50; // 2% fee matches Rust
   
   return solToReturn - sellFee;
 }
