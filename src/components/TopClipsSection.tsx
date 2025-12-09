@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Play, Heart, Trophy, Coins, Crown } from "lucide-react";
-import { toast } from "sonner";
+import { Play, Heart, Trophy, Crown, TrendingUp } from "lucide-react";
 
 interface AudioClip {
   id: string;
@@ -16,6 +15,7 @@ interface AudioClip {
   plays: number;
   wallet_address: string | null;
   created_at: string;
+  mint_address?: string | null;
 }
 
 const TopClipsSection = () => {
@@ -29,15 +29,28 @@ const TopClipsSection = () => {
 
   const fetchTopClips = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch clips with their token status
+      const { data: clips, error: clipsError } = await supabase
         .from("audio_clips")
         .select("*")
         .order("likes", { ascending: false })
         .order("plays", { ascending: false })
         .limit(5);
 
-      if (error) throw error;
-      setTopClips(data || []);
+      if (clipsError) throw clipsError;
+
+      // Fetch tokens to check which clips are minted
+      const { data: tokens } = await supabase
+        .from("tokens")
+        .select("audio_clip_id, mint_address");
+
+      // Map mint addresses to clips
+      const clipsWithMintStatus = (clips || []).map(clip => ({
+        ...clip,
+        mint_address: tokens?.find(t => t.audio_clip_id === clip.id)?.mint_address || null
+      }));
+
+      setTopClips(clipsWithMintStatus);
     } catch (error) {
       console.error("Error fetching top clips:", error);
     } finally {
@@ -45,18 +58,10 @@ const TopClipsSection = () => {
     }
   };
 
-  const handleMintClick = (clip: AudioClip) => {
-    localStorage.setItem(
-      "noizlabs_mint_audio",
-      JSON.stringify({
-        id: clip.id,
-        title: clip.title,
-        audioUrl: clip.audio_url,
-        category: clip.category,
-      })
-    );
-    navigate("/create");
-    toast.success("Audio loaded! Complete the form to mint your token.");
+  const handleTradeClick = (clip: AudioClip) => {
+    if (clip.mint_address) {
+      navigate(`/trade?mint=${clip.mint_address}`);
+    }
   };
 
   const getRankIcon = (index: number) => {
@@ -130,11 +135,13 @@ const TopClipsSection = () => {
               </div>
             </div>
 
-            {/* Mint Button */}
-            <Button size="sm" onClick={() => handleMintClick(clip)}>
-              <Coins className="w-4 h-4 mr-1" />
-              Mint
-            </Button>
+            {/* Trade Button - only show if minted */}
+            {clip.mint_address && (
+              <Button size="sm" onClick={() => handleTradeClick(clip)}>
+                <TrendingUp className="w-4 h-4 mr-1" />
+                Trade
+              </Button>
+            )}
           </div>
         ))}
       </div>
