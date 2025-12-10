@@ -67,6 +67,7 @@ export async function uploadMetadataToIPFS(
  * @param imageFile - Optional image file
  * @param tokenData - Token name, symbol, description
  * @param preloadedAudioUrl - Optional pre-existing audio URL (e.g., from Discover page)
+ * @param preloadedImageUrl - Optional pre-existing image URL (e.g., from Discover page)
  */
 export async function uploadTokenMetadata(
   audioFile: File | null,
@@ -76,7 +77,8 @@ export async function uploadTokenMetadata(
     symbol: string;
     description: string;
   },
-  preloadedAudioUrl?: string | null
+  preloadedAudioUrl?: string | null,
+  preloadedImageUrl?: string | null
 ): Promise<TokenMetadataResult> {
   try {
     let audioUrl: string;
@@ -97,13 +99,18 @@ export async function uploadTokenMetadata(
       return { success: false, error: 'No audio file or URL provided' };
     }
 
-    // Upload image file if provided
+    // Upload image file if provided, otherwise use preloaded URL
     let imageUrl: string | undefined;
+    let imageType = "image/png";
     if (imageFile) {
       const imageResult = await uploadFileToIPFS(imageFile, `${tokenData.symbol}-image`);
       if (imageResult.success) {
         imageUrl = imageResult.url;
+        imageType = imageFile.type || "image/png";
       }
+    } else if (preloadedImageUrl) {
+      // Use the preloaded image URL directly (already on IPFS from Discover upload)
+      imageUrl = preloadedImageUrl;
     }
 
     // Create Metaplex-compliant metadata
@@ -132,7 +139,7 @@ export async function uploadTokenMetadata(
           },
           ...(imageUrl ? [{
             uri: imageUrl,
-            type: imageFile?.type || "image/png"
+            type: imageType
           }] : [])
         ],
         category: "audio"

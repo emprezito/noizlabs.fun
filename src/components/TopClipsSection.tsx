@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Play, Heart, Trophy, Crown, TrendingUp } from "lucide-react";
+import { Play, Heart, Trophy, Crown, TrendingUp, ZoomIn } from "lucide-react";
+import ImageLightbox from "@/components/ImageLightbox";
 
 interface AudioClip {
   id: string;
@@ -23,6 +24,8 @@ const TopClipsSection = () => {
   const navigate = useNavigate();
   const [topClips, setTopClips] = useState<AudioClip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [lightboxAlt, setLightboxAlt] = useState("");
 
   useEffect(() => {
     fetchTopClips();
@@ -142,12 +145,21 @@ const TopClipsSection = () => {
 
             {/* Cover Image */}
             {clip.cover_image_url && (
-              <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
+              <div 
+                className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden relative group cursor-pointer"
+                onClick={() => {
+                  setLightboxImage(clip.cover_image_url);
+                  setLightboxAlt(clip.title);
+                }}
+              >
                 <img 
                   src={clip.cover_image_url} 
                   alt={clip.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
                 />
+                <div className="absolute inset-0 bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <ZoomIn className="w-4 h-4 text-foreground" />
+                </div>
               </div>
             )}
 
@@ -179,6 +191,14 @@ const TopClipsSection = () => {
           </div>
         ))}
       </div>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        src={lightboxImage}
+        alt={lightboxAlt}
+        isOpen={!!lightboxImage}
+        onClose={() => setLightboxImage(null)}
+      />
     </div>
   );
 };
