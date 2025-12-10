@@ -108,25 +108,26 @@ export async function createAudioToken(
     creator: creator.toString(),
   });
 
+  // Account names must match the IDL (snake_case) for Anchor 0.30.1
   const tx = await program.methods
     .createAudioToken(
-      params.name.slice(0, 50),  // Rust validates max 50 chars
+      params.name.slice(0, 50),
       params.symbol.slice(0, 10),
       params.metadataUri.slice(0, 200),
       new BN(params.totalSupply.toString())
     )
     .accounts({
-      tokenConfig: tokenConfigPDA,
-      lpAccount: lpAccountPDA,
+      token_config: tokenConfigPDA,
+      lp_account: lpAccountPDA,
       mint: mint,
-      reserveTokenAccount: reserveTokenAccount,
-      metadataAccount: metadataAddress,
+      reserve_token_account: reserveTokenAccount,
+      metadata_account: metadataAddress,
       creator: creator,
-      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-      platformFeeAccount: platformFeeAccount,
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      token_metadata_program: TOKEN_METADATA_PROGRAM_ID,
+      platform_fee_account: platformFeeAccount,
+      system_program: SystemProgram.programId,
+      token_program: TOKEN_PROGRAM_ID,
+      associated_token_program: ASSOCIATED_TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
     })
     .transaction();
@@ -164,15 +165,15 @@ export async function buyTokens(
       new BN(minTokensOut.toString())
     )
     .accounts({
-      tokenConfig: tokenConfigPDA,
+      token_config: tokenConfigPDA,
       mint: mint,
-      reserveTokenAccount: reserveTokenAccount,
-      buyerTokenAccount: buyerTokenAccount,
+      reserve_token_account: reserveTokenAccount,
+      buyer_token_account: buyerTokenAccount,
       buyer: buyer,
-      platformFeeAccount: platformFeeAccount,
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      platform_fee_account: platformFeeAccount,
+      system_program: SystemProgram.programId,
+      token_program: TOKEN_PROGRAM_ID,
+      associated_token_program: ASSOCIATED_TOKEN_PROGRAM_ID,
     })
     .transaction();
 
@@ -204,14 +205,14 @@ export async function sellTokens(
       new BN(minSolOut.toString())
     )
     .accounts({
-      tokenConfig: tokenConfigPDA,
-      lpAccount: lpAccountPDA,
+      token_config: tokenConfigPDA,
+      lp_account: lpAccountPDA,
       mint: mint,
-      reserveTokenAccount: reserveTokenAccount,
-      sellerTokenAccount: sellerTokenAccount,
+      reserve_token_account: reserveTokenAccount,
+      seller_token_account: sellerTokenAccount,
       seller: seller,
-      platformFeeAccount: platformFeeAccount,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      platform_fee_account: platformFeeAccount,
+      token_program: TOKEN_PROGRAM_ID,
     })
     .transaction();
 
