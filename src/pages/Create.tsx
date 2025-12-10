@@ -36,6 +36,7 @@ const CreatePage = () => {
   const [mintAddress, setMintAddress] = useState("");
   const [preloadedAudioUrl, setPreloadedAudioUrl] = useState<string | null>(null);
   const [preloadedClipId, setPreloadedClipId] = useState<string | null>(null);
+  const [preloadedCoverImageUrl, setPreloadedCoverImageUrl] = useState<string | null>(null);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +50,7 @@ const CreatePage = () => {
         if (audioData.title) setName(audioData.title);
         if (audioData.audioUrl) setPreloadedAudioUrl(audioData.audioUrl);
         if (audioData.id) setPreloadedClipId(audioData.id);
+        if (audioData.coverImageUrl) setPreloadedCoverImageUrl(audioData.coverImageUrl);
         if (audioData.title) {
           const generatedSymbol = audioData.title
             .toUpperCase()
@@ -109,7 +111,8 @@ const CreatePage = () => {
         audioFile,
         imageFile,
         { name, symbol, description },
-        preloadedAudioUrl
+        preloadedAudioUrl,
+        preloadedCoverImageUrl
       );
 
       if (!uploadResult.success) {
@@ -196,7 +199,9 @@ const CreatePage = () => {
       toast.success("Token created successfully!");
     } catch (error: any) {
       console.error("Error creating token:", error);
-      toast.error(error.message || "Failed to create token");
+      // Show the raw error message for debugging
+      const errorMessage = error?.message || error?.toString() || "Unknown error occurred";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
       setUploadingIPFS(false);
@@ -513,6 +518,24 @@ const CreatePage = () => {
                       ref={imageInputRef}
                       className="hidden"
                     />
+                    
+                    {/* Show preloaded cover image from Discover */}
+                    {preloadedCoverImageUrl && !imageFile && (
+                      <div className="mt-2 border-2 border-primary/50 bg-primary/5 rounded-xl p-4">
+                        <p className="text-primary font-semibold text-sm mb-2">
+                          ✅ Cover image loaded from Discover
+                        </p>
+                        <img
+                          src={preloadedCoverImageUrl}
+                          alt="Preloaded cover"
+                          className="w-32 h-32 object-cover rounded-lg mx-auto"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Click below to upload a different image
+                        </p>
+                      </div>
+                    )}
+                    
                     <div
                       onClick={() => imageInputRef.current?.click()}
                       className="mt-2 border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
@@ -531,7 +554,7 @@ const CreatePage = () => {
                         </div>
                       ) : (
                         <p className="text-muted-foreground">
-                          Click to upload cover image
+                          {preloadedCoverImageUrl ? "Click to upload a different image" : "Click to upload cover image"}
                         </p>
                       )}
                     </div>

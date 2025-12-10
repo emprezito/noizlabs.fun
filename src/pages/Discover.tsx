@@ -22,7 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, Trophy } from "lucide-react";
+import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, Trophy, ZoomIn } from "lucide-react";
+import ImageLightbox from "@/components/ImageLightbox";
 import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
 
 interface AudioClip {
@@ -57,6 +58,10 @@ const DiscoverPage = () => {
   const [uploadCategory, setUploadCategory] = useState("Memes");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCoverImage, setUploadCoverImage] = useState<File | null>(null);
+  
+  // Lightbox state
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [lightboxAlt, setLightboxAlt] = useState("");
 
   useEffect(() => {
     fetchClips();
@@ -392,6 +397,7 @@ const DiscoverPage = () => {
         id: clip.id,
         title: clip.title,
         audioUrl: clip.audioUrl,
+        coverImageUrl: clip.coverImageUrl,
         category: clip.category,
       })
     );
@@ -479,13 +485,26 @@ const DiscoverPage = () => {
                   {/* Header with Cover Image */}
                   <div className="relative">
                     {clip.coverImageUrl ? (
-                      <div className="relative h-40 overflow-hidden">
+                      <div className="relative h-40 overflow-hidden group">
                         <img 
                           src={clip.coverImageUrl} 
                           alt={clip.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover cursor-pointer transition-transform group-hover:scale-105"
+                          onClick={() => {
+                            setLightboxImage(clip.coverImageUrl);
+                            setLightboxAlt(clip.title);
+                          }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 to-transparent" />
+                        <button
+                          onClick={() => {
+                            setLightboxImage(clip.coverImageUrl);
+                            setLightboxAlt(clip.title);
+                          }}
+                          className="absolute top-2 right-2 p-2 bg-background/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <ZoomIn className="w-4 h-4 text-foreground" />
+                        </button>
+                        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 to-transparent pointer-events-none" />
                         <div className="absolute bottom-0 left-0 right-0 p-4 text-primary-foreground">
                           <h3 className="font-bold text-lg mb-1">{clip.title}</h3>
                           <p className="text-sm text-primary-foreground/80">by {clip.creator}</p>
@@ -682,6 +701,14 @@ const DiscoverPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        src={lightboxImage}
+        alt={lightboxAlt}
+        isOpen={!!lightboxImage}
+        onClose={() => setLightboxImage(null)}
+      />
     </div>
   );
 };
