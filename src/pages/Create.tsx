@@ -164,6 +164,31 @@ const CreatePage = () => {
         console.error("Wallet Error Message:", walletErr.message);
         console.error("Wallet Error Logs:", walletErr.logs);
         console.error("Wallet Error Name:", walletErr.name);
+        
+        // Extract the actual error message from the wallet error
+        let errorMessage = walletErr.message || "";
+        
+        // Check if there's an error property with simulation details
+        if (walletErr.error) {
+          errorMessage = walletErr.error;
+        }
+        
+        // Parse simulation failed message for user-friendly display
+        if (errorMessage.includes("Simulation failed")) {
+          const logsMatch = errorMessage.match(/Logs:\s*\[([\s\S]*?)\]/);
+          if (logsMatch) {
+            const logs = logsMatch[1];
+            if (logs.includes("Access violation")) {
+              throw new Error("Solana Program Error: The on-chain program crashed with a memory access violation. This is a bug in the deployed Solana program, not your transaction. The program may need to be redeployed with fixes.");
+            }
+            if (logs.includes("custom program error")) {
+              const errorCode = logs.match(/custom program error: (0x[0-9a-fA-F]+)/)?.[1];
+              throw new Error(`Solana Program Error: Custom error ${errorCode || 'unknown'}. Check program logs for details.`);
+            }
+          }
+          throw new Error(errorMessage);
+        }
+        
         throw walletErr;
       }
       
