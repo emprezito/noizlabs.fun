@@ -218,6 +218,7 @@ export type Database = {
           badge_level: string
           earned_at: string
           id: string
+          image_url: string | null
           mint_address: string | null
           minted: boolean | null
           minted_at: string | null
@@ -227,6 +228,7 @@ export type Database = {
           badge_level: string
           earned_at?: string
           id?: string
+          image_url?: string | null
           mint_address?: string | null
           minted?: boolean | null
           minted_at?: string | null
@@ -236,6 +238,7 @@ export type Database = {
           badge_level?: string
           earned_at?: string
           id?: string
+          image_url?: string | null
           mint_address?: string | null
           minted?: boolean | null
           minted_at?: string | null

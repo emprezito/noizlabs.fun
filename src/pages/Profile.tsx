@@ -11,8 +11,14 @@ import { toast } from "sonner";
 import { 
   User, Trophy, Star, Zap, TrendingUp, Medal, Crown, 
   Copy, Users, ArrowUpRight, ArrowDownLeft, Clock, Coins,
-  Loader2, Check
+  Loader2, Check, Download, Share2, X
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface UserStats {
   total_points: number;
@@ -31,6 +37,7 @@ interface Badge {
   earned: boolean;
   minted: boolean;
   mint_address?: string;
+  image_url?: string;
 }
 
 interface TradeRecord {
@@ -69,6 +76,7 @@ const ProfilePage = () => {
   const [mintingBadge, setMintingBadge] = useState<string | null>(null);
   const [savingUsername, setSavingUsername] = useState(false);
   const [applyingReferral, setApplyingReferral] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
   useEffect(() => {
     if (connected && publicKey) {
@@ -155,6 +163,7 @@ const ProfilePage = () => {
           earned: earned,
           minted: existingBadge?.minted || false,
           mint_address: existingBadge?.mint_address || undefined,
+          image_url: (existingBadge as any)?.image_url || undefined,
         };
       });
       setBadges(badgesList);
@@ -284,29 +293,66 @@ const ProfilePage = () => {
 
       // Generate a unique badge ID for the mint address
       const mintAddress = `badge_${badge.level}_${Date.now()}_${walletAddress.slice(0, 8)}`;
+      const imageUrl = metadataResult.imageUrl;
 
-      // Update database with badge info
+      // Update database with badge info including image URL
       await supabase
         .from("user_badges")
         .update({ 
           minted: true, 
           minted_at: new Date().toISOString(),
-          mint_address: mintAddress
-        })
+          mint_address: mintAddress,
+          image_url: imageUrl
+        } as any)
         .eq("wallet_address", walletAddress)
         .eq("badge_level", badge.level);
 
+      const updatedBadge = { ...badge, minted: true, mint_address: mintAddress, image_url: imageUrl };
       setBadges(badges.map((b) => 
-        b.level === badge.level ? { ...b, minted: true, mint_address: mintAddress } : b
+        b.level === badge.level ? updatedBadge : b
       ));
       
-      toast.success(`${badge.name} badge created! Metadata: ${metadataResult.metadataUri}`);
+      // Show the badge modal after successful mint
+      setSelectedBadge(updatedBadge);
+      
+      toast.success(`${badge.name} badge created!`);
     } catch (error: unknown) {
       console.error("Error creating badge:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to create badge";
       toast.error(errorMessage);
     } finally {
       setMintingBadge(null);
+    }
+  };
+
+  const shareToX = (badge: Badge) => {
+    const text = `🎉 I just earned the ${badge.name} Badge on NoizLabs! 🏆\n\nJoin the sound revolution and start earning badges too!\n\n#NoizLabs #Web3 #Solana #NFT`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const downloadBadge = async (badge: Badge) => {
+    if (!badge.image_url) {
+      toast.error("Badge image not available");
+      return;
+    }
+    
+    try {
+      toast.info("Downloading badge...");
+      const response = await fetch(badge.image_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `noizlabs-${badge.level}-badge.svg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("Badge downloaded!");
+    } catch (error) {
+      console.error("Error downloading badge:", error);
+      toast.error("Failed to download badge");
     }
   };
 
@@ -505,15 +551,24 @@ const ProfilePage = () => {
                         className={`p-4 rounded-lg border ${
                           badge.earned 
                             ? badge.minted 
-                              ? "bg-primary/10 border-primary/30" 
+                              ? "bg-primary/10 border-primary/30 cursor-pointer hover:bg-primary/15 transition-colors" 
                               : "bg-card border-border"
                             : "bg-muted/50 border-border/50 opacity-50"
                         }`}
+                        onClick={() => badge.minted && setSelectedBadge(badge)}
                       >
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-full ${badgeDef?.bgColor} flex items-center justify-center`}>
-                            <Icon className={`w-6 h-6 ${badge.color}`} />
-                          </div>
+                          {badge.minted && badge.image_url ? (
+                            <img 
+                              src={badge.image_url} 
+                              alt={badge.name}
+                              className="w-12 h-12 rounded-full object-cover border-2 border-primary/30"
+                            />
+                          ) : (
+                            <div className={`w-12 h-12 rounded-full ${badgeDef?.bgColor} flex items-center justify-center`}>
+                              <Icon className={`w-6 h-6 ${badge.color}`} />
+                            </div>
+                          )}
                           <div className="flex-1">
                             <p className="font-bold text-foreground">{badge.name}</p>
                             <p className="text-xs text-muted-foreground">
@@ -522,9 +577,25 @@ const ProfilePage = () => {
                           </div>
                           {badge.earned && (
                             badge.minted ? (
-                              <div className="flex items-center gap-1 text-primary text-sm">
-                                <Check className="w-4 h-4" />
-                                <span>Minted</span>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={(e) => { e.stopPropagation(); shareToX(badge); }}
+                                  title="Share to X"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={(e) => { e.stopPropagation(); downloadBadge(badge); }}
+                                  title="Download"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
                               </div>
                             ) : (
                               <Button
@@ -607,6 +678,57 @@ const ProfilePage = () => {
         </div>
       </main>
       <Footer />
+
+      {/* Badge Detail Modal */}
+      <Dialog open={!!selectedBadge} onOpenChange={() => setSelectedBadge(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">{selectedBadge?.name} Badge</DialogTitle>
+          </DialogHeader>
+          {selectedBadge && (
+            <div className="flex flex-col items-center gap-6 py-4">
+              {selectedBadge.image_url ? (
+                <img 
+                  src={selectedBadge.image_url} 
+                  alt={selectedBadge.name}
+                  className="w-64 h-64 rounded-xl border-2 border-primary/30 shadow-lg"
+                />
+              ) : (
+                <div className="w-64 h-64 rounded-xl bg-muted flex items-center justify-center">
+                  <selectedBadge.icon className={`w-24 h-24 ${selectedBadge.color}`} />
+                </div>
+              )}
+              
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-1">
+                  {selectedBadge.minPoints.toLocaleString()}+ points required
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Minted as NFT
+                </p>
+              </div>
+
+              <div className="flex gap-3 w-full">
+                <Button 
+                  className="flex-1" 
+                  onClick={() => shareToX(selectedBadge)}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Share to X
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => downloadBadge(selectedBadge)}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
