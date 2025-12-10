@@ -74,7 +74,7 @@ const autoClaimPoints = async (
     const newPoints = currentPoints + pointsReward;
 
     // Update user points
-    await supabase
+    const { error: pointsError } = await supabase
       .from("user_points")
       .update({ 
         total_points: newPoints, 
@@ -82,11 +82,13 @@ const autoClaimPoints = async (
       })
       .eq("wallet_address", walletAddress);
 
-    // Mark task as claimed by resetting progress
-    await supabase
-      .from("user_tasks")
-      .update({ progress: 0, completed: false })
-      .eq("id", taskId);
+    if (pointsError) {
+      console.error("Error updating points:", pointsError);
+      return;
+    }
+
+    // Keep task completed=true until daily reset (don't reset progress)
+    // The reset-tasks edge function will handle resetting at midnight UTC
 
     // Show celebration toast
     toast.success(`🎉 Quest Complete: ${taskLabel}! +${pointsReward} points`, {
