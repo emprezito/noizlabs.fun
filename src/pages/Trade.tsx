@@ -245,14 +245,16 @@ const TradePage = () => {
     setTrading(true);
     try {
       const mintPubkey = new PublicKey(activeMint);
-      const tokenAmount = BigInt(Math.floor(parseFloat(buyAmount) / tokenInfo.price * 1e9));
-      const transaction = await buyTokens(connection, publicKey, mintPubkey, tokenAmount);
+      const solAmountLamports = BigInt(Math.floor(parseFloat(buyAmount) * 1e9)); // SOL in lamports
+      const minTokensOut = BigInt(0); // No slippage protection for now
+      const transaction = await buyTokens(connection, publicKey, mintPubkey, solAmountLamports, minTokensOut);
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, "confirmed");
       
-      const solAmount = parseFloat(buyAmount);
-      const usdVolume = solAmount * (solUsdPrice || 0);
+      const solAmountNum = parseFloat(buyAmount);
+      const usdVolume = solAmountNum * (solUsdPrice || 0);
       const walletAddress = publicKey.toString();
+      const estimatedTokens = Math.floor(solAmountNum / tokenInfo.price);
 
       // Record trade in database
       try {
@@ -260,8 +262,8 @@ const TradePage = () => {
           wallet_address: walletAddress,
           mint_address: activeMint,
           trade_type: "buy",
-          amount: Number(tokenAmount),
-          price_lamports: Math.floor(solAmount * 1e9),
+          amount: estimatedTokens,
+          price_lamports: Math.floor(solAmountNum * 1e9),
           signature,
         });
       } catch (dbError) {
@@ -287,12 +289,14 @@ const TradePage = () => {
     setTrading(true);
     try {
       const mintPubkey = new PublicKey(activeMint);
-      const tokenAmount = BigInt(Math.floor(parseFloat(sellAmount) * 1e9));
-      const transaction = await sellTokens(connection, publicKey, mintPubkey, tokenAmount);
+      const tokenAmountBigInt = BigInt(Math.floor(parseFloat(sellAmount) * 1e9));
+      const minSolOut = BigInt(0); // No slippage protection for now
+      const transaction = await sellTokens(connection, publicKey, mintPubkey, tokenAmountBigInt, minSolOut);
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, "confirmed");
       
-      const solReceived = parseFloat(sellAmount) * tokenInfo.price;
+      const tokenAmountNum = parseFloat(sellAmount);
+      const solReceived = tokenAmountNum * tokenInfo.price;
       const usdVolume = solReceived * (solUsdPrice || 0);
       const walletAddress = publicKey.toString();
 
@@ -302,7 +306,7 @@ const TradePage = () => {
           wallet_address: walletAddress,
           mint_address: activeMint,
           trade_type: "sell",
-          amount: Number(tokenAmount),
+          amount: Math.floor(tokenAmountNum * 1e9),
           price_lamports: Math.floor(solReceived * 1e9),
           signature,
         });

@@ -126,11 +126,10 @@ const CreatePage = () => {
       const mintKeypair = Keypair.generate();
 
       const params: CreateAudioTokenParams = {
-        name: name.slice(0, 32),  // Rust validates max 32 chars
+        name: name.slice(0, 50),  // Rust validates max 50 chars
         symbol: symbol.slice(0, 10),
         metadataUri: metadataUri.slice(0, 200),
         totalSupply: BigInt(1_000_000_000 * 1e9),
-        initialPrice: BigInt(10_000),
       };
 
       console.log("Creating token with params:", {
@@ -138,7 +137,6 @@ const CreatePage = () => {
         symbol: params.symbol,
         metadataUri: params.metadataUri,
         totalSupply: params.totalSupply.toString(),
-        initialPrice: params.initialPrice.toString(),
         mint: mintKeypair.publicKey.toString(),
         creator: publicKey.toString(),
       });
