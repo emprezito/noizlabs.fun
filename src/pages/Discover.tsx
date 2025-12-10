@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,6 +53,9 @@ const DiscoverPage = () => {
   const [loading, setLoading] = useState(false);
   const [loadingClips, setLoadingClips] = useState(true);
 
+  // Audio player ref
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
   // Upload form state
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadCategory, setUploadCategory] = useState("Memes");
@@ -65,6 +68,16 @@ const DiscoverPage = () => {
 
   useEffect(() => {
     fetchClips();
+  }, []);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
   }, []);
 
   // Initialize user tasks when wallet connects
@@ -361,32 +374,66 @@ const DiscoverPage = () => {
 
   const handlePlay = async (clipId: string) => {
     const wasPlaying = playingClip === clipId;
-    setPlayingClip(wasPlaying ? null : clipId);
+    const clip = clips.find((c) => c.id === clipId);
+    
+    if (!clip) return;
 
-    if (!wasPlaying) {
-      const clip = clips.find((c) => c.id === clipId);
-      if (clip) {
-        const newPlays = clip.plays + 1;
-        setClips(clips.map((c) => (c.id === clipId ? { ...c, plays: newPlays } : c)));
+    // Stop current audio if playing different clip
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
 
-        try {
-          await supabase
-            .from("audio_clips")
-            .update({ plays: newPlays })
-            .eq("id", clipId);
+    if (wasPlaying) {
+      // Pause
+      setPlayingClip(null);
+      return;
+    }
 
-          if (publicKey) {
-            await supabase.from("user_interactions").insert({
-              wallet_address: publicKey.toString(),
-              audio_clip_id: clipId,
-              interaction_type: "play",
-            });
-            await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
-          }
-        } catch (error) {
-          console.error("Error updating play:", error);
-        }
+    // Play new clip
+    setPlayingClip(clipId);
+    
+    try {
+      // Create and play audio
+      const audio = new Audio(clip.audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setPlayingClip(null);
+        audioRef.current = null;
+      };
+      
+      audio.onerror = (e) => {
+        console.error("Audio playback error:", e);
+        toast.error("Failed to play audio");
+        setPlayingClip(null);
+        audioRef.current = null;
+      };
+      
+      await audio.play();
+      
+      // Update play count
+      const newPlays = clip.plays + 1;
+      setClips(clips.map((c) => (c.id === clipId ? { ...c, plays: newPlays } : c)));
+
+      await supabase
+        .from("audio_clips")
+        .update({ plays: newPlays })
+        .eq("id", clipId);
+
+      // Track interaction and update task progress
+      if (publicKey) {
+        await supabase.from("user_interactions").insert({
+          wallet_address: publicKey.toString(),
+          audio_clip_id: clipId,
+          interaction_type: "play",
+        });
+        await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
       }
+    } catch (error) {
+      console.error("Error playing audio:", error);
+      toast.error("Failed to play audio");
+      setPlayingClip(null);
     }
   };
 
