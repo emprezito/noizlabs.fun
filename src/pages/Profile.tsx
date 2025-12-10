@@ -325,10 +325,31 @@ const ProfilePage = () => {
     }
   };
 
-  const shareToX = (badge: Badge) => {
+  const shareToX = async (badge: Badge) => {
+    // First download the badge image
+    if (badge.image_url) {
+      try {
+        toast.info("Downloading badge image for your tweet...");
+        const response = await fetch(badge.image_url);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `noizlabs-${badge.level}-badge.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success("Badge downloaded! Attach it to your tweet.");
+      } catch (error) {
+        console.error("Error downloading badge:", error);
+      }
+    }
+    
+    // Open Twitter with the tweet text
     const text = `🎉 I just earned the ${badge.name} Badge on NoizLabs! 🏆\n\nJoin the sound revolution and start earning badges too!\n\n#NoizLabs #Web3 #Solana #NFT`;
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(tweetUrl, '_blank');
   };
 
   const downloadBadge = async (badge: Badge) => {
