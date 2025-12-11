@@ -164,11 +164,16 @@ const CreatePage = () => {
         console.error("Wallet Error Name:", walletErr.name);
         
         // Extract the actual error message from the wallet error
-        let errorMessage = walletErr.message || "";
+        let errorMessage = walletErr.message || walletErr.toString() || "";
         
         // Check if there's an error property with simulation details
         if (walletErr.error) {
-          errorMessage = walletErr.error;
+          errorMessage = typeof walletErr.error === 'string' ? walletErr.error : JSON.stringify(walletErr.error);
+        }
+        
+        // Ensure errorMessage is a string before calling string methods
+        if (typeof errorMessage !== 'string') {
+          errorMessage = String(errorMessage);
         }
         
         // Parse simulation failed message for user-friendly display
