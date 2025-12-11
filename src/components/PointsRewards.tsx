@@ -184,8 +184,14 @@ const PointsRewards = () => {
 
     setCompletingSocial(task.id);
 
+    // Ensure the social link has a protocol
+    let socialUrl = questDef.social_link;
+    if (!socialUrl.startsWith('http://') && !socialUrl.startsWith('https://')) {
+      socialUrl = 'https://' + socialUrl;
+    }
+
     // Open the social link in a new tab
-    window.open(questDef.social_link, '_blank', 'noopener,noreferrer');
+    window.open(socialUrl, '_blank', 'noopener,noreferrer');
 
     // Mark the quest as complete after a short delay
     setTimeout(async () => {

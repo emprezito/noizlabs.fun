@@ -112,26 +112,40 @@ export const updateTaskProgress = async (
   increment: number
 ): Promise<boolean> => {
   try {
-    const { data: task } = await supabase
+    // First ensure tasks exist for this user
+    await ensureUserTasks(walletAddress);
+    
+    const { data: task, error: fetchError } = await supabase
       .from("user_tasks")
       .select("*")
       .eq("wallet_address", walletAddress)
       .eq("task_type", taskType)
       .maybeSingle();
 
+    if (fetchError) {
+      console.error("Error fetching task:", fetchError);
+      return false;
+    }
+
     if (task) {
       // Skip if already completed (waiting for reset)
       if (task.completed) {
+        console.log(`Task ${taskType} already completed, skipping`);
         return true;
       }
 
       const newProgress = Math.min((task.progress || 0) + increment, task.target);
       const completed = newProgress >= task.target;
 
-      await supabase
+      const { error: updateError } = await supabase
         .from("user_tasks")
         .update({ progress: newProgress, completed })
         .eq("id", task.id);
+
+      if (updateError) {
+        console.error("Error updating task progress:", updateError);
+        return false;
+      }
 
       console.log(`Task ${taskType}: progress ${newProgress}/${task.target}, completed: ${completed}`);
 
@@ -144,6 +158,8 @@ export const updateTaskProgress = async (
       }
 
       return completed;
+    } else {
+      console.log(`Task ${taskType} not found for wallet ${walletAddress}`);
     }
     return false;
   } catch (error) {

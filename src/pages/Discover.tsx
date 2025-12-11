@@ -336,7 +336,7 @@ const DiscoverPage = () => {
           audio_clip_id: clipId,
           interaction_type: "like",
         });
-        await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
+        await updateTaskProgress(publicKey.toString(), "like_clips", 1);
       }
     } catch (error) {
       console.error("Error updating like:", error);
@@ -364,7 +364,7 @@ const DiscoverPage = () => {
             audio_clip_id: clipId,
             interaction_type: "share",
           });
-          await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
+          await updateTaskProgress(publicKey.toString(), "share_clips", 1);
         }
       } catch (error) {
         console.error("Error updating share:", error);
@@ -428,7 +428,7 @@ const DiscoverPage = () => {
           audio_clip_id: clipId,
           interaction_type: "play",
         });
-        await updateTaskProgress(publicKey.toString(), "interact_clips", 1);
+        await updateTaskProgress(publicKey.toString(), "listen_clips", 1);
       }
     } catch (error) {
       console.error("Error playing audio:", error);
