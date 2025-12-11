@@ -12,8 +12,7 @@ export const BONDING_CURVE_SEED = TOKEN_CONFIG_SEED;
 // Platform fee account - receives 0.25% trading fees
 export const PLATFORM_FEE_ACCOUNT = "GVHjPM3DfTnSFLMx72RcCCAViqWWsJ6ENKXRq7nWedEp";
 
-// Full IDL JSON from the deployed program - Anchor 0.30.1 format without discriminators
-// Let the SDK compute discriminators to avoid mismatches
+// Simplified IDL for @coral-xyz/anchor SDK - only instructions needed for transaction building
 export const IDL = {
   "version": "0.1.0",
   "name": "audio_token_platform",
@@ -112,41 +111,7 @@ export const IDL = {
       ]
     }
   ],
-  "accounts": [
-    { 
-      "name": "TokenConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          { "name": "mint", "type": "publicKey" },
-          { "name": "creator", "type": "publicKey" },
-          { "name": "name", "type": "string" },
-          { "name": "symbol", "type": "string" },
-          { "name": "metadataUri", "type": "string" },
-          { "name": "totalSupply", "type": "u64" },
-          { "name": "initialSupply", "type": "u64" },
-          { "name": "solReserves", "type": "u64" },
-          { "name": "tokenReserves", "type": "u64" },
-          { "name": "tokensSold", "type": "u64" },
-          { "name": "totalVolume", "type": "u64" },
-          { "name": "createdAt", "type": "i64" },
-          { "name": "bump", "type": "u8" }
-        ]
-      }
-    },
-    { 
-      "name": "LpAccount",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          { "name": "mint", "type": "publicKey" },
-          { "name": "liquidity", "type": "u64" },
-          { "name": "timestamp", "type": "i64" },
-          { "name": "bump", "type": "u8" }
-        ]
-      }
-    }
-  ],
+  "accounts": [],
   "errors": [
     { "code": 6000, "name": "InvalidAmount", "msg": "Invalid amount" },
     { "code": 6001, "name": "InvalidInput", "msg": "Invalid input" },
