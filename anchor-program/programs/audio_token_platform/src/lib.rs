@@ -172,14 +172,19 @@ pub mod audio_token_platform {
     ) -> Result<()> {
         require!(sol_amount > 0, ErrorCode::InvalidAmount);
 
-        let token_config = &mut ctx.accounts.token_config;
+        // Read values before mutable borrow
+        let sol_reserves = ctx.accounts.token_config.sol_reserves;
+        let token_reserves = ctx.accounts.token_config.token_reserves;
+        let bump = ctx.accounts.token_config.bump;
+        let mint_key = ctx.accounts.mint.key();
+        let token_config_key = ctx.accounts.token_config.key();
         
         // Calculate tokens out using constant product formula: x * y = k
-        let k = token_config.sol_reserves
-            .checked_mul(token_config.token_reserves)
+        let k = sol_reserves
+            .checked_mul(token_reserves)
             .ok_or(ErrorCode::MathOverflow)?;
         
-        let new_sol_reserves = token_config.sol_reserves
+        let new_sol_reserves = sol_reserves
             .checked_add(sol_amount)
             .ok_or(ErrorCode::MathOverflow)?;
         
@@ -187,13 +192,13 @@ pub mod audio_token_platform {
             .checked_div(new_sol_reserves)
             .ok_or(ErrorCode::MathOverflow)?;
         
-        let tokens_out = token_config.token_reserves
+        let tokens_out = token_reserves
             .checked_sub(new_token_reserves)
             .ok_or(ErrorCode::InsufficientLiquidity)?;
 
         require!(tokens_out > 0, ErrorCode::InvalidAmount);
         require!(tokens_out >= min_tokens_out, ErrorCode::SlippageExceeded);
-        require!(tokens_out <= token_config.token_reserves, ErrorCode::InsufficientLiquidity);
+        require!(tokens_out <= token_reserves, ErrorCode::InsufficientLiquidity);
 
         // Calculate platform fee (0.25% of SOL amount)
         let platform_fee = sol_amount
@@ -209,7 +214,7 @@ pub mod audio_token_platform {
         // Transfer SOL to token_config PDA (bonding curve reserves)
         let transfer_to_curve_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.buyer.key(),
-            &ctx.accounts.token_config.key(),
+            &token_config_key,
             sol_to_curve,
         );
         anchor_lang::solana_program::program::invoke(
@@ -239,11 +244,10 @@ pub mod audio_token_platform {
         }
 
         // Transfer tokens from reserve to buyer
-        let mint = ctx.accounts.mint.key();
         let seeds = &[
             TOKEN_CONFIG_SEED,
-            mint.as_ref(),
-            &[token_config.bump],
+            mint_key.as_ref(),
+            &[bump],
         ];
         let signer = &[&seeds[..]];
 
@@ -260,7 +264,8 @@ pub mod audio_token_platform {
             tokens_out,
         )?;
 
-        // Update token config state
+        // Update token config state (mutable borrow at the end)
+        let token_config = &mut ctx.accounts.token_config;
         token_config.sol_reserves = new_sol_reserves;
         token_config.token_reserves = new_token_reserves;
         token_config.tokens_sold = token_config.tokens_sold
@@ -287,14 +292,16 @@ pub mod audio_token_platform {
     ) -> Result<()> {
         require!(token_amount > 0, ErrorCode::InvalidAmount);
 
-        let token_config = &mut ctx.accounts.token_config;
+        // Read values before mutable borrow
+        let sol_reserves = ctx.accounts.token_config.sol_reserves;
+        let token_reserves = ctx.accounts.token_config.token_reserves;
         
         // Calculate SOL out using constant product formula: x * y = k
-        let k = token_config.sol_reserves
-            .checked_mul(token_config.token_reserves)
+        let k = sol_reserves
+            .checked_mul(token_reserves)
             .ok_or(ErrorCode::MathOverflow)?;
         
-        let new_token_reserves = token_config.token_reserves
+        let new_token_reserves = token_reserves
             .checked_add(token_amount)
             .ok_or(ErrorCode::MathOverflow)?;
         
@@ -302,12 +309,12 @@ pub mod audio_token_platform {
             .checked_div(new_token_reserves)
             .ok_or(ErrorCode::MathOverflow)?;
         
-        let sol_out = token_config.sol_reserves
+        let sol_out = sol_reserves
             .checked_sub(new_sol_reserves)
             .ok_or(ErrorCode::InsufficientLiquidity)?;
 
         require!(sol_out > 0, ErrorCode::InvalidAmount);
-        require!(sol_out <= token_config.sol_reserves, ErrorCode::InsufficientLiquidity);
+        require!(sol_out <= sol_reserves, ErrorCode::InsufficientLiquidity);
 
         // Calculate platform fee (0.25% of SOL out)
         let platform_fee = sol_out
@@ -346,7 +353,8 @@ pub mod audio_token_platform {
             **ctx.accounts.platform_fee_account.try_borrow_mut_lamports()? += platform_fee;
         }
 
-        // Update token config state
+        // Update token config state (mutable borrow at the end)
+        let token_config = &mut ctx.accounts.token_config;
         token_config.sol_reserves = new_sol_reserves;
         token_config.token_reserves = new_token_reserves;
         token_config.tokens_sold = token_config.tokens_sold
@@ -369,13 +377,13 @@ pub mod audio_token_platform {
     ) -> Result<()> {
         require!(sol_amount > 0 && token_amount > 0, ErrorCode::InvalidAmount);
 
-        let token_config = &mut ctx.accounts.token_config;
-        let lp_account = &mut ctx.accounts.lp_account;
+        // Get key before mutable borrow
+        let token_config_key = ctx.accounts.token_config.key();
 
         // Transfer SOL to curve
         let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.lp_provider.key(),
-            &ctx.accounts.token_config.key(),
+            &token_config_key,
             sol_amount,
         );
         anchor_lang::solana_program::program::invoke(
@@ -400,7 +408,10 @@ pub mod audio_token_platform {
             token_amount,
         )?;
 
-        // Update reserves
+        // Update reserves (mutable borrow at the end)
+        let token_config = &mut ctx.accounts.token_config;
+        let lp_account = &mut ctx.accounts.lp_account;
+
         token_config.sol_reserves = token_config.sol_reserves
             .checked_add(sol_amount)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -426,22 +437,25 @@ pub mod audio_token_platform {
     ) -> Result<()> {
         require!(lp_share > 0, ErrorCode::InvalidAmount);
 
-        let token_config = &mut ctx.accounts.token_config;
-        let lp_account = &mut ctx.accounts.lp_account;
+        // Read values before mutable borrow
+        let liquidity = ctx.accounts.lp_account.liquidity;
+        let sol_reserves = ctx.accounts.token_config.sol_reserves;
+        let token_reserves = ctx.accounts.token_config.token_reserves;
+        let bump = ctx.accounts.token_config.bump;
+        let mint_key = ctx.accounts.mint.key();
 
-        require!(lp_share <= lp_account.liquidity, ErrorCode::InsufficientLiquidity);
+        require!(lp_share <= liquidity, ErrorCode::InsufficientLiquidity);
 
         // Calculate proportional share of reserves
-        let total_liquidity = lp_account.liquidity;
-        let sol_share = token_config.sol_reserves
+        let sol_share = sol_reserves
             .checked_mul(lp_share)
             .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(total_liquidity)
+            .checked_div(liquidity)
             .ok_or(ErrorCode::MathOverflow)?;
-        let token_share = token_config.token_reserves
+        let token_share = token_reserves
             .checked_mul(lp_share)
             .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(total_liquidity)
+            .checked_div(liquidity)
             .ok_or(ErrorCode::MathOverflow)?;
 
         // Transfer SOL to provider
@@ -450,11 +464,10 @@ pub mod audio_token_platform {
         **ctx.accounts.lp_provider.try_borrow_mut_lamports()? += sol_share;
 
         // Transfer tokens to provider
-        let mint = ctx.accounts.mint.key();
         let seeds = &[
             TOKEN_CONFIG_SEED,
-            mint.as_ref(),
-            &[token_config.bump],
+            mint_key.as_ref(),
+            &[bump],
         ];
         let signer = &[&seeds[..]];
 
@@ -471,7 +484,10 @@ pub mod audio_token_platform {
             token_share,
         )?;
 
-        // Update reserves
+        // Update reserves (mutable borrow at the end)
+        let token_config = &mut ctx.accounts.token_config;
+        let lp_account = &mut ctx.accounts.lp_account;
+
         token_config.sol_reserves = token_config.sol_reserves
             .checked_sub(sol_share)
             .ok_or(ErrorCode::MathOverflow)?;
