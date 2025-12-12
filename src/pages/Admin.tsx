@@ -161,6 +161,11 @@ const Admin = () => {
         throw new Error(response.error.message);
       }
 
+      // Check if the response data contains an error
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
       toast.success(editingQuest ? "Quest updated!" : "Quest created!");
       
       // Refresh quests
@@ -175,9 +180,14 @@ const Admin = () => {
 
       setDialogOpen(false);
       resetForm();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error saving quest:", error);
-      toast.error("Failed to save quest");
+      const message = error instanceof Error ? error.message : "Failed to save quest";
+      if (message.includes("duplicate key") || message.includes("already exists")) {
+        toast.error("A quest with this task type already exists. Use a unique task type.");
+      } else {
+        toast.error(message);
+      }
     }
   };
 
@@ -372,6 +382,7 @@ const Admin = () => {
                       <SelectContent>
                         <SelectItem value="daily">Daily</SelectItem>
                         <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="one_time">One Time</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
