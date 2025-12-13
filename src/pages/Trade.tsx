@@ -22,7 +22,7 @@ import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart } from "@/components/TradingViewChart";
-import { fetchTradeHistoryCandles, fetchDexScreenerData, CandleData } from "@/lib/chartData";
+import { fetchTradeHistoryCandles, fetchDexScreenerData, fetchTradeHistory, CandleData, TradeHistoryItem } from "@/lib/chartData";
 
 // Bonding curve constants for price impact calculation
 const PLATFORM_FEE_BPS = 25;
@@ -47,21 +47,6 @@ interface TokenInfo {
   liquidity?: number;
 }
 
-interface TradeTransaction {
-  id: string;
-  type: "buy" | "sell";
-  amount: number;
-  price: number;
-  timestamp: number;
-  wallet: string;
-}
-
-// Demo transactions for display
-const DEMO_TRANSACTIONS: TradeTransaction[] = [
-  { id: "1", type: "buy", amount: 1500000, price: 0.00001765, timestamp: Date.now() - 300000, wallet: "7Np...abc" },
-  { id: "2", type: "sell", amount: 500000, price: 0.00001720, timestamp: Date.now() - 900000, wallet: "8Kp...def" },
-  { id: "3", type: "buy", amount: 2500000, price: 0.00001680, timestamp: Date.now() - 1800000, wallet: "2Lp...ghi" },
-];
 
 const TradePage = () => {
   const [searchParams] = useSearchParams();
@@ -100,7 +85,7 @@ const TradePage = () => {
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [candleData, setCandleData] = useState<CandleData[]>([]);
-  const [transactions] = useState<TradeTransaction[]>(DEMO_TRANSACTIONS);
+  const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
   const [isLive, setIsLive] = useState(false);
   
   // Confirmation dialog state
@@ -193,7 +178,7 @@ const TradePage = () => {
     fetchUserBalance();
   }, [fetchUserBalance]);
 
-  // Set up real-time subscription for token data from Supabase
+  // Set up real-time subscription for token data and trade history from Supabase
   useEffect(() => {
     if (!activeMint || !tokenInfo) return;
 
@@ -224,6 +209,19 @@ const TradePage = () => {
           fetchTradeHistoryCandles(activeMint).then(setCandleData);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'trade_history',
+          filter: `mint_address=eq.${activeMint}`,
+        },
+        () => {
+          // Refresh trade history when new trades come in
+          fetchTradeHistory(activeMint).then(setTradeHistory);
+        }
+      )
       .subscribe((status) => {
         setIsLive(status === 'SUBSCRIBED');
       });
@@ -237,8 +235,9 @@ const TradePage = () => {
   useEffect(() => {
     if (activeMint) {
       loadTokenInfo();
-      // Load candle data
+      // Load candle data and trade history
       fetchTradeHistoryCandles(activeMint).then(setCandleData);
+      fetchTradeHistory(activeMint).then(setTradeHistory);
     }
   }, [activeMint]);
 
@@ -640,6 +639,46 @@ const TradePage = () => {
                   <div className="h-80">
                     <TradingViewChart data={candleData} height={300} />
                   </div>
+                </div>
+
+                {/* Trade History Section */}
+                <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
+                  <h3 className="font-bold mb-4">Recent Trades</h3>
+                  {tradeHistory.length === 0 ? (
+                    <p className="text-muted-foreground text-sm text-center py-4">No trades yet</p>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {tradeHistory.map((trade) => (
+                        <div key={trade.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className={`px-2 py-1 rounded text-xs font-bold ${
+                              trade.trade_type === "buy" 
+                                ? "bg-green-500/20 text-green-500" 
+                                : "bg-red-500/20 text-red-500"
+                            }`}>
+                              {trade.trade_type.toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">
+                                {(trade.amount / 1e9).toLocaleString()} {tokenInfo?.symbol || "tokens"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                @ {(trade.price_lamports / 1e9).toFixed(8)} SOL
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">
+                              {formatTimeAgo(new Date(trade.created_at).getTime())}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {trade.wallet_address.slice(0, 4)}...{trade.wallet_address.slice(-4)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -77,8 +77,9 @@ export async function fetchDexScreenerData(mintAddress: string): Promise<DexScre
 }
 
 // Generate OHLCV candle data from trade history
+// Time must be Unix timestamp (seconds) for lightweight-charts
 export interface CandleData {
-  time: string;
+  time: number; // Unix timestamp in seconds
   open: number;
   high: number;
   low: number;
@@ -104,14 +105,14 @@ export async function fetchTradeHistoryCandles(
     }
 
     // Group trades by interval and create candles
-    const candles: Map<string, CandleData> = new Map();
+    const candles: Map<number, CandleData> = new Map();
     
     for (const trade of trades) {
       const timestamp = new Date(trade.created_at);
       // Round to interval
       const intervalMs = intervalMinutes * 60 * 1000;
-      const roundedTime = new Date(Math.floor(timestamp.getTime() / intervalMs) * intervalMs);
-      const timeKey = roundedTime.toISOString().slice(0, 16).replace("T", " ");
+      const roundedTime = Math.floor(timestamp.getTime() / intervalMs) * intervalMs;
+      const timeKey = Math.floor(roundedTime / 1000); // Unix timestamp in seconds
       
       const price = Number(trade.price_lamports) / 1e9; // Convert lamports to SOL
       const volume = Number(trade.amount) / 1e9;
@@ -154,11 +155,11 @@ export async function fetchTradeHistoryCandles(
 function generateDemoCandles(count: number = 24): CandleData[] {
   const candles: CandleData[] = [];
   let price = 0.00001;
-  const now = new Date();
+  const now = Date.now();
   
   for (let i = count - 1; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-    const timeStr = time.toISOString().slice(0, 16).replace("T", " ");
+    const timeMs = now - i * 60 * 60 * 1000;
+    const time = Math.floor(timeMs / 1000); // Unix timestamp in seconds
     
     const change = (Math.random() - 0.45) * 0.000002;
     const open = price;
@@ -167,7 +168,7 @@ function generateDemoCandles(count: number = 24): CandleData[] {
     const variance = Math.abs(close - open) * 0.5;
     
     candles.push({
-      time: timeStr,
+      time,
       open,
       high: Math.max(open, close) + Math.random() * variance,
       low: Math.min(open, close) - Math.random() * variance,
@@ -190,11 +191,10 @@ function padCandleData(existing: CandleData[], totalCount: number = 24): CandleD
   
   const padded: CandleData[] = [];
   let price = firstCandle.open;
-  const firstTime = new Date(firstCandle.time.replace(" ", "T") + ":00Z");
+  const firstTimeSeconds = firstCandle.time;
   
   for (let i = padCount; i > 0; i--) {
-    const time = new Date(firstTime.getTime() - i * 60 * 60 * 1000);
-    const timeStr = time.toISOString().slice(0, 16).replace("T", " ");
+    const time = firstTimeSeconds - i * 60 * 60; // Subtract hours in seconds
     
     const change = (Math.random() - 0.5) * price * 0.05;
     const open = Math.max(0.000001, price - change);
@@ -203,7 +203,7 @@ function padCandleData(existing: CandleData[], totalCount: number = 24): CandleD
     const variance = Math.abs(close - open) * 0.3;
     
     padded.push({
-      time: timeStr,
+      time,
       open,
       high: Math.max(open, close) + Math.random() * variance,
       low: Math.min(open, close) - Math.random() * variance,
@@ -213,4 +213,27 @@ function padCandleData(existing: CandleData[], totalCount: number = 24): CandleD
   }
   
   return [...padded.reverse(), ...existing];
+}
+
+// Fetch raw trade history for display
+export interface TradeHistoryItem {
+  id: string;
+  trade_type: string;
+  amount: number;
+  price_lamports: number;
+  wallet_address: string;
+  created_at: string;
+  signature: string | null;
+}
+
+export async function fetchTradeHistory(mintAddress: string, limit: number = 20): Promise<TradeHistoryItem[]> {
+  const { data, error } = await supabase
+    .from("trade_history")
+    .select("*")
+    .eq("mint_address", mintAddress)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+  return data;
 }
