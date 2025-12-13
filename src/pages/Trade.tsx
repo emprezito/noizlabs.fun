@@ -16,11 +16,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Search, TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, ExternalLink, AlertCircle, Wifi, WifiOff } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff } from "lucide-react";
 import { Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
+import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
+
+// Bonding curve constants for price impact calculation
+const PLATFORM_FEE_BPS = 25;
+const BASIS_POINTS_DIVISOR = 10000;
 
 // Platform fee wallet - receives SOL from buys
 const PLATFORM_FEE_WALLET = new PublicKey("GVHjPM3DfTnSFLMx72RcCCAViqWWsJ6ENKXRq7nWedEp");
@@ -102,6 +107,62 @@ const TradePage = () => {
   const [chartData, setChartData] = useState(generateChartData());
   const [transactions] = useState<TradeTransaction[]>(DEMO_TRANSACTIONS);
   const [isLive, setIsLive] = useState(false);
+  
+  // Confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingTrade, setPendingTrade] = useState<{
+    type: "buy" | "sell";
+    inputAmount: number;
+    outputAmount: number;
+    priceImpact: number;
+    platformFee: number;
+  } | null>(null);
+
+  // Calculate trade preview
+  const calculateTradePreview = useCallback((type: "buy" | "sell", amount: number) => {
+    if (!tokenInfo || amount <= 0) return null;
+    
+    const solReserves = tokenInfo.solReserves * 1e9; // Convert to lamports
+    const tokenReserves = tokenInfo.tokenReserves * 1e9; // Convert to smallest units
+    
+    if (type === "buy") {
+      const solAmount = amount * 1e9; // lamports
+      const platformFee = Math.floor(solAmount * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
+      const solAfterFee = solAmount - platformFee;
+      const k = solReserves * tokenReserves;
+      const newSolReserves = solReserves + solAfterFee;
+      const newTokenReserves = Math.floor(k / newSolReserves);
+      const tokensOut = (tokenReserves - newTokenReserves) / 1e9;
+      
+      const spotPrice = solReserves / tokenReserves;
+      const executionPrice = tokensOut > 0 ? solAfterFee / (tokensOut * 1e9) : 0;
+      const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
+      
+      return {
+        outputAmount: tokensOut,
+        priceImpact,
+        platformFee: platformFee / 1e9,
+      };
+    } else {
+      const tokenAmount = amount * 1e9; // smallest units
+      const k = solReserves * tokenReserves;
+      const newTokenReserves = tokenReserves + tokenAmount;
+      const newSolReserves = Math.floor(k / newTokenReserves);
+      const solOutBeforeFee = solReserves - newSolReserves;
+      const platformFee = Math.floor(solOutBeforeFee * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
+      const solOut = (solOutBeforeFee - platformFee) / 1e9;
+      
+      const spotPrice = solReserves / tokenReserves;
+      const executionPrice = tokenAmount > 0 ? solOutBeforeFee / tokenAmount : 0;
+      const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
+      
+      return {
+        outputAmount: solOut,
+        priceImpact,
+        platformFee: platformFee / 1e9,
+      };
+    }
+  }, [tokenInfo]);
 
   // Fetch user's token balance
   const fetchUserBalance = useCallback(async () => {
@@ -257,8 +318,9 @@ const TradePage = () => {
     setActiveMint(trimmed);
   };
 
-  const handleBuy = async () => {
-    if (!connected || !publicKey || !sendTransaction) { 
+  // Initiate buy - show confirmation first
+  const initiateBuy = () => {
+    if (!connected || !publicKey) { 
       toast.error("Connect wallet first"); 
       return; 
     }
@@ -267,64 +329,31 @@ const TradePage = () => {
       return; 
     }
     
-    setTrading(true);
-    try {
-      const solAmountNum = parseFloat(buyAmount);
-      const walletAddress = publicKey.toString();
-      const amountLamports = Math.floor(solAmountNum * LAMPORTS_PER_SOL);
-
-      // Create SOL transfer transaction to platform fee wallet
-      const transaction = new Transaction();
-      transaction.add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: PLATFORM_FEE_WALLET,
-          lamports: amountLamports,
-        })
-      );
-
-      // Get recent blockhash
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = publicKey;
-
-      // Send and confirm transaction
-      toast.info("Please approve the transaction in your wallet...");
-      const signature = await sendTransaction(transaction, connection);
-      
-      toast.info("Confirming transaction...");
-      await connection.confirmTransaction(signature, "confirmed");
-
-      // Call edge function to update reserves and record trade
-      const { data, error } = await supabase.functions.invoke("execute-trade", {
-        body: {
-          mintAddress: activeMint,
-          tradeType: "buy",
-          amount: amountLamports,
-          walletAddress: walletAddress,
-          signature: signature,
-        },
-      });
-
-      if (error) throw new Error(error.message);
-      if (!data.success) throw new Error(data.error || "Trade failed");
-
-      const usdVolume = solAmountNum * (solUsdPrice || 0);
-      await updateTradingVolume(walletAddress, usdVolume);
-      
-      toast.success(`Bought ${data.tokensOut?.toLocaleString() || ""} tokens! TX: ${signature.slice(0, 8)}...`);
-      setBuyAmount("");
-      loadTokenInfo();
-      fetchUserBalance();
-    } catch (error: any) {
-      console.error("Buy error:", error);
-      toast.error(error.message || "Transaction failed");
+    const amount = parseFloat(buyAmount);
+    if (amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
     }
-    setTrading(false);
+
+    const preview = calculateTradePreview("buy", amount);
+    if (!preview) {
+      toast.error("Unable to calculate trade");
+      return;
+    }
+
+    setPendingTrade({
+      type: "buy",
+      inputAmount: amount,
+      outputAmount: preview.outputAmount,
+      priceImpact: preview.priceImpact,
+      platformFee: preview.platformFee,
+    });
+    setConfirmDialogOpen(true);
   };
 
-  const handleSell = async () => {
-    if (!connected || !publicKey || !sendTransaction) { 
+  // Initiate sell - show confirmation first
+  const initiateSell = () => {
+    if (!connected || !publicKey) { 
       toast.error("Connect wallet first"); 
       return; 
     }
@@ -332,89 +361,148 @@ const TradePage = () => {
       toast.error("Enter valid amount"); 
       return; 
     }
-    if (parseFloat(sellAmount) > userBalance) {
+    
+    const amount = parseFloat(sellAmount);
+    if (amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    if (amount > userBalance) {
       toast.error("Insufficient token balance");
       return;
     }
-    
+
+    const preview = calculateTradePreview("sell", amount);
+    if (!preview) {
+      toast.error("Unable to calculate trade");
+      return;
+    }
+
+    setPendingTrade({
+      type: "sell",
+      inputAmount: amount,
+      outputAmount: preview.outputAmount,
+      priceImpact: preview.priceImpact,
+      platformFee: preview.platformFee,
+    });
+    setConfirmDialogOpen(true);
+  };
+
+  // Execute confirmed trade
+  const executeConfirmedTrade = async () => {
+    if (!pendingTrade || !publicKey || !sendTransaction || !tokenInfo) return;
+
     setTrading(true);
     try {
-      const tokenAmountNum = parseFloat(sellAmount);
       const walletAddress = publicKey.toString();
-      const tokenAmountUnits = Math.floor(tokenAmountNum * 1e9);
 
-      const mintPubkey = new PublicKey(activeMint);
-      const creatorPubkey = new PublicKey(tokenInfo.creatorWallet);
+      if (pendingTrade.type === "buy") {
+        const amountLamports = Math.floor(pendingTrade.inputAmount * LAMPORTS_PER_SOL);
 
-      // Get user's and creator's token accounts
-      const userATA = await getAssociatedTokenAddress(mintPubkey, publicKey);
-      const creatorATA = await getAssociatedTokenAddress(mintPubkey, creatorPubkey);
-
-      // Create token transfer transaction
-      const transaction = new Transaction();
-
-      // Check if creator ATA exists, if not create it
-      try {
-        await getAccount(connection, creatorATA);
-      } catch {
+        const transaction = new Transaction();
         transaction.add(
-          createAssociatedTokenAccountInstruction(
-            publicKey, // payer
-            creatorATA, // ata
-            creatorPubkey, // owner
-            mintPubkey // mint
+          SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: PLATFORM_FEE_WALLET,
+            lamports: amountLamports,
+          })
+        );
+
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = publicKey;
+
+        const signature = await sendTransaction(transaction, connection);
+        await connection.confirmTransaction(signature, "confirmed");
+
+        const { data, error } = await supabase.functions.invoke("execute-trade", {
+          body: {
+            mintAddress: activeMint,
+            tradeType: "buy",
+            amount: amountLamports,
+            walletAddress: walletAddress,
+            signature: signature,
+          },
+        });
+
+        if (error) throw new Error(error.message);
+        if (!data.success) throw new Error(data.error || "Trade failed");
+
+        const usdVolume = pendingTrade.inputAmount * (solUsdPrice || 0);
+        await updateTradingVolume(walletAddress, usdVolume);
+        
+        toast.success(`Bought ${data.tokensOut?.toLocaleString() || ""} tokens! TX: ${signature.slice(0, 8)}...`);
+        setBuyAmount("");
+
+      } else {
+        const tokenAmountUnits = Math.floor(pendingTrade.inputAmount * 1e9);
+        const mintPubkey = new PublicKey(activeMint);
+        const creatorPubkey = new PublicKey(tokenInfo.creatorWallet);
+
+        const userATA = await getAssociatedTokenAddress(mintPubkey, publicKey);
+        const creatorATA = await getAssociatedTokenAddress(mintPubkey, creatorPubkey);
+
+        const transaction = new Transaction();
+
+        try {
+          await getAccount(connection, creatorATA);
+        } catch {
+          transaction.add(
+            createAssociatedTokenAccountInstruction(
+              publicKey,
+              creatorATA,
+              creatorPubkey,
+              mintPubkey
+            )
+          );
+        }
+
+        transaction.add(
+          createTransferInstruction(
+            userATA,
+            creatorATA,
+            publicKey,
+            BigInt(tokenAmountUnits),
+            [],
+            TOKEN_PROGRAM_ID
           )
         );
+
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = publicKey;
+
+        const signature = await sendTransaction(transaction, connection);
+        await connection.confirmTransaction(signature, "confirmed");
+
+        const { data, error } = await supabase.functions.invoke("execute-trade", {
+          body: {
+            mintAddress: activeMint,
+            tradeType: "sell",
+            amount: tokenAmountUnits,
+            walletAddress: walletAddress,
+            signature: signature,
+          },
+        });
+
+        if (error) throw new Error(error.message);
+        if (!data.success) throw new Error(data.error || "Trade failed");
+
+        const solReceived = (data.solOut || 0) / 1e9;
+        const usdVolume = solReceived * (solUsdPrice || 0);
+        await updateTradingVolume(walletAddress, usdVolume);
+        
+        toast.success(`Sold for ${solReceived.toFixed(4)} SOL! TX: ${signature.slice(0, 8)}...`);
+        setSellAmount("");
       }
 
-      // Add token transfer instruction
-      transaction.add(
-        createTransferInstruction(
-          userATA, // source
-          creatorATA, // destination  
-          publicKey, // owner
-          BigInt(tokenAmountUnits), // amount
-          [], // multiSigners
-          TOKEN_PROGRAM_ID
-        )
-      );
-
-      // Get recent blockhash
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = publicKey;
-
-      // Send and confirm transaction
-      toast.info("Please approve the transaction in your wallet...");
-      const signature = await sendTransaction(transaction, connection);
-      
-      toast.info("Confirming transaction...");
-      await connection.confirmTransaction(signature, "confirmed");
-
-      // Call edge function to update reserves and record trade
-      const { data, error } = await supabase.functions.invoke("execute-trade", {
-        body: {
-          mintAddress: activeMint,
-          tradeType: "sell",
-          amount: tokenAmountUnits,
-          walletAddress: walletAddress,
-          signature: signature,
-        },
-      });
-
-      if (error) throw new Error(error.message);
-      if (!data.success) throw new Error(data.error || "Trade failed");
-
-      const solReceived = (data.solOut || 0) / 1e9;
-      const usdVolume = solReceived * (solUsdPrice || 0);
-      await updateTradingVolume(walletAddress, usdVolume);
-      
-      toast.success(`Sold for ${solReceived.toFixed(4)} SOL! TX: ${signature.slice(0, 8)}...`);
-      setSellAmount("");
       loadTokenInfo();
       fetchUserBalance();
+      setConfirmDialogOpen(false);
+      setPendingTrade(null);
+
     } catch (error: any) {
-      console.error("Sell error:", error);
+      console.error("Trade error:", error);
       toast.error(error.message || "Transaction failed");
     }
     setTrading(false);
@@ -525,7 +613,7 @@ const TradePage = () => {
                       <p className="font-bold">{parseInt(estimatedBuyTokens).toLocaleString()} {tokenInfo.symbol}</p>
                       {buyAmount && <p className="text-xs text-muted-foreground">Cost: {buyAmount} SOL ({formatUsd(parseFloat(buyAmount) || 0)})</p>}
                     </div>
-                    <Button onClick={handleBuy} disabled={trading || !connected} className="w-full bg-noiz-green hover:bg-noiz-green/80">{trading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{trading ? "Processing..." : "Buy Tokens"}</Button>
+                    <Button onClick={initiateBuy} disabled={trading || !connected} className="w-full bg-noiz-green hover:bg-noiz-green/80">{trading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{trading ? "Processing..." : "Buy Tokens"}</Button>
                   </TabsContent>
                   <TabsContent value="sell" className="space-y-4">
                     <div><Label>Amount (Tokens)</Label><Input type="number" placeholder="0" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} className="mt-2" /></div>
@@ -534,7 +622,7 @@ const TradePage = () => {
                       <p className="font-bold">{estimatedSellSol} SOL</p>
                       {sellAmount && <p className="text-xs text-muted-foreground">Value: {formatUsd(parseFloat(estimatedSellSol) || 0)}</p>}
                     </div>
-                    <Button onClick={handleSell} disabled={trading || !connected} className="w-full bg-noiz-pink hover:bg-noiz-pink/80">{trading ? "Processing..." : "Sell Tokens"}</Button>
+                    <Button onClick={initiateSell} disabled={trading || !connected} className="w-full bg-noiz-pink hover:bg-noiz-pink/80">{trading ? "Processing..." : "Sell Tokens"}</Button>
                   </TabsContent>
                 </Tabs>
               </div>
@@ -543,6 +631,27 @@ const TradePage = () => {
         </div>
       </main>
       <Footer />
+
+      {/* Trade Confirmation Dialog */}
+      {tokenInfo && pendingTrade && (
+        <TradeConfirmDialog
+          open={confirmDialogOpen}
+          onOpenChange={(open) => {
+            setConfirmDialogOpen(open);
+            if (!open) setPendingTrade(null);
+          }}
+          onConfirm={executeConfirmedTrade}
+          loading={trading}
+          tradeType={pendingTrade.type}
+          inputAmount={pendingTrade.inputAmount.toString()}
+          inputSymbol={pendingTrade.type === "buy" ? "SOL" : tokenInfo.symbol}
+          outputAmount={pendingTrade.outputAmount.toLocaleString()}
+          outputSymbol={pendingTrade.type === "buy" ? tokenInfo.symbol : "SOL"}
+          priceImpact={pendingTrade.priceImpact}
+          platformFee={pendingTrade.platformFee}
+          currentPrice={tokenInfo.price}
+        />
+      )}
     </div>
   );
 };
