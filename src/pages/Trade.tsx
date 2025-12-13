@@ -28,12 +28,13 @@ const PLATFORM_FEE_BPS = 25;
 const BASIS_POINTS_DIVISOR = 10000;
 
 // Platform fee wallet - receives SOL from buys
-const PLATFORM_FEE_WALLET = new PublicKey("GVHjPM3DfTnSFLMx72RcCCAViqWWsJ6ENKXRq7nWedEp");
+const PLATFORM_FEE_WALLET = new PublicKey("FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc");
 
 interface TokenInfo {
   name: string;
   symbol: string;
   audioUri: string;
+  imageUri?: string;
   totalSupply: number;
   price: number;
   solReserves: number;
@@ -276,10 +277,22 @@ const TradePage = () => {
         const tokenReserves = Number(token.token_reserves) / 1e9;
         const price = tokenReserves > 0 ? solReserves / tokenReserves : 0;
         
+        // Fetch associated audio clip for cover image
+        let imageUri = undefined;
+        if (token.audio_clip_id) {
+          const { data: clip } = await supabase
+            .from("audio_clips")
+            .select("cover_image_url")
+            .eq("id", token.audio_clip_id)
+            .maybeSingle();
+          imageUri = clip?.cover_image_url || undefined;
+        }
+        
         setTokenInfo({
           name: token.name,
           symbol: token.symbol,
           audioUri: token.audio_url || "",
+          imageUri,
           totalSupply: Number(token.total_supply),
           price,
           solReserves,

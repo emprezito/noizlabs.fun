@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.execute-trade]
 verify_jwt = false
+
+[functions.remix-audio]
+verify_jwt = false
