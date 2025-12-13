@@ -123,12 +123,18 @@ const CreatePage = () => {
       toast.success("Files uploaded to IPFS!");
       
       const metadataUri = uploadResult.url!;
+      
+      // Validate metadata URI length (Solana program limits to 100 chars)
+      if (metadataUri.length > 100) {
+        throw new Error(`Metadata URI is too long (${metadataUri.length} chars). Maximum allowed is 100 characters. Please try with a shorter file name or contact support.`);
+      }
+      
       const mintKeypair = Keypair.generate();
 
       const params: CreateAudioTokenParams = {
         name: name.slice(0, 32),  // Rust validates max 32 chars
         symbol: symbol.slice(0, 10),
-        metadataUri: metadataUri.slice(0, 100),  // Rust validates max 100 chars
+        metadataUri: metadataUri,  // Already validated above
         totalSupply: BigInt(1_000_000_000 * 1e9),
       };
 
