@@ -14,7 +14,8 @@ interface TradeRequest {
   mintAddress: string;
   walletAddress: string;
   tradeType: 'buy' | 'sell';
-  amount: number; // SOL amount for buy, token amount for sell
+  amount: number; // SOL amount in lamports for buy, token amount for sell
+  signature: string; // Transaction signature from user's transfer
 }
 
 interface BondingCurveResult {
@@ -30,20 +31,17 @@ interface BondingCurveResult {
  * Calculate tokens received for SOL input using constant product formula (x * y = k)
  */
 function calculateBuy(solAmount: number, solReserves: number, tokenReserves: number): BondingCurveResult {
-  // Calculate platform fee
   const platformFee = Math.floor(solAmount * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
   const solAfterFee = solAmount - platformFee;
   
-  // Constant product formula: k = x * y
   const k = solReserves * tokenReserves;
   const newSolReserves = solReserves + solAfterFee;
   const newTokenReserves = Math.floor(k / newSolReserves);
   const tokensOut = tokenReserves - newTokenReserves;
   
-  // Calculate price impact
   const spotPrice = solReserves / tokenReserves;
-  const executionPrice = solAfterFee / tokensOut;
-  const priceImpact = Math.abs((executionPrice - spotPrice) / spotPrice) * 100;
+  const executionPrice = tokensOut > 0 ? solAfterFee / tokensOut : 0;
+  const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
   
   return {
     tokensOut,
@@ -58,20 +56,17 @@ function calculateBuy(solAmount: number, solReserves: number, tokenReserves: num
  * Calculate SOL received for token input using constant product formula
  */
 function calculateSell(tokenAmount: number, solReserves: number, tokenReserves: number): BondingCurveResult {
-  // Constant product formula: k = x * y
   const k = solReserves * tokenReserves;
   const newTokenReserves = tokenReserves + tokenAmount;
   const newSolReserves = Math.floor(k / newTokenReserves);
   const solOutBeforeFee = solReserves - newSolReserves;
   
-  // Calculate platform fee
   const platformFee = Math.floor(solOutBeforeFee * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
   const solOut = solOutBeforeFee - platformFee;
   
-  // Calculate price impact
   const spotPrice = solReserves / tokenReserves;
-  const executionPrice = solOutBeforeFee / tokenAmount;
-  const priceImpact = Math.abs((executionPrice - spotPrice) / spotPrice) * 100;
+  const executionPrice = tokenAmount > 0 ? solOutBeforeFee / tokenAmount : 0;
+  const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
   
   return {
     solOut,
@@ -83,7 +78,6 @@ function calculateSell(tokenAmount: number, solReserves: number, tokenReserves: 
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -93,14 +87,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { mintAddress, walletAddress, tradeType, amount }: TradeRequest = await req.json();
+    const { mintAddress, walletAddress, tradeType, amount, signature }: TradeRequest = await req.json();
 
-    console.log(`Processing ${tradeType} trade:`, { mintAddress, walletAddress, amount });
+    console.log(`Processing ${tradeType} trade:`, { mintAddress, walletAddress, amount, signature });
 
     // Validate inputs
-    if (!mintAddress || !walletAddress || !tradeType || !amount || amount <= 0) {
+    if (!mintAddress || !walletAddress || !tradeType || !amount || amount <= 0 || !signature) {
       return new Response(
-        JSON.stringify({ error: 'Invalid trade parameters' }),
+        JSON.stringify({ error: 'Invalid trade parameters. Required: mintAddress, walletAddress, tradeType, amount, signature' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -134,7 +128,6 @@ serve(async (req) => {
     let tradeRecord: any;
 
     if (tradeType === 'buy') {
-      // Amount is in lamports (SOL)
       result = calculateBuy(amount, solReserves, tokenReserves);
       
       if (!result.tokensOut || result.tokensOut <= 0) {
@@ -150,12 +143,12 @@ serve(async (req) => {
         trade_type: 'buy',
         amount: result.tokensOut,
         price_lamports: amount,
+        signature,
       };
 
-      console.log(`Buy result: ${result.tokensOut} tokens for ${amount} lamports`);
+      console.log(`Buy result: ${result.tokensOut} tokens for ${amount} lamports, sig: ${signature}`);
 
     } else {
-      // Amount is in token smallest units
       result = calculateSell(amount, solReserves, tokenReserves);
       
       if (!result.solOut || result.solOut <= 0) {
@@ -171,9 +164,10 @@ serve(async (req) => {
         trade_type: 'sell',
         amount: amount,
         price_lamports: result.solOut,
+        signature,
       };
 
-      console.log(`Sell result: ${result.solOut} lamports for ${amount} tokens`);
+      console.log(`Sell result: ${result.solOut} lamports for ${amount} tokens, sig: ${signature}`);
     }
 
     // Update token reserves
@@ -204,10 +198,8 @@ serve(async (req) => {
 
     if (historyError) {
       console.error('Failed to record trade:', historyError);
-      // Don't fail the trade, just log the error
     }
 
-    // Return trade result
     const response = {
       success: true,
       tradeType,
@@ -217,6 +209,7 @@ serve(async (req) => {
       priceImpact: result.priceImpact,
       newSolReserves: result.newSolReserves,
       newTokenReserves: result.newTokenReserves,
+      signature,
     };
 
     console.log('Trade completed successfully:', response);

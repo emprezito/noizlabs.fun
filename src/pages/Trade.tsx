@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
+import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { 
+  getAssociatedTokenAddress, 
+  getAccount, 
+  createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -16,6 +22,9 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 
+// Platform fee wallet - receives SOL from buys
+const PLATFORM_FEE_WALLET = new PublicKey("GVHjPM3DfTnSFLMx72RcCCAViqWWsJ6ENKXRq7nWedEp");
+
 interface TokenInfo {
   name: string;
   symbol: string;
@@ -25,6 +34,7 @@ interface TokenInfo {
   solReserves: number;
   tokenReserves: number;
   mint: string;
+  creatorWallet: string;
 }
 
 interface TradeTransaction {
@@ -214,6 +224,7 @@ const TradePage = () => {
           solReserves,
           tokenReserves,
           mint: activeMint,
+          creatorWallet: token.creator_wallet,
         });
       } else {
         toast.error("Token not found in database");
@@ -247,22 +258,51 @@ const TradePage = () => {
   };
 
   const handleBuy = async () => {
-    if (!connected || !publicKey) { toast.error("Connect wallet first"); return; }
-    if (!buyAmount || !tokenInfo) { toast.error("Enter valid amount"); return; }
+    if (!connected || !publicKey || !sendTransaction) { 
+      toast.error("Connect wallet first"); 
+      return; 
+    }
+    if (!buyAmount || !tokenInfo) { 
+      toast.error("Enter valid amount"); 
+      return; 
+    }
     
     setTrading(true);
     try {
       const solAmountNum = parseFloat(buyAmount);
       const walletAddress = publicKey.toString();
-      const amountLamports = Math.floor(solAmountNum * 1e9); // Convert SOL to lamports
+      const amountLamports = Math.floor(solAmountNum * LAMPORTS_PER_SOL);
 
-      // Call edge function for trade execution
+      // Create SOL transfer transaction to platform fee wallet
+      const transaction = new Transaction();
+      transaction.add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: PLATFORM_FEE_WALLET,
+          lamports: amountLamports,
+        })
+      );
+
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      // Send and confirm transaction
+      toast.info("Please approve the transaction in your wallet...");
+      const signature = await sendTransaction(transaction, connection);
+      
+      toast.info("Confirming transaction...");
+      await connection.confirmTransaction(signature, "confirmed");
+
+      // Call edge function to update reserves and record trade
       const { data, error } = await supabase.functions.invoke("execute-trade", {
         body: {
           mintAddress: activeMint,
           tradeType: "buy",
           amount: amountLamports,
           walletAddress: walletAddress,
+          signature: signature,
         },
       });
 
@@ -272,48 +312,109 @@ const TradePage = () => {
       const usdVolume = solAmountNum * (solUsdPrice || 0);
       await updateTradingVolume(walletAddress, usdVolume);
       
-      toast.success(`Bought ${data.tokensOut?.toLocaleString() || ""} tokens!`);
+      toast.success(`Bought ${data.tokensOut?.toLocaleString() || ""} tokens! TX: ${signature.slice(0, 8)}...`);
       setBuyAmount("");
       loadTokenInfo();
       fetchUserBalance();
     } catch (error: any) {
+      console.error("Buy error:", error);
       toast.error(error.message || "Transaction failed");
     }
     setTrading(false);
   };
 
   const handleSell = async () => {
-    if (!connected || !publicKey) { toast.error("Connect wallet first"); return; }
-    if (!sellAmount || !tokenInfo) { toast.error("Enter valid amount"); return; }
+    if (!connected || !publicKey || !sendTransaction) { 
+      toast.error("Connect wallet first"); 
+      return; 
+    }
+    if (!sellAmount || !tokenInfo) { 
+      toast.error("Enter valid amount"); 
+      return; 
+    }
+    if (parseFloat(sellAmount) > userBalance) {
+      toast.error("Insufficient token balance");
+      return;
+    }
     
     setTrading(true);
     try {
       const tokenAmountNum = parseFloat(sellAmount);
       const walletAddress = publicKey.toString();
-      const tokenAmountUnits = Math.floor(tokenAmountNum * 1e9); // Convert to smallest units
+      const tokenAmountUnits = Math.floor(tokenAmountNum * 1e9);
 
-      // Call edge function for trade execution
+      const mintPubkey = new PublicKey(activeMint);
+      const creatorPubkey = new PublicKey(tokenInfo.creatorWallet);
+
+      // Get user's and creator's token accounts
+      const userATA = await getAssociatedTokenAddress(mintPubkey, publicKey);
+      const creatorATA = await getAssociatedTokenAddress(mintPubkey, creatorPubkey);
+
+      // Create token transfer transaction
+      const transaction = new Transaction();
+
+      // Check if creator ATA exists, if not create it
+      try {
+        await getAccount(connection, creatorATA);
+      } catch {
+        transaction.add(
+          createAssociatedTokenAccountInstruction(
+            publicKey, // payer
+            creatorATA, // ata
+            creatorPubkey, // owner
+            mintPubkey // mint
+          )
+        );
+      }
+
+      // Add token transfer instruction
+      transaction.add(
+        createTransferInstruction(
+          userATA, // source
+          creatorATA, // destination  
+          publicKey, // owner
+          BigInt(tokenAmountUnits), // amount
+          [], // multiSigners
+          TOKEN_PROGRAM_ID
+        )
+      );
+
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      // Send and confirm transaction
+      toast.info("Please approve the transaction in your wallet...");
+      const signature = await sendTransaction(transaction, connection);
+      
+      toast.info("Confirming transaction...");
+      await connection.confirmTransaction(signature, "confirmed");
+
+      // Call edge function to update reserves and record trade
       const { data, error } = await supabase.functions.invoke("execute-trade", {
         body: {
           mintAddress: activeMint,
           tradeType: "sell",
           amount: tokenAmountUnits,
           walletAddress: walletAddress,
+          signature: signature,
         },
       });
 
       if (error) throw new Error(error.message);
       if (!data.success) throw new Error(data.error || "Trade failed");
 
-      const solReceived = (data.solOut || 0) / 1e9; // Convert lamports to SOL
+      const solReceived = (data.solOut || 0) / 1e9;
       const usdVolume = solReceived * (solUsdPrice || 0);
       await updateTradingVolume(walletAddress, usdVolume);
       
-      toast.success(`Sold for ${solReceived.toFixed(4)} SOL!`);
+      toast.success(`Sold for ${solReceived.toFixed(4)} SOL! TX: ${signature.slice(0, 8)}...`);
       setSellAmount("");
       loadTokenInfo();
       fetchUserBalance();
     } catch (error: any) {
+      console.error("Sell error:", error);
       toast.error(error.message || "Transaction failed");
     }
     setTrading(false);
