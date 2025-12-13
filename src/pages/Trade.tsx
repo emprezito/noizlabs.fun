@@ -17,11 +17,12 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff } from "lucide-react";
-import { Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
+import { TradingViewChart } from "@/components/TradingViewChart";
+import { fetchTradeHistoryCandles, fetchDexScreenerData, CandleData } from "@/lib/chartData";
 
 // Bonding curve constants for price impact calculation
 const PLATFORM_FEE_BPS = 25;
@@ -41,6 +42,9 @@ interface TokenInfo {
   tokenReserves: number;
   mint: string;
   creatorWallet: string;
+  priceChange24h?: number;
+  volume24h?: number;
+  liquidity?: number;
 }
 
 interface TradeTransaction {
@@ -52,17 +56,7 @@ interface TradeTransaction {
   wallet: string;
 }
 
-const generateChartData = () => {
-  const data = [];
-  let price = 0.00001;
-  for (let i = 0; i < 24; i++) {
-    price = price + (Math.random() - 0.4) * 0.000005;
-    price = Math.max(0.000005, price);
-    data.push({ time: `${i}:00`, price, volume: Math.random() * 5 });
-  }
-  return data;
-};
-
+// Demo transactions for display
 const DEMO_TRANSACTIONS: TradeTransaction[] = [
   { id: "1", type: "buy", amount: 1500000, price: 0.00001765, timestamp: Date.now() - 300000, wallet: "7Np...abc" },
   { id: "2", type: "sell", amount: 500000, price: 0.00001720, timestamp: Date.now() - 900000, wallet: "8Kp...def" },
@@ -105,7 +99,7 @@ const TradePage = () => {
   const [userBalance, setUserBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [chartData, setChartData] = useState(generateChartData());
+  const [candleData, setCandleData] = useState<CandleData[]>([]);
   const [transactions] = useState<TradeTransaction[]>(DEMO_TRANSACTIONS);
   const [isLive, setIsLive] = useState(false);
   
@@ -226,14 +220,8 @@ const TradePage = () => {
             tokenReserves,
           } : null);
 
-          setChartData(prev => {
-            const newData = [...prev.slice(1), {
-              time: new Date().toLocaleTimeString().slice(0, 5),
-              price: newPrice,
-              volume: Math.random() * 5,
-            }];
-            return newData;
-          });
+          // Update candle data with new price point
+          fetchTradeHistoryCandles(activeMint).then(setCandleData);
         }
       )
       .subscribe((status) => {
@@ -247,7 +235,11 @@ const TradePage = () => {
   }, [activeMint, tokenInfo?.mint]);
 
   useEffect(() => {
-    if (activeMint) loadTokenInfo();
+    if (activeMint) {
+      loadTokenInfo();
+      // Load candle data
+      fetchTradeHistoryCandles(activeMint).then(setCandleData);
+    }
   }, [activeMint]);
 
   const loadTokenInfo = async () => {
@@ -287,6 +279,21 @@ const TradePage = () => {
             .maybeSingle();
           imageUri = clip?.cover_image_url || undefined;
         }
+
+        // Try to get DexScreener data for additional info
+        let priceChange24h = undefined;
+        let volume24h = undefined;
+        let liquidity = undefined;
+        try {
+          const dexData = await fetchDexScreenerData(activeMint);
+          if (dexData) {
+            priceChange24h = dexData.priceChange?.h24;
+            volume24h = dexData.volume?.h24;
+            liquidity = dexData.liquidity?.usd;
+          }
+        } catch (e) {
+          console.log("DexScreener data not available");
+        }
         
         setTokenInfo({
           name: token.name,
@@ -299,6 +306,9 @@ const TradePage = () => {
           tokenReserves,
           mint: activeMint,
           creatorWallet: token.creator_wallet,
+          priceChange24h,
+          volume24h,
+          liquidity,
         });
       } else {
         toast.error("Token not found in database");
@@ -555,35 +565,64 @@ const TradePage = () => {
               <div className="lg:col-span-2 space-y-6">
                 <div className="bg-card rounded-xl border border-border p-6">
                   <div className="flex items-start gap-6">
-                    <button onClick={() => setPlaying(!playing)} className="w-20 h-20 bg-primary rounded-xl flex items-center justify-center">
-                      {playing ? <Pause className="w-8 h-8 text-primary-foreground" /> : <Play className="w-8 h-8 text-primary-foreground ml-1" />}
-                    </button>
+                    {/* Token Image or Play Button */}
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                      {tokenInfo.imageUri ? (
+                        <img
+                          src={tokenInfo.imageUri}
+                          alt={tokenInfo.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
+                          <span className="text-3xl">🎵</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setPlaying(!playing)}
+                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      >
+                        {playing ? <Pause className="w-8 h-8 text-white" /> : <Play className="w-8 h-8 text-white ml-1" />}
+                      </button>
+                    </div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <h2 className="text-2xl font-bold">{tokenInfo.name}</h2>
-                        <span className="px-2 py-1 bg-noiz-purple/20 text-noiz-purple rounded-lg text-sm">${tokenInfo.symbol}</span>
+                        <span className="px-2 py-1 bg-primary/20 text-primary rounded-lg text-sm">${tokenInfo.symbol}</span>
+                        {tokenInfo.priceChange24h !== undefined && (
+                          <span className={`px-2 py-1 rounded-lg text-sm font-semibold ${
+                            tokenInfo.priceChange24h >= 0 
+                              ? "bg-green-500/20 text-green-500" 
+                              : "bg-red-500/20 text-red-500"
+                          }`}>
+                            {tokenInfo.priceChange24h >= 0 ? "+" : ""}{tokenInfo.priceChange24h.toFixed(2)}%
+                          </span>
+                        )}
                         {/* Live Indicator */}
                         <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${
-                          isLive ? "bg-noiz-green/20 text-noiz-green" : "bg-muted text-muted-foreground"
+                          isLive ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"
                         }`}>
                           {isLive ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
                           {isLive ? "Live" : "Static"}
                         </div>
                       </div>
-                      <div className="mt-4 grid grid-cols-4 gap-4 text-sm">
+                      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <p className="text-muted-foreground">Price</p>
-                          <p className="font-bold text-noiz-purple">{tokenInfo.price.toFixed(8)} SOL</p>
+                          <p className="font-bold text-primary">{tokenInfo.price.toFixed(8)} SOL</p>
                           <p className="text-xs text-muted-foreground">{formatUsd(tokenInfo.price)}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Liquidity</p>
-                          <p className="font-bold text-noiz-green">{tokenInfo.solReserves.toFixed(2)} SOL</p>
+                          <p className="font-bold text-green-500">{tokenInfo.solReserves.toFixed(4)} SOL</p>
                           <p className="text-xs text-muted-foreground">{formatUsd(tokenInfo.solReserves)}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Market Cap</p>
                           <p className="font-bold">{formatUsd(tokenInfo.solReserves * 2)}</p>
+                          {tokenInfo.volume24h && (
+                            <p className="text-xs text-muted-foreground">Vol: ${tokenInfo.volume24h.toLocaleString()}</p>
+                          )}
                         </div>
                         <div>
                           <p className="text-muted-foreground">Your Balance</p>
@@ -598,16 +637,8 @@ const TradePage = () => {
 
                 <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
                   <h3 className="font-bold mb-4">Price Chart</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs><linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#A855F7" stopOpacity={0.3} /><stop offset="95%" stopColor="#A855F7" stopOpacity={0} /></linearGradient></defs>
-                        <XAxis dataKey="time" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => v.toFixed(6)} />
-                        <Tooltip contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid #333", borderRadius: "8px" }} />
-                        <Area type="monotone" dataKey="price" stroke="#A855F7" strokeWidth={2} fill="url(#colorPrice)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                  <div className="h-80">
+                    <TradingViewChart data={candleData} height={300} />
                   </div>
                 </div>
               </div>
