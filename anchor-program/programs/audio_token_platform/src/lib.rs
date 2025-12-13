@@ -101,22 +101,15 @@ pub mod audio_token_platform {
         )?;
 
         // Mint initial token supply to the reserve account
-        let seeds = &[
-            TOKEN_CONFIG_SEED,
-            mint.as_ref(),
-            &[token_config_bump],
-        ];
-        let signer = &[&seeds[..]];
-
+        // Creator is the mint authority (set in account init)
         token::mint_to(
-            CpiContext::new_with_signer(
+            CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 MintTo {
                     mint: ctx.accounts.mint.to_account_info(),
                     to: ctx.accounts.reserve_token_account.to_account_info(),
                     authority: ctx.accounts.creator.to_account_info(),
                 },
-                signer,
             ),
             initial_token_reserve,
         )?;
