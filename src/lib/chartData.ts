@@ -136,13 +136,15 @@ export async function fetchTradeHistoryCandles(
       }
     }
 
-    const result = Array.from(candles.values());
+    let result = Array.from(candles.values());
     
     // If too few candles, pad with simulated data
     if (result.length < 10) {
-      const padded = padCandleData(result);
-      return padded;
+      result = padCandleData(result);
     }
+    
+    // CRITICAL: Sort by time ascending for lightweight-charts
+    result.sort((a, b) => a.time - b.time);
     
     return result;
   } catch (error) {
@@ -184,15 +186,18 @@ function generateDemoCandles(count: number = 24): CandleData[] {
 function padCandleData(existing: CandleData[], totalCount: number = 24): CandleData[] {
   if (existing.length === 0) return generateDemoCandles(totalCount);
   
-  const firstCandle = existing[0];
-  const padCount = totalCount - existing.length;
+  // Sort existing by time first
+  const sortedExisting = [...existing].sort((a, b) => a.time - b.time);
+  const firstCandle = sortedExisting[0];
+  const padCount = totalCount - sortedExisting.length;
   
-  if (padCount <= 0) return existing;
+  if (padCount <= 0) return sortedExisting;
   
   const padded: CandleData[] = [];
   let price = firstCandle.open;
   const firstTimeSeconds = firstCandle.time;
   
+  // Generate older candles (going back in time)
   for (let i = padCount; i > 0; i--) {
     const time = firstTimeSeconds - i * 60 * 60; // Subtract hours in seconds
     
@@ -212,7 +217,11 @@ function padCandleData(existing: CandleData[], totalCount: number = 24): CandleD
     });
   }
   
-  return [...padded.reverse(), ...existing];
+  // Combine and sort by time ascending
+  const combined = [...padded, ...sortedExisting];
+  combined.sort((a, b) => a.time - b.time);
+  
+  return combined;
 }
 
 // Fetch raw trade history for display
