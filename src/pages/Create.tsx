@@ -126,9 +126,9 @@ const CreatePage = () => {
       const mintKeypair = Keypair.generate();
 
       const params: CreateAudioTokenParams = {
-        name: name.slice(0, 50),  // Rust validates max 50 chars
+        name: name.slice(0, 32),  // Rust validates max 32 chars
         symbol: symbol.slice(0, 10),
-        metadataUri: metadataUri.slice(0, 200),
+        metadataUri: metadataUri.slice(0, 100),  // Rust validates max 100 chars
         totalSupply: BigInt(1_000_000_000 * 1e9),
       };
 
