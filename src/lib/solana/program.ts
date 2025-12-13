@@ -1,18 +1,18 @@
-import { Program, AnchorProvider, BN, Idl } from "@coral-xyz/anchor";
 import {
   Connection,
   PublicKey,
   Keypair,
   Transaction,
-  SystemProgram,
-  SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import {
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
-import { PROGRAM_ID, TOKEN_CONFIG_SEED, LP_ACCOUNT_SEED, PLATFORM_FEE_ACCOUNT, IDL } from "./idl";
+import { PROGRAM_ID, TOKEN_CONFIG_SEED, LP_ACCOUNT_SEED, PLATFORM_FEE_ACCOUNT } from "./idl";
+import {
+  createAudioTokenInstruction,
+  buyTokensInstruction,
+  sellTokensInstruction,
+} from "./instructionBuilder";
 
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
@@ -57,23 +57,7 @@ export function getMetadataAddress(mint: PublicKey): PublicKey {
   return metadataAddress;
 }
 
-// Create a read-only provider for fetching data
-function getReadOnlyProvider(connection: Connection): AnchorProvider {
-  const dummyWallet = {
-    publicKey: PublicKey.default,
-    signTransaction: async <T>(tx: T): Promise<T> => tx,
-    signAllTransactions: async <T>(txs: T[]): Promise<T[]> => txs,
-  };
-  return new AnchorProvider(connection, dummyWallet as any, {
-    commitment: "confirmed",
-  });
-}
-
-// Get the program instance
-export function getProgram(connection: Connection): Program {
-  const provider = getReadOnlyProvider(connection);
-  return new Program(IDL as unknown as Idl, provider);
-}
+// Removed Anchor program initialization - using manual instruction builder
 
 export interface CreateAudioTokenParams {
   name: string;
@@ -83,14 +67,13 @@ export interface CreateAudioTokenParams {
   // Note: initialPrice is no longer needed - the program uses creator's SOL balance
 }
 
-// Create audio token with bonding curve using Anchor
+// Create audio token with bonding curve - using manual instruction builder
 export async function createAudioToken(
   connection: Connection,
   creator: PublicKey,
   mintKeypair: Keypair,
   params: CreateAudioTokenParams
 ): Promise<Transaction> {
-  const program = getProgram(connection);
   const mint = mintKeypair.publicKey;
 
   const [tokenConfigPDA] = getTokenConfigPDA(mint);
@@ -98,8 +81,7 @@ export async function createAudioToken(
   const metadataAddress = getMetadataAddress(mint);
   const reserveTokenAccount = await getAssociatedTokenAddress(mint, tokenConfigPDA, true);
 
-  console.log("Creating token with Anchor SDK:", {
-    program: program.programId.toString(),
+  console.log("Creating token with manual instruction builder:", {
     tokenConfig: tokenConfigPDA.toString(),
     lpAccount: lpAccountPDA.toString(),
     mint: mint.toString(),
@@ -108,30 +90,25 @@ export async function createAudioToken(
     creator: creator.toString(),
   });
 
-  // Account names in snake_case to match Anchor 0.30.1 IDL format
-  const tx = await program.methods
-    .createAudioToken(
-      params.name.slice(0, 32),
-      params.symbol.slice(0, 10),
-      params.metadataUri.slice(0, 200),
-      new BN(params.totalSupply.toString())
-    )
-    .accounts({
-      token_config: tokenConfigPDA,
-      lp_account: lpAccountPDA,
+  const instruction = await createAudioTokenInstruction(
+    {
+      tokenConfig: tokenConfigPDA,
+      lpAccount: lpAccountPDA,
       mint: mint,
-      reserve_token_account: reserveTokenAccount,
-      metadata_account: metadataAddress,
+      reserveTokenAccount: reserveTokenAccount,
+      metadataAccount: metadataAddress,
       creator: creator,
-      token_metadata_program: TOKEN_METADATA_PROGRAM_ID,
-      platform_fee_account: platformFeeAccount,
-      system_program: SystemProgram.programId,
-      token_program: TOKEN_PROGRAM_ID,
-      associated_token_program: ASSOCIATED_TOKEN_PROGRAM_ID,
-      rent: SYSVAR_RENT_PUBKEY,
-    })
-    .transaction();
+      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+    },
+    {
+      name: params.name.slice(0, 32),
+      symbol: params.symbol.slice(0, 10),
+      metadataUri: params.metadataUri.slice(0, 200),
+      totalSupply: params.totalSupply,
+    }
+  );
 
+  const tx = new Transaction().add(instruction);
   tx.feePayer = creator;
   const { blockhash } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
@@ -145,38 +122,33 @@ export async function createAudioToken(
 // Legacy alias
 export const createAudioTokenWithCurve = createAudioToken;
 
-// Buy tokens using Anchor - Updated for new signature
+// Buy tokens - using manual instruction builder
 export async function buyTokens(
   connection: Connection,
   buyer: PublicKey,
   mint: PublicKey,
   solAmount: bigint,
-  minTokensOut: bigint = BigInt(0) // Default: no slippage protection
+  minTokensOut: bigint = BigInt(0)
 ): Promise<Transaction> {
-  const program = getProgram(connection);
-
   const [tokenConfigPDA] = getTokenConfigPDA(mint);
   const reserveTokenAccount = await getAssociatedTokenAddress(mint, tokenConfigPDA, true);
   const buyerTokenAccount = await getAssociatedTokenAddress(mint, buyer);
 
-  const tx = await program.methods
-    .buyTokens(
-      new BN(solAmount.toString()),
-      new BN(minTokensOut.toString())
-    )
-    .accounts({
-      token_config: tokenConfigPDA,
+  const instruction = await buyTokensInstruction(
+    {
+      tokenConfig: tokenConfigPDA,
       mint: mint,
-      reserve_token_account: reserveTokenAccount,
-      buyer_token_account: buyerTokenAccount,
+      reserveTokenAccount: reserveTokenAccount,
+      buyerTokenAccount: buyerTokenAccount,
       buyer: buyer,
-      platform_fee_account: platformFeeAccount,
-      system_program: SystemProgram.programId,
-      token_program: TOKEN_PROGRAM_ID,
-      associated_token_program: ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .transaction();
+    },
+    {
+      solAmount: solAmount,
+      minTokensOut: minTokensOut,
+    }
+  );
 
+  const tx = new Transaction().add(instruction);
   tx.feePayer = buyer;
   const { blockhash } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
@@ -184,38 +156,35 @@ export async function buyTokens(
   return tx;
 }
 
-// Sell tokens using Anchor - Updated for new signature
+// Sell tokens - using manual instruction builder
 export async function sellTokens(
   connection: Connection,
   seller: PublicKey,
   mint: PublicKey,
   tokenAmount: bigint,
-  minSolOut: bigint = BigInt(0) // Default: no slippage protection
+  minSolOut: bigint = BigInt(0)
 ): Promise<Transaction> {
-  const program = getProgram(connection);
-
   const [tokenConfigPDA] = getTokenConfigPDA(mint);
   const [lpAccountPDA] = getLpAccountPDA(mint);
   const reserveTokenAccount = await getAssociatedTokenAddress(mint, tokenConfigPDA, true);
   const sellerTokenAccount = await getAssociatedTokenAddress(mint, seller);
 
-  const tx = await program.methods
-    .sellTokens(
-      new BN(tokenAmount.toString()),
-      new BN(minSolOut.toString())
-    )
-    .accounts({
-      token_config: tokenConfigPDA,
-      lp_account: lpAccountPDA,
+  const instruction = await sellTokensInstruction(
+    {
+      tokenConfig: tokenConfigPDA,
+      lpAccount: lpAccountPDA,
       mint: mint,
-      reserve_token_account: reserveTokenAccount,
-      seller_token_account: sellerTokenAccount,
+      reserveTokenAccount: reserveTokenAccount,
+      sellerTokenAccount: sellerTokenAccount,
       seller: seller,
-      platform_fee_account: platformFeeAccount,
-      token_program: TOKEN_PROGRAM_ID,
-    })
-    .transaction();
+    },
+    {
+      tokenAmount: tokenAmount,
+      minSolOut: minSolOut,
+    }
+  );
 
+  const tx = new Transaction().add(instruction);
   tx.feePayer = seller;
   const { blockhash } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
