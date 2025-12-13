@@ -12,15 +12,6 @@ import { toast } from "sonner";
 import { Search, TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, ExternalLink, AlertCircle, Wifi, WifiOff } from "lucide-react";
 import { Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { 
-  fetchBondingCurve, 
-  fetchAudioToken, 
-  buyTokens, 
-  sellTokens,
-  calculateBuyPrice,
-  calculateSellReturn,
-  getBondingCurvePDA 
-} from "@/lib/solana/program";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -99,76 +90,53 @@ const TradePage = () => {
   const [chartData, setChartData] = useState(generateChartData());
   const [transactions] = useState<TradeTransaction[]>(DEMO_TRANSACTIONS);
   const [isLive, setIsLive] = useState(false);
-  const [subscriptionId, setSubscriptionId] = useState<number | null>(null);
 
-  // Set up real-time price subscription
+  // Set up real-time subscription for token data from Supabase
   useEffect(() => {
     if (!activeMint || !tokenInfo) return;
 
-    // Validate mint address before creating PublicKey
-    try {
-      new PublicKey(activeMint);
-    } catch {
-      return; // Invalid mint, don't set up subscription
-    }
-
-    try {
-      const mintPubkey = new PublicKey(activeMint);
-      const [curvePDA] = getBondingCurvePDA(mintPubkey);
-
-      const subId = connection.onAccountChange(
-        curvePDA,
-        (accountInfo) => {
-          const data = accountInfo.data;
-          if (data.length >= 89) {
-            let offset = 8 + 32 + 32; // Skip discriminator, mint, creator
-            const solReserves = Number(data.readBigUInt64LE(offset)) / 1e9;
-            offset += 8;
-            const tokenReserves = Number(data.readBigUInt64LE(offset)) / 1e9;
-            
-            const newPrice = tokenReserves > 0 ? solReserves / tokenReserves : 0;
-            
-            setTokenInfo(prev => prev ? {
-              ...prev,
-              price: newPrice,
-              solReserves,
-              tokenReserves,
-            } : null);
-
-            // Add to chart data
-            setChartData(prev => {
-              const newData = [...prev.slice(1), {
-                time: new Date().toLocaleTimeString().slice(0, 5),
-                price: newPrice,
-                volume: Math.random() * 5,
-              }];
-              return newData;
-            });
-          }
+    const channel = supabase
+      .channel(`token-${activeMint}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tokens',
+          filter: `mint_address=eq.${activeMint}`,
         },
-        "confirmed"
-      );
+        (payload) => {
+          const data = payload.new as any;
+          const solReserves = Number(data.sol_reserves) / 1e9;
+          const tokenReserves = Number(data.token_reserves) / 1e9;
+          const newPrice = tokenReserves > 0 ? solReserves / tokenReserves : 0;
+          
+          setTokenInfo(prev => prev ? {
+            ...prev,
+            price: newPrice,
+            solReserves,
+            tokenReserves,
+          } : null);
 
-      setSubscriptionId(subId);
-      setIsLive(true);
+          setChartData(prev => {
+            const newData = [...prev.slice(1), {
+              time: new Date().toLocaleTimeString().slice(0, 5),
+              price: newPrice,
+              volume: Math.random() * 5,
+            }];
+            return newData;
+          });
+        }
+      )
+      .subscribe((status) => {
+        setIsLive(status === 'SUBSCRIBED');
+      });
 
-      return () => {
-        connection.removeAccountChangeListener(subId);
-        setIsLive(false);
-      };
-    } catch (error) {
-      console.error("Error setting up subscription:", error);
-    }
-  }, [activeMint, tokenInfo?.mint]);
-
-  // Cleanup on unmount
-  useEffect(() => {
     return () => {
-      if (subscriptionId !== null) {
-        connection.removeAccountChangeListener(subscriptionId);
-      }
+      supabase.removeChannel(channel);
+      setIsLive(false);
     };
-  }, [subscriptionId]);
+  }, [activeMint, tokenInfo?.mint]);
 
   useEffect(() => {
     if (activeMint) loadTokenInfo();
@@ -178,9 +146,8 @@ const TradePage = () => {
     if (!activeMint) return;
     
     // Validate mint address
-    let mintPubkey: PublicKey;
     try {
-      mintPubkey = new PublicKey(activeMint);
+      new PublicKey(activeMint);
     } catch {
       toast.error("Invalid mint address format");
       return;
@@ -188,30 +155,35 @@ const TradePage = () => {
 
     setLoading(true);
     try {
-      const [audioToken, bondingCurve] = await Promise.all([
-        fetchAudioToken(connection, mintPubkey),
-        fetchBondingCurve(connection, mintPubkey),
-      ]);
+      // Fetch token from Supabase database
+      const { data: token, error } = await supabase
+        .from("tokens")
+        .select("*")
+        .eq("mint_address", activeMint)
+        .maybeSingle();
 
-      if (audioToken && bondingCurve) {
-        const price = bondingCurve.tokenReserves > 0 
-          ? bondingCurve.solReserves / bondingCurve.tokenReserves 
-          : 0;
+      if (error) throw error;
+
+      if (token) {
+        const solReserves = Number(token.sol_reserves) / 1e9;
+        const tokenReserves = Number(token.token_reserves) / 1e9;
+        const price = tokenReserves > 0 ? solReserves / tokenReserves : 0;
+        
         setTokenInfo({
-          name: audioToken.name,
-          symbol: audioToken.symbol,
-          audioUri: audioToken.audioUri,
-          totalSupply: audioToken.totalSupply,
+          name: token.name,
+          symbol: token.symbol,
+          audioUri: token.audio_url || "",
+          totalSupply: Number(token.total_supply),
           price,
-          solReserves: bondingCurve.solReserves,
-          tokenReserves: bondingCurve.tokenReserves,
+          solReserves,
+          tokenReserves,
           mint: activeMint,
         });
       } else {
-        toast.error("Token not found on-chain");
+        toast.error("Token not found in database");
         setTokenInfo(null);
       }
-      setUserBalance("1500000");
+      setUserBalance("0"); // TODO: Fetch actual user balance
     } catch (error) {
       console.error("Error loading token:", error);
       toast.error("Failed to load token data");
@@ -244,36 +216,26 @@ const TradePage = () => {
     
     setTrading(true);
     try {
-      const mintPubkey = new PublicKey(activeMint);
-      const solAmountLamports = BigInt(Math.floor(parseFloat(buyAmount) * 1e9)); // SOL in lamports
-      const minTokensOut = BigInt(0); // No slippage protection for now
-      const transaction = await buyTokens(connection, publicKey, mintPubkey, solAmountLamports, minTokensOut);
-      const signature = await sendTransaction(transaction, connection);
-      await connection.confirmTransaction(signature, "confirmed");
-      
       const solAmountNum = parseFloat(buyAmount);
-      const usdVolume = solAmountNum * (solUsdPrice || 0);
       const walletAddress = publicKey.toString();
-      const estimatedTokens = Math.floor(solAmountNum / tokenInfo.price);
 
-      // Record trade in database
-      try {
-        await supabase.from("trade_history").insert({
-          wallet_address: walletAddress,
+      // Call edge function for trade execution
+      const { data, error } = await supabase.functions.invoke("execute-trade", {
+        body: {
           mint_address: activeMint,
           trade_type: "buy",
-          amount: estimatedTokens,
-          price_lamports: Math.floor(solAmountNum * 1e9),
-          signature,
-        });
-      } catch (dbError) {
-        console.error("Error saving trade:", dbError);
-      }
+          sol_amount: solAmountNum,
+          wallet_address: walletAddress,
+        },
+      });
 
-      // Update trading tasks
+      if (error) throw new Error(error.message);
+      if (!data.success) throw new Error(data.error || "Trade failed");
+
+      const usdVolume = solAmountNum * (solUsdPrice || 0);
       await updateTradingVolume(walletAddress, usdVolume);
       
-      toast.success(`Bought tokens! TX: ${signature.slice(0, 8)}...`);
+      toast.success(`Bought ${data.tokens_received?.toLocaleString() || ""} tokens!`);
       setBuyAmount("");
       loadTokenInfo();
     } catch (error: any) {
@@ -288,36 +250,27 @@ const TradePage = () => {
     
     setTrading(true);
     try {
-      const mintPubkey = new PublicKey(activeMint);
-      const tokenAmountBigInt = BigInt(Math.floor(parseFloat(sellAmount) * 1e9));
-      const minSolOut = BigInt(0); // No slippage protection for now
-      const transaction = await sellTokens(connection, publicKey, mintPubkey, tokenAmountBigInt, minSolOut);
-      const signature = await sendTransaction(transaction, connection);
-      await connection.confirmTransaction(signature, "confirmed");
-      
       const tokenAmountNum = parseFloat(sellAmount);
-      const solReceived = tokenAmountNum * tokenInfo.price;
-      const usdVolume = solReceived * (solUsdPrice || 0);
       const walletAddress = publicKey.toString();
 
-      // Record trade in database
-      try {
-        await supabase.from("trade_history").insert({
-          wallet_address: walletAddress,
+      // Call edge function for trade execution
+      const { data, error } = await supabase.functions.invoke("execute-trade", {
+        body: {
           mint_address: activeMint,
           trade_type: "sell",
-          amount: Math.floor(tokenAmountNum * 1e9),
-          price_lamports: Math.floor(solReceived * 1e9),
-          signature,
-        });
-      } catch (dbError) {
-        console.error("Error saving trade:", dbError);
-      }
+          token_amount: tokenAmountNum,
+          wallet_address: walletAddress,
+        },
+      });
 
-      // Update trading tasks
+      if (error) throw new Error(error.message);
+      if (!data.success) throw new Error(data.error || "Trade failed");
+
+      const solReceived = data.sol_received || 0;
+      const usdVolume = solReceived * (solUsdPrice || 0);
       await updateTradingVolume(walletAddress, usdVolume);
       
-      toast.success(`Sold tokens! TX: ${signature.slice(0, 8)}...`);
+      toast.success(`Sold for ${solReceived.toFixed(4)} SOL!`);
       setSellAmount("");
       loadTokenInfo();
     } catch (error: any) {
