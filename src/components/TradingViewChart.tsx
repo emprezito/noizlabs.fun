@@ -108,8 +108,11 @@ export function TradingViewChart({ data, height = 300 }: TradingViewChartProps) 
   useEffect(() => {
     if (!candleSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
 
+    // Sort data by time ascending (required by lightweight-charts)
+    const sortedData = [...data].sort((a, b) => a.time - b.time);
+
     // Convert data format - time is already Unix timestamp in seconds
-    const candleData: CandlestickData<Time>[] = data.map((d) => ({
+    const candleData: CandlestickData<Time>[] = sortedData.map((d) => ({
       time: d.time as UTCTimestamp,
       open: d.open,
       high: d.high,
@@ -117,7 +120,7 @@ export function TradingViewChart({ data, height = 300 }: TradingViewChartProps) 
       close: d.close,
     }));
 
-    const volumeData = data.map((d) => ({
+    const volumeData = sortedData.map((d) => ({
       time: d.time as UTCTimestamp,
       value: d.volume || 0,
       color: d.close >= d.open ? "rgba(34, 197, 94, 0.5)" : "rgba(239, 68, 68, 0.5)",

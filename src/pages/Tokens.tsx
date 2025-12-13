@@ -299,8 +299,8 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
   }, []);
 
   return (
-    <Link
-      to={`/trade?mint=${token.mint_address}`}
+    <div
+      onClick={() => window.location.href = `/trade?mint=${token.mint_address}`}
       className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 transition-colors cursor-pointer group"
     >
       {/* Token Info */}
@@ -364,11 +364,11 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
             <Copy className="w-4 h-4 text-muted-foreground" />
           )}
         </button>
-        <Button size="sm">
+        <Button size="sm" onClick={(e) => e.stopPropagation()}>
           Trade
         </Button>
       </div>
-    </Link>
+    </div>
   );
 }
 
