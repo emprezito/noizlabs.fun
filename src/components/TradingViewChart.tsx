@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, Time } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, UTCTimestamp } from "lightweight-charts";
 
 interface TradingViewChartProps {
   data: Array<{
-    time: string;
+    time: number; // Unix timestamp in seconds
     open: number;
     high: number;
     low: number;
@@ -108,9 +108,9 @@ export function TradingViewChart({ data, height = 300 }: TradingViewChartProps) 
   useEffect(() => {
     if (!candleSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
 
-    // Convert data format
+    // Convert data format - time is already Unix timestamp in seconds
     const candleData: CandlestickData<Time>[] = data.map((d) => ({
-      time: d.time as Time,
+      time: d.time as UTCTimestamp,
       open: d.open,
       high: d.high,
       low: d.low,
@@ -118,7 +118,7 @@ export function TradingViewChart({ data, height = 300 }: TradingViewChartProps) 
     }));
 
     const volumeData = data.map((d) => ({
-      time: d.time as Time,
+      time: d.time as UTCTimestamp,
       value: d.volume || 0,
       color: d.close >= d.open ? "rgba(34, 197, 94, 0.5)" : "rgba(239, 68, 68, 0.5)",
     }));
