@@ -203,18 +203,24 @@ const CreatePage = () => {
       const walletAddress = publicKey.toString();
       const mintAddr = mintKeypair.publicKey.toString();
 
-      // Save token to database with bonding curve initialization
-      const initialTokenReserve = 100_000_000_000_000_000; // 10% of 1B tokens with 9 decimals
+      // Save token to database with pump.fun style bonding curve
+      // Initial: 0.01 SOL virtual reserves, 800M tokens = price starts very low
+      const initialSolReserves = 10000000; // 0.01 SOL in lamports
+      const initialTokenReserves = 800_000_000_000_000_000; // 800M tokens with 9 decimals
       try {
         await supabase.from("tokens").insert({
           mint_address: mintAddr,
           name: name.slice(0, 32),
           symbol: symbol.slice(0, 10),
           creator_wallet: walletAddress,
-          initial_price: 10000,
+          initial_price: 1, // Starting price is very low
           total_supply: 1_000_000_000,
           metadata_uri: metadataUri,
           audio_clip_id: preloadedClipId || null,
+          sol_reserves: initialSolReserves,
+          token_reserves: initialTokenReserves,
+          tokens_sold: 0,
+          total_volume: 0,
         } as any);
       } catch (dbError) {
         console.error("Error saving token to database:", dbError);
@@ -651,9 +657,22 @@ const CreatePage = () => {
                         className="font-mono text-xs cursor-pointer"
                       />
                     </div>
-                    <p className="text-center font-bold text-foreground">
-                      👉 Copy this and paste in "Trade Token" tab!
-                    </p>
+                    <div className="flex gap-3 flex-wrap">
+                      <a
+                        href={`https://explorer.solana.com/address/${mintAddress}?cluster=devnet`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        🔍 View on Solana Explorer
+                      </a>
+                      <a
+                        href={`/trade?mint=${mintAddress}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/80 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        📈 Trade Now
+                      </a>
+                    </div>
                   </div>
                 </div>
               )}

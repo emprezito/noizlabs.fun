@@ -1,149 +1,80 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useConnection } from "@solana/wallet-adapter-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Wifi, WifiOff, Copy, Check } from "lucide-react";
-import { fetchAllTokensWithCurves, TokenWithCurve, getBondingCurvePDA } from "@/lib/solana/fetchTokens";
-import { PublicKey } from "@solana/web3.js";
+import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Copy, Check, ExternalLink } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSolPrice } from "@/hooks/useSolPrice";
 
-interface AudioTokenData {
-  mint: string;
+interface TokenData {
+  id: string;
+  mint_address: string;
   name: string;
   symbol: string;
-  audioUri: string;
-  authority: string;
-  totalSupply: string;
-  createdAt: number;
-  bondingCurveData?: {
-    solReserves: string;
-    tokenReserves: string;
-    tokensSold: string;
-    price: number;
-  };
+  creator_wallet: string;
+  audio_url: string | null;
+  metadata_uri: string | null;
+  total_supply: number;
+  sol_reserves: number;
+  token_reserves: number;
+  tokens_sold: number;
+  total_volume: number;
+  created_at: string;
+  is_active: boolean;
 }
 
 const TokensPage = () => {
-  const { connection } = useConnection();
-  const [tokens, setTokens] = useState<AudioTokenData[]>([]);
+  const { price: solUsdPrice, formatUsd } = useSolPrice();
+  const [tokens, setTokens] = useState<TokenData[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<"all" | "trending" | "new">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLive, setIsLive] = useState(false);
-  const [subscriptionIds, setSubscriptionIds] = useState<number[]>([]);
 
-  // Convert blockchain data to UI format
-  const convertToUIFormat = useCallback((tokensWithCurves: TokenWithCurve[]): AudioTokenData[] => {
-    return tokensWithCurves.map(({ audioToken, bondingCurve, currentPrice }) => ({
-      mint: audioToken.mint,
-      name: audioToken.name,
-      symbol: audioToken.symbol,
-      audioUri: audioToken.audioUri,
-      authority: audioToken.authority,
-      totalSupply: String(audioToken.totalSupply * 1e9),
-      createdAt: audioToken.createdAt,
-      bondingCurveData: bondingCurve ? {
-        solReserves: String(bondingCurve.solReserves * 1e9),
-        tokenReserves: String(bondingCurve.tokenReserves * 1e9),
-        tokensSold: String(bondingCurve.tokensSold * 1e9),
-        price: currentPrice,
-      } : undefined,
-    }));
-  }, []);
-
-  // Fetch tokens from blockchain
-  const fetchAllTokens = useCallback(async () => {
+  // Fetch tokens from Supabase
+  const fetchAllTokens = async () => {
     setLoading(true);
     try {
-      const tokensWithCurves = await fetchAllTokensWithCurves(connection);
-      
-      if (tokensWithCurves.length > 0) {
-        const uiTokens = convertToUIFormat(tokensWithCurves);
-        setTokens(uiTokens);
-        
-        // Set up real-time subscriptions
-        setupSubscriptions(tokensWithCurves);
-      } else {
-        setTokens([]);
-      }
+      const { data, error } = await supabase
+        .from("tokens")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setTokens(data || []);
     } catch (error) {
       console.error("Error fetching tokens:", error);
+      toast.error("Failed to load tokens");
       setTokens([]);
     }
     setLoading(false);
-  }, [connection, convertToUIFormat]);
+  };
 
-  // Set up WebSocket subscriptions for real-time updates
-  const setupSubscriptions = useCallback((tokensWithCurves: TokenWithCurve[]) => {
-    // Clean up existing subscriptions
-    subscriptionIds.forEach(id => {
-      connection.removeAccountChangeListener(id);
-    });
-
-    const newIds: number[] = [];
-
-    tokensWithCurves.forEach(({ audioToken, bondingCurve }) => {
-      if (bondingCurve) {
-        try {
-          const [curvePDA] = getBondingCurvePDA(new PublicKey(audioToken.mint));
-          
-          const subId = connection.onAccountChange(
-            curvePDA,
-            (accountInfo) => {
-              // Update token price in real-time
-              const data = accountInfo.data;
-              if (data.length >= 89) {
-                let offset = 8 + 32 + 32; // Skip discriminator, mint, creator
-                const solReserves = Number(data.readBigUInt64LE(offset)) / 1e9;
-                offset += 8;
-                const tokenReserves = Number(data.readBigUInt64LE(offset)) / 1e9;
-                
-                const newPrice = tokenReserves > 0 ? solReserves / tokenReserves : 0;
-                
-                setTokens(prev => prev.map(t => {
-                  if (t.mint === audioToken.mint && t.bondingCurveData) {
-                    return {
-                      ...t,
-                      bondingCurveData: {
-                        ...t.bondingCurveData,
-                        solReserves: String(solReserves * 1e9),
-                        tokenReserves: String(tokenReserves * 1e9),
-                        price: newPrice,
-                      },
-                    };
-                  }
-                  return t;
-                }));
-              }
-            },
-            "confirmed"
-          );
-          newIds.push(subId);
-        } catch (error) {
-          console.error("Error setting up subscription:", error);
-        }
-      }
-    });
-
-    setSubscriptionIds(newIds);
-    setIsLive(newIds.length > 0);
-  }, [connection, subscriptionIds]);
-
-  // Cleanup subscriptions on unmount
-  useEffect(() => {
-    return () => {
-      subscriptionIds.forEach(id => {
-        connection.removeAccountChangeListener(id);
-      });
-    };
-  }, []);
-
-  // Initial fetch
+  // Set up real-time subscription
   useEffect(() => {
     fetchAllTokens();
+
+    const channel = supabase
+      .channel("tokens-list")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tokens",
+        },
+        () => {
+          fetchAllTokens();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const filteredTokens = tokens
@@ -158,16 +89,17 @@ const TokensPage = () => {
     })
     .sort((a, b) => {
       if (filter === "new") {
-        return b.createdAt - a.createdAt;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
       if (filter === "trending") {
-        return (b.bondingCurveData?.price || 0) - (a.bondingCurveData?.price || 0);
+        // Sort by volume
+        return (b.total_volume || 0) - (a.total_volume || 0);
       }
       return 0;
     });
 
   const totalVolume = tokens.reduce(
-    (sum, t) => sum + parseFloat(t.bondingCurveData?.solReserves || "0"),
+    (sum, t) => sum + (t.total_volume || 0),
     0
   ) / 1e9;
 
@@ -181,15 +113,8 @@ const TokensPage = () => {
             <div>
               <h1 className="text-3xl font-bold mb-2 text-foreground">🎵 Audio Tokens</h1>
               <p className="text-muted-foreground">
-                Discover and trade audio meme tokens
+                Discover and trade audio meme tokens created on NoizLabs
               </p>
-            </div>
-            {/* Live Indicator */}
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
-              isLive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-            }`}>
-              {isLive ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-              {isLive ? "Live" : "Demo Mode"}
             </div>
           </div>
 
@@ -275,10 +200,9 @@ const TokensPage = () => {
               <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm text-muted-foreground font-semibold">
                 <div className="col-span-3">Token</div>
                 <div className="col-span-2 text-right">Price</div>
-                <div className="col-span-2 text-right">24h %</div>
                 <div className="col-span-2 text-right">Market Cap</div>
                 <div className="col-span-2 text-right">Volume</div>
-                <div className="col-span-1 text-right">Actions</div>
+                <div className="col-span-3 text-right">Actions</div>
               </div>
             </div>
           )}
@@ -290,13 +214,16 @@ const TokensPage = () => {
                 <div className="text-center py-12">
                   <p className="text-muted-foreground text-lg">No tokens found</p>
                   <p className="text-muted-foreground/60 text-sm mt-2">
-                    Try a different search or filter
+                    Be the first to create one!
                   </p>
+                  <Link to="/create">
+                    <Button className="mt-4">Create Token</Button>
+                  </Link>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
                   {filteredTokens.map((token) => (
-                    <TokenRow key={token.mint} token={token} />
+                    <TokenRow key={token.id} token={token} formatUsd={formatUsd} />
                   ))}
                 </div>
               )}
@@ -309,39 +236,26 @@ const TokensPage = () => {
   );
 };
 
-function TokenRow({ token }: { token: AudioTokenData }) {
+function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: number) => string }) {
   const [playing, setPlaying] = useState(false);
   const [copied, setCopied] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const getCurrentPrice = () => {
-    if (!token.bondingCurveData) return 0;
-    const solReserves = parseFloat(token.bondingCurveData.solReserves) / 1e9;
-    const tokenReserves = parseFloat(token.bondingCurveData.tokenReserves) / 1e9;
-    if (tokenReserves === 0) return 0;
-    return solReserves / tokenReserves;
-  };
-
-  const getPriceChange = () => {
-    if (!token.bondingCurveData) return 0;
-    const sold = parseFloat(token.bondingCurveData.tokensSold) / 1e9;
-    const totalSupply = parseFloat(token.bondingCurveData.tokenReserves) / 1e9 + sold;
-    return (sold / totalSupply) * 100;
-  };
-
-  const price = getCurrentPrice();
-  const priceChange = getPriceChange();
-  const marketCap = token.bondingCurveData
-    ? parseFloat(token.bondingCurveData.solReserves) / 1e9
-    : 0;
-  const volume = marketCap * 0.3;
-  const priceInUSD = price * 200;
+  // Calculate price from reserves (pump.fun style)
+  const solReserves = (token.sol_reserves || 0) / 1e9;
+  const tokenReserves = (token.token_reserves || 0) / 1e9;
+  const price = tokenReserves > 0 ? solReserves / tokenReserves : 0;
+  
+  // Market cap = price * circulating supply (tokens sold)
+  const tokensSold = (token.tokens_sold || 0) / 1e9;
+  const marketCap = solReserves; // In bonding curve, liquidity = market cap
+  const volume = (token.total_volume || 0) / 1e9;
 
   const togglePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!token.audioUri) {
+    if (!token.audio_url) {
       toast.error("No audio available for this token");
       return;
     }
@@ -350,11 +264,10 @@ function TokenRow({ token }: { token: AudioTokenData }) {
       audioRef.current?.pause();
       setPlaying(false);
     } else {
-      // Stop all other audio elements first
       document.querySelectorAll('audio').forEach(audio => audio.pause());
       
       if (!audioRef.current) {
-        audioRef.current = new Audio(token.audioUri);
+        audioRef.current = new Audio(token.audio_url);
         audioRef.current.onended = () => setPlaying(false);
         audioRef.current.onerror = () => {
           toast.error("Failed to load audio");
@@ -372,13 +285,12 @@ function TokenRow({ token }: { token: AudioTokenData }) {
   const copyMint = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    navigator.clipboard.writeText(token.mint);
+    navigator.clipboard.writeText(token.mint_address);
     setCopied(true);
     toast.success("Mint address copied!");
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Cleanup audio on unmount
   useEffect(() => {
     return () => {
       audioRef.current?.pause();
@@ -388,7 +300,7 @@ function TokenRow({ token }: { token: AudioTokenData }) {
 
   return (
     <Link
-      to={`/trade?mint=${token.mint}`}
+      to={`/trade?mint=${token.mint_address}`}
       className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 transition-colors cursor-pointer group"
     >
       {/* Token Info */}
@@ -413,38 +325,34 @@ function TokenRow({ token }: { token: AudioTokenData }) {
 
       {/* Price */}
       <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-foreground">{price.toFixed(8)} SOL</p>
-        <p className="text-xs text-muted-foreground">${priceInUSD.toFixed(6)}</p>
-      </div>
-
-      {/* 24h Change */}
-      <div className="col-span-2 flex items-center justify-end">
-        <div
-          className={`px-3 py-1 rounded-lg font-semibold ${
-            priceChange >= 0
-              ? "bg-primary/10 text-primary"
-              : "bg-destructive/10 text-destructive"
-          }`}
-        >
-          {priceChange >= 0 ? "+" : ""}
-          {priceChange.toFixed(2)}%
-        </div>
+        <p className="font-semibold text-foreground">{price.toFixed(10)} SOL</p>
+        <p className="text-xs text-muted-foreground">{formatUsd(price)}</p>
       </div>
 
       {/* Market Cap */}
       <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-foreground">{marketCap.toFixed(2)} SOL</p>
-        <p className="text-xs text-muted-foreground">${(marketCap * 200).toFixed(0)}</p>
+        <p className="font-semibold text-foreground">{marketCap.toFixed(4)} SOL</p>
+        <p className="text-xs text-muted-foreground">{formatUsd(marketCap)}</p>
       </div>
 
       {/* Volume */}
       <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-foreground">{volume.toFixed(2)} SOL</p>
-        <p className="text-xs text-muted-foreground">${(volume * 200).toFixed(0)}</p>
+        <p className="font-semibold text-foreground">{volume.toFixed(4)} SOL</p>
+        <p className="text-xs text-muted-foreground">{formatUsd(volume)}</p>
       </div>
 
       {/* Actions */}
-      <div className="col-span-1 flex items-center justify-end gap-2">
+      <div className="col-span-3 flex items-center justify-end gap-2">
+        <a
+          href={`https://explorer.solana.com/address/${token.mint_address}?cluster=devnet`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+          title="View on Solana Explorer"
+        >
+          <ExternalLink className="w-4 h-4 text-muted-foreground" />
+        </a>
         <button
           onClick={copyMint}
           className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"

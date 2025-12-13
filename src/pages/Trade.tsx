@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,8 +24,8 @@ import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart } from "@/components/TradingViewChart";
 import { fetchTradeHistoryCandles, fetchDexScreenerData, fetchTradeHistory, CandleData, TradeHistoryItem } from "@/lib/chartData";
 
-// Bonding curve constants for price impact calculation
-const PLATFORM_FEE_BPS = 25;
+// Bonding curve constants for price impact calculation (pump.fun style - 1% fee)
+const PLATFORM_FEE_BPS = 100;
 const BASIS_POINTS_DIVISOR = 10000;
 
 // Platform fee wallet - receives SOL from buys
@@ -604,6 +604,16 @@ const TradePage = () => {
                           {isLive ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
                           {isLive ? "Live" : "Static"}
                         </div>
+                        {/* Solana Explorer Link */}
+                        <a
+                          href={`https://explorer.solana.com/address/${tokenInfo.mint}?cluster=devnet`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Explorer
+                        </a>
                       </div>
                       <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>

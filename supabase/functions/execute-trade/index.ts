@@ -6,16 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Bonding curve constants
-const PLATFORM_FEE_BPS = 25; // 0.25%
+// Bonding curve constants (pump.fun style)
+const PLATFORM_FEE_BPS = 100; // 1% platform fee
 const BASIS_POINTS_DIVISOR = 10000;
+
+// Initial virtual reserves for $5k market cap at ~$200/SOL
+// Virtual SOL = 0.01 SOL, Virtual Tokens = 800M (80% of 1B supply)
+// Price = sol_reserves / token_reserves = very small, rises as people buy
+const INITIAL_VIRTUAL_SOL = 10000000; // 0.01 SOL in lamports
+const INITIAL_TOKEN_RESERVES = 800_000_000_000_000_000; // 800M tokens with 9 decimals
 
 interface TradeRequest {
   mintAddress: string;
   walletAddress: string;
   tradeType: 'buy' | 'sell';
-  amount: number; // SOL amount in lamports for buy, token amount for sell
-  signature: string; // Transaction signature from user's transfer
+  amount: number; // SOL amount in lamports for buy, token amount (with decimals) for sell
+  signature: string;
 }
 
 interface BondingCurveResult {
@@ -28,17 +34,21 @@ interface BondingCurveResult {
 }
 
 /**
- * Calculate tokens received for SOL input using constant product formula (x * y = k)
+ * Pump.fun style bonding curve: x * y = k (constant product)
+ * Price = sol_reserves / token_reserves
+ * As people buy, sol_reserves ↑ and token_reserves ↓, so price ↑
  */
 function calculateBuy(solAmount: number, solReserves: number, tokenReserves: number): BondingCurveResult {
   const platformFee = Math.floor(solAmount * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
   const solAfterFee = solAmount - platformFee;
   
+  // Constant product: k = x * y
   const k = solReserves * tokenReserves;
   const newSolReserves = solReserves + solAfterFee;
   const newTokenReserves = Math.floor(k / newSolReserves);
   const tokensOut = tokenReserves - newTokenReserves;
   
+  // Calculate price impact
   const spotPrice = solReserves / tokenReserves;
   const executionPrice = tokensOut > 0 ? solAfterFee / tokensOut : 0;
   const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
@@ -53,7 +63,7 @@ function calculateBuy(solAmount: number, solReserves: number, tokenReserves: num
 }
 
 /**
- * Calculate SOL received for token input using constant product formula
+ * Sell tokens back to the curve
  */
 function calculateSell(tokenAmount: number, solReserves: number, tokenReserves: number): BondingCurveResult {
   const k = solReserves * tokenReserves;
