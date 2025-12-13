@@ -41,6 +41,14 @@ export function getLpAccountPDA(mint: PublicKey): [PublicKey, number] {
   );
 }
 
+// Reserve token account PDA - new derivation with seeds ["reserve", mint]
+export function getReserveTokenAccountPDA(mint: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("reserve"), mint.toBuffer()],
+    programId
+  );
+}
+
 // Legacy aliases for backward compatibility
 export const getAudioTokenPDA = getTokenConfigPDA;
 export const getBondingCurvePDA = getTokenConfigPDA;
@@ -79,7 +87,7 @@ export async function createAudioToken(
   const [tokenConfigPDA] = getTokenConfigPDA(mint);
   const [lpAccountPDA] = getLpAccountPDA(mint);
   const metadataAddress = getMetadataAddress(mint);
-  const reserveTokenAccount = await getAssociatedTokenAddress(mint, tokenConfigPDA, true);
+  const [reserveTokenAccount] = getReserveTokenAccountPDA(mint);
 
   console.log("Creating token with manual instruction builder:", {
     tokenConfig: tokenConfigPDA.toString(),
@@ -131,7 +139,7 @@ export async function buyTokens(
   minTokensOut: bigint = BigInt(0)
 ): Promise<Transaction> {
   const [tokenConfigPDA] = getTokenConfigPDA(mint);
-  const reserveTokenAccount = await getAssociatedTokenAddress(mint, tokenConfigPDA, true);
+  const [reserveTokenAccount] = getReserveTokenAccountPDA(mint);
   const buyerTokenAccount = await getAssociatedTokenAddress(mint, buyer);
 
   const instruction = await buyTokensInstruction(
@@ -166,7 +174,7 @@ export async function sellTokens(
 ): Promise<Transaction> {
   const [tokenConfigPDA] = getTokenConfigPDA(mint);
   const [lpAccountPDA] = getLpAccountPDA(mint);
-  const reserveTokenAccount = await getAssociatedTokenAddress(mint, tokenConfigPDA, true);
+  const [reserveTokenAccount] = getReserveTokenAccountPDA(mint);
   const sellerTokenAccount = await getAssociatedTokenAddress(mint, seller);
 
   const instruction = await sellTokensInstruction(
