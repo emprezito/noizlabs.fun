@@ -147,13 +147,16 @@ serve(async (req) => {
         );
       }
 
+      // Store: amount = tokens received, price_lamports = SOL spent
+      // This allows calculating price per token as price_lamports / amount
       tradeRecord = {
         mint_address: mintAddress,
         wallet_address: walletAddress,
         trade_type: 'buy',
         amount: result.tokensOut,
-        price_lamports: amount,
+        price_lamports: amount, // SOL spent in lamports
         signature,
+        token_id: token.id,
       };
 
       console.log(`Buy result: ${result.tokensOut} tokens for ${amount} lamports, sig: ${signature}`);
@@ -168,13 +171,15 @@ serve(async (req) => {
         );
       }
 
+      // Store: amount = tokens sold, price_lamports = SOL received
       tradeRecord = {
         mint_address: mintAddress,
         wallet_address: walletAddress,
         trade_type: 'sell',
-        amount: amount,
-        price_lamports: result.solOut,
+        amount: amount, // tokens sold
+        price_lamports: result.solOut, // SOL received in lamports
         signature,
+        token_id: token.id,
       };
 
       console.log(`Sell result: ${result.solOut} lamports for ${amount} tokens, sig: ${signature}`);

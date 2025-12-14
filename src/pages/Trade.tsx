@@ -266,6 +266,8 @@ const TradePage = () => {
       if (token) {
         const solReserves = Number(token.sol_reserves) / 1e9;
         const tokenReserves = Number(token.token_reserves) / 1e9;
+        // Price per token = SOL reserves / token reserves (in display units)
+        // This gives price in SOL per 1 token
         const price = tokenReserves > 0 ? solReserves / tokenReserves : 0;
         
         // Fetch associated audio clip for cover image

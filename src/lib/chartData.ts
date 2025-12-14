@@ -114,8 +114,13 @@ export async function fetchTradeHistoryCandles(
       const roundedTime = Math.floor(timestamp.getTime() / intervalMs) * intervalMs;
       const timeKey = Math.floor(roundedTime / 1000); // Unix timestamp in seconds
       
-      const price = Number(trade.price_lamports) / 1e9; // Convert lamports to SOL
-      const volume = Number(trade.amount) / 1e9;
+      // Calculate price per token from trade data
+      // price_lamports = total SOL paid/received, amount = tokens traded
+      const solAmount = Number(trade.price_lamports); // in lamports
+      const tokenAmount = Number(trade.amount); // in token smallest units
+      // Price = SOL per token (both in lamports/smallest units, ratio gives price)
+      const price = tokenAmount > 0 ? solAmount / tokenAmount : 0;
+      const volume = solAmount / 1e9; // Volume in SOL
       
       if (candles.has(timeKey)) {
         const candle = candles.get(timeKey)!;
