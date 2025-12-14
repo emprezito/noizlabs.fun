@@ -242,6 +242,18 @@ const TradePage = () => {
     }
   }, [activeMint]);
 
+  // Auto-refresh chart data and trade history every second
+  useEffect(() => {
+    if (!activeMint) return;
+
+    const refreshInterval = setInterval(() => {
+      fetchTradeHistoryCandles(activeMint).then(setCandleData);
+      fetchTradeHistory(activeMint).then(setTradeHistory);
+    }, 1000);
+
+    return () => clearInterval(refreshInterval);
+  }, [activeMint]);
+
   const loadTokenInfo = async () => {
     if (!activeMint) return;
     
