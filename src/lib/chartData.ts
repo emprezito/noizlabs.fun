@@ -100,8 +100,8 @@ export async function fetchTradeHistoryCandles(
       .order("created_at", { ascending: true });
 
     if (error || !trades || trades.length === 0) {
-      // Return demo data if no trades
-      return generateDemoCandles();
+      // Return empty array if no trades - don't show fake data
+      return [];
     }
 
     // Group trades by interval and create candles
@@ -138,90 +138,14 @@ export async function fetchTradeHistoryCandles(
 
     let result = Array.from(candles.values());
     
-    // If too few candles, pad with simulated data
-    if (result.length < 10) {
-      result = padCandleData(result);
-    }
-    
     // CRITICAL: Sort by time ascending for lightweight-charts
     result.sort((a, b) => a.time - b.time);
     
     return result;
   } catch (error) {
     console.error("Error fetching trade history:", error);
-    return generateDemoCandles();
+    return [];
   }
-}
-
-// Generate demo candle data
-function generateDemoCandles(count: number = 24): CandleData[] {
-  const candles: CandleData[] = [];
-  let price = 0.00001;
-  const now = Date.now();
-  
-  for (let i = count - 1; i >= 0; i--) {
-    const timeMs = now - i * 60 * 60 * 1000;
-    const time = Math.floor(timeMs / 1000); // Unix timestamp in seconds
-    
-    const change = (Math.random() - 0.45) * 0.000002;
-    const open = price;
-    price = Math.max(0.000001, price + change);
-    const close = price;
-    const variance = Math.abs(close - open) * 0.5;
-    
-    candles.push({
-      time,
-      open,
-      high: Math.max(open, close) + Math.random() * variance,
-      low: Math.min(open, close) - Math.random() * variance,
-      close,
-      volume: Math.random() * 10000,
-    });
-  }
-  
-  return candles;
-}
-
-// Pad candle data with simulated history
-function padCandleData(existing: CandleData[], totalCount: number = 24): CandleData[] {
-  if (existing.length === 0) return generateDemoCandles(totalCount);
-  
-  // Sort existing by time first
-  const sortedExisting = [...existing].sort((a, b) => a.time - b.time);
-  const firstCandle = sortedExisting[0];
-  const padCount = totalCount - sortedExisting.length;
-  
-  if (padCount <= 0) return sortedExisting;
-  
-  const padded: CandleData[] = [];
-  let price = firstCandle.open;
-  const firstTimeSeconds = firstCandle.time;
-  
-  // Generate older candles (going back in time)
-  for (let i = padCount; i > 0; i--) {
-    const time = firstTimeSeconds - i * 60 * 60; // Subtract hours in seconds
-    
-    const change = (Math.random() - 0.5) * price * 0.05;
-    const open = Math.max(0.000001, price - change);
-    const close = price;
-    price = open;
-    const variance = Math.abs(close - open) * 0.3;
-    
-    padded.push({
-      time,
-      open,
-      high: Math.max(open, close) + Math.random() * variance,
-      low: Math.min(open, close) - Math.random() * variance,
-      close,
-      volume: Math.random() * 5000,
-    });
-  }
-  
-  // Combine and sort by time ascending
-  const combined = [...padded, ...sortedExisting];
-  combined.sort((a, b) => a.time - b.time);
-  
-  return combined;
 }
 
 // Fetch raw trade history for display

@@ -30,8 +30,9 @@ const PLATFORM_FEE_WALLET = new PublicKey(
 const CREATION_FEE = 0.02 * LAMPORTS_PER_SOL;
 
 // Pump.fun style initial market cap: $5k at ~$200/SOL
-// Price = virtual_sol / token_reserves, Market cap = price * total_supply
-export const INITIAL_VIRTUAL_SOL_RESERVES = 0.025 * LAMPORTS_PER_SOL; // 0.025 SOL virtual reserves
+// Market cap = (sol_reserves / token_reserves) * total_supply
+// For $5k at $200/SOL: 25 SOL market cap = (25 SOL / 1B tokens) * 1B = 25 SOL
+export const INITIAL_VIRTUAL_SOL_RESERVES = 25 * LAMPORTS_PER_SOL; // 25 SOL virtual reserves for $5k market cap
 export const INITIAL_TOKEN_RESERVES = BigInt(950_000_000 * 1e9); // 950M tokens (95% for bonding curve)
 export const CREATOR_ALLOCATION = BigInt(50_000_000 * 1e9); // 50M tokens (5% to creator)
 

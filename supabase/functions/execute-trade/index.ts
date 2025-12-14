@@ -11,9 +11,9 @@ const PLATFORM_FEE_BPS = 100; // 1% platform fee
 const BASIS_POINTS_DIVISOR = 10000;
 
 // Initial virtual reserves for $5k market cap at ~$200/SOL
-// Virtual SOL = 0.025 SOL, Virtual Tokens = 950M (95% of 1B supply)
-// Price = sol_reserves / token_reserves = very small, rises as people buy
-const INITIAL_VIRTUAL_SOL = 25000000; // 0.025 SOL in lamports
+// Virtual SOL = 25 SOL, Virtual Tokens = 950M (95% of 1B supply)
+// Market cap = (sol_reserves / token_reserves) * total_supply = 25 SOL = ~$5k
+const INITIAL_VIRTUAL_SOL = 25_000_000_000; // 25 SOL in lamports
 const INITIAL_TOKEN_RESERVES = 950_000_000_000_000_000; // 950M tokens with 9 decimals
 
 interface TradeRequest {
