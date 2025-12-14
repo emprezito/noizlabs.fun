@@ -109,34 +109,33 @@ const TokensPage = () => {
       <main className="pt-20 pb-12">
         <div className="container mx-auto px-4">
           {/* Header */}
-          <div className="mb-6 flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2 text-foreground">🎵 Audio Tokens</h1>
-              <p className="text-muted-foreground">
-                Discover and trade audio meme tokens created on NoizLabs
-              </p>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2 text-foreground">🎵 Audio Tokens</h1>
+            <p className="text-muted-foreground text-sm md:text-base">
+              Discover and trade audio meme tokens created on NoizLabs
+            </p>
           </div>
 
           {/* Search & Filters Bar */}
-          <div className="mb-6 flex flex-col md:flex-row gap-4 items-center bg-card rounded-lg p-4 border border-border">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <div className="mb-4 md:mb-6 flex flex-col gap-3 bg-card rounded-lg p-3 md:p-4 border border-border">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search tokens..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-9 md:pl-10 text-sm"
               />
             </div>
 
             {/* Filter Buttons */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 onClick={() => setFilter("all")}
                 variant={filter === "all" ? "default" : "outline"}
                 size="sm"
+                className="text-xs md:text-sm"
               >
                 All
               </Button>
@@ -144,43 +143,46 @@ const TokensPage = () => {
                 onClick={() => setFilter("trending")}
                 variant={filter === "trending" ? "default" : "outline"}
                 size="sm"
+                className="text-xs md:text-sm"
               >
-                <TrendingUp className="w-4 h-4 mr-1" />
+                <TrendingUp className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 Trending
               </Button>
               <Button
                 onClick={() => setFilter("new")}
                 variant={filter === "new" ? "default" : "outline"}
                 size="sm"
+                className="text-xs md:text-sm"
               >
-                <Sparkles className="w-4 h-4 mr-1" />
+                <Sparkles className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 New
               </Button>
               <Button
                 onClick={fetchAllTokens}
                 variant="outline"
                 size="sm"
+                className="ml-auto"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-3 h-3 md:w-4 md:h-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
             </div>
           </div>
 
           {/* Stats Bar */}
-          <div className="mb-6 grid grid-cols-3 gap-4">
-            <div className="bg-card rounded-lg p-4 border border-border">
-              <p className="text-muted-foreground text-sm">Total Tokens</p>
-              <p className="text-2xl font-bold text-foreground">{tokens.length}</p>
+          <div className="mb-4 md:mb-6 grid grid-cols-3 gap-2 md:gap-4">
+            <div className="bg-card rounded-lg p-3 md:p-4 border border-border">
+              <p className="text-muted-foreground text-xs md:text-sm">Total Tokens</p>
+              <p className="text-lg md:text-2xl font-bold text-foreground">{tokens.length}</p>
             </div>
-            <div className="bg-card rounded-lg p-4 border border-border">
-              <p className="text-muted-foreground text-sm">Showing</p>
-              <p className="text-2xl font-bold text-accent">
+            <div className="bg-card rounded-lg p-3 md:p-4 border border-border">
+              <p className="text-muted-foreground text-xs md:text-sm">Showing</p>
+              <p className="text-lg md:text-2xl font-bold text-accent">
                 {filteredTokens.length}
               </p>
             </div>
-            <div className="bg-card rounded-lg p-4 border border-border">
-              <p className="text-muted-foreground text-sm">Total Volume</p>
-              <p className="text-2xl font-bold text-primary">
+            <div className="bg-card rounded-lg p-3 md:p-4 border border-border">
+              <p className="text-muted-foreground text-xs md:text-sm">Total Volume</p>
+              <p className="text-lg md:text-2xl font-bold text-primary truncate">
                 {totalVolume.toFixed(2)} SOL
               </p>
             </div>
@@ -194,9 +196,9 @@ const TokensPage = () => {
             </div>
           )}
 
-          {/* Tokens Table Header */}
+          {/* Tokens Table Header - Desktop Only */}
           {!loading && filteredTokens.length > 0 && (
-            <div className="bg-card rounded-t-lg border border-border border-b-0">
+            <div className="hidden md:block bg-card rounded-t-lg border border-border border-b-0">
               <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm text-muted-foreground font-semibold">
                 <div className="col-span-3">Token</div>
                 <div className="col-span-2 text-right">Price</div>
@@ -209,7 +211,7 @@ const TokensPage = () => {
 
           {/* Tokens List */}
           {!loading && (
-            <div className="bg-card rounded-b-lg border border-border border-t-0">
+            <div className="bg-card rounded-lg md:rounded-b-lg md:rounded-t-none border border-border md:border-t-0">
               {filteredTokens.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground text-lg">No tokens found</p>
@@ -299,76 +301,147 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
   }, []);
 
   return (
-    <div
-      onClick={() => window.location.href = `/trade?mint=${token.mint_address}`}
-      className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 transition-colors cursor-pointer group"
-    >
-      {/* Token Info */}
-      <div className="col-span-3 flex items-center gap-3">
-        <button
-          onClick={togglePlay}
-          className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors flex-shrink-0"
-        >
-          {playing ? (
-            <Pause className="w-4 h-4 text-primary-foreground" />
-          ) : (
-            <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
-          )}
-        </button>
-        <div className="min-w-0">
-          <p className="font-bold text-foreground truncate group-hover:text-primary transition-colors">
-            {token.name}
-          </p>
-          <p className="text-sm text-muted-foreground truncate">${token.symbol}</p>
+    <>
+      {/* Mobile Card Layout */}
+      <div
+        onClick={() => window.location.href = `/trade?mint=${token.mint_address}`}
+        className="md:hidden p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-start gap-3">
+          <button
+            onClick={togglePlay}
+            className="w-12 h-12 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors flex-shrink-0"
+          >
+            {playing ? (
+              <Pause className="w-5 h-5 text-primary-foreground" />
+            ) : (
+              <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+            )}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-bold text-foreground truncate">{token.name}</p>
+                <p className="text-sm text-muted-foreground">${token.symbol}</p>
+              </div>
+              <Button size="sm" className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                Trade
+              </Button>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="text-muted-foreground">Price</p>
+                <p className="font-semibold text-foreground truncate">{price.toFixed(8)}</p>
+                <p className="text-muted-foreground">{formatUsd(price)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Mkt Cap</p>
+                <p className="font-semibold text-foreground">{marketCap.toFixed(2)}</p>
+                <p className="text-muted-foreground">{formatUsd(marketCap)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Volume</p>
+                <p className="font-semibold text-foreground">{volume.toFixed(2)}</p>
+                <p className="text-muted-foreground">{formatUsd(volume)}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <a
+                href={`https://explorer.solana.com/address/${token.mint_address}?cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              </a>
+              <button
+                onClick={copyMint}
+                className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-primary" />
+                ) : (
+                  <Copy className="w-4 h-4 text-muted-foreground" />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Price */}
-      <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-foreground">{price.toFixed(10)} SOL</p>
-        <p className="text-xs text-muted-foreground">{formatUsd(price)}</p>
-      </div>
+      {/* Desktop Table Row Layout */}
+      <div
+        onClick={() => window.location.href = `/trade?mint=${token.mint_address}`}
+        className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 transition-colors cursor-pointer group"
+      >
+        {/* Token Info */}
+        <div className="col-span-3 flex items-center gap-3">
+          <button
+            onClick={togglePlay}
+            className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors flex-shrink-0"
+          >
+            {playing ? (
+              <Pause className="w-4 h-4 text-primary-foreground" />
+            ) : (
+              <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
+            )}
+          </button>
+          <div className="min-w-0">
+            <p className="font-bold text-foreground truncate group-hover:text-primary transition-colors">
+              {token.name}
+            </p>
+            <p className="text-sm text-muted-foreground truncate">${token.symbol}</p>
+          </div>
+        </div>
 
-      {/* Market Cap */}
-      <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-foreground">{marketCap.toFixed(4)} SOL</p>
-        <p className="text-xs text-muted-foreground">{formatUsd(marketCap)}</p>
-      </div>
+        {/* Price */}
+        <div className="col-span-2 flex flex-col items-end justify-center">
+          <p className="font-semibold text-foreground">{price.toFixed(10)} SOL</p>
+          <p className="text-xs text-muted-foreground">{formatUsd(price)}</p>
+        </div>
 
-      {/* Volume */}
-      <div className="col-span-2 flex flex-col items-end justify-center">
-        <p className="font-semibold text-foreground">{volume.toFixed(4)} SOL</p>
-        <p className="text-xs text-muted-foreground">{formatUsd(volume)}</p>
-      </div>
+        {/* Market Cap */}
+        <div className="col-span-2 flex flex-col items-end justify-center">
+          <p className="font-semibold text-foreground">{marketCap.toFixed(4)} SOL</p>
+          <p className="text-xs text-muted-foreground">{formatUsd(marketCap)}</p>
+        </div>
 
-      {/* Actions */}
-      <div className="col-span-3 flex items-center justify-end gap-2">
-        <a
-          href={`https://explorer.solana.com/address/${token.mint_address}?cluster=devnet`}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-          title="View on Solana Explorer"
-        >
-          <ExternalLink className="w-4 h-4 text-muted-foreground" />
-        </a>
-        <button
-          onClick={copyMint}
-          className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-          title="Copy mint address"
-        >
-          {copied ? (
-            <Check className="w-4 h-4 text-primary" />
-          ) : (
-            <Copy className="w-4 h-4 text-muted-foreground" />
-          )}
-        </button>
-        <Button size="sm" onClick={(e) => e.stopPropagation()}>
-          Trade
-        </Button>
+        {/* Volume */}
+        <div className="col-span-2 flex flex-col items-end justify-center">
+          <p className="font-semibold text-foreground">{volume.toFixed(4)} SOL</p>
+          <p className="text-xs text-muted-foreground">{formatUsd(volume)}</p>
+        </div>
+
+        {/* Actions */}
+        <div className="col-span-3 flex items-center justify-end gap-2">
+          <a
+            href={`https://explorer.solana.com/address/${token.mint_address}?cluster=devnet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+            title="View on Solana Explorer"
+          >
+            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+          </a>
+          <button
+            onClick={copyMint}
+            className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+            title="Copy mint address"
+          >
+            {copied ? (
+              <Check className="w-4 h-4 text-primary" />
+            ) : (
+              <Copy className="w-4 h-4 text-muted-foreground" />
+            )}
+          </button>
+          <Button size="sm" onClick={(e) => e.stopPropagation()}>
+            Trade
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
