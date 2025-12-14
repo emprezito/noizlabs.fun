@@ -24,6 +24,8 @@ interface TokenData {
   total_volume: number;
   created_at: string;
   is_active: boolean;
+  audio_clip_id: string | null;
+  cover_image_url?: string | null;
 }
 
 const TokensPage = () => {
@@ -33,18 +35,32 @@ const TokensPage = () => {
   const [filter, setFilter] = useState<"all" | "trending" | "new">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch tokens from Supabase
+  // Fetch tokens from Supabase with audio clip data
   const fetchAllTokens = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("tokens")
-        .select("*")
+        .select(`
+          *,
+          audio_clips:audio_clip_id (
+            audio_url,
+            cover_image_url
+          )
+        `)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setTokens(data || []);
+      
+      // Flatten the audio clip data
+      const tokensWithImages = (data || []).map((token: any) => ({
+        ...token,
+        audio_url: token.audio_clips?.audio_url || token.audio_url,
+        cover_image_url: token.audio_clips?.cover_image_url || null,
+      }));
+      
+      setTokens(tokensWithImages);
     } catch (error) {
       console.error("Error fetching tokens:", error);
       toast.error("Failed to load tokens");
@@ -308,16 +324,35 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
         className="md:hidden p-4 hover:bg-muted/50 transition-colors cursor-pointer"
       >
         <div className="flex items-start gap-3">
-          <button
-            onClick={togglePlay}
-            className="w-12 h-12 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors flex-shrink-0"
-          >
-            {playing ? (
-              <Pause className="w-5 h-5 text-primary-foreground" />
+          {/* Token Image with Play Overlay */}
+          <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
+            {token.cover_image_url ? (
+              <img
+                src={token.cover_image_url}
+                alt={token.name}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+              <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
+                <span className="text-xl">🎵</span>
+              </div>
             )}
-          </button>
+            <button
+              onClick={togglePlay}
+              className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+            >
+              {playing ? (
+                <Pause className="w-5 h-5 text-white" />
+              ) : (
+                <Play className="w-5 h-5 text-white ml-0.5" />
+              )}
+            </button>
+            {playing && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <Pause className="w-5 h-5 text-white" />
+              </div>
+            )}
+          </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
@@ -375,18 +410,36 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
         onClick={() => window.location.href = `/trade?mint=${token.mint_address}`}
         className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 transition-colors cursor-pointer group"
       >
-        {/* Token Info */}
+        {/* Token Info with Image */}
         <div className="col-span-3 flex items-center gap-3">
-          <button
-            onClick={togglePlay}
-            className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors flex-shrink-0"
-          >
-            {playing ? (
-              <Pause className="w-4 h-4 text-primary-foreground" />
+          <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+            {token.cover_image_url ? (
+              <img
+                src={token.cover_image_url}
+                alt={token.name}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
+              <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
+                <span className="text-lg">🎵</span>
+              </div>
             )}
-          </button>
+            <button
+              onClick={togglePlay}
+              className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+            >
+              {playing ? (
+                <Pause className="w-4 h-4 text-white" />
+              ) : (
+                <Play className="w-4 h-4 text-white ml-0.5" />
+              )}
+            </button>
+            {playing && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <Pause className="w-4 h-4 text-white animate-pulse" />
+              </div>
+            )}
+          </div>
           <div className="min-w-0">
             <p className="font-bold text-foreground truncate group-hover:text-primary transition-colors">
               {token.name}

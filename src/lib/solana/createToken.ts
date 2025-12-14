@@ -5,7 +5,6 @@ import {
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
-  TransactionInstruction,
 } from "@solana/web3.js";
 import {
   createInitializeMintInstruction,
@@ -21,7 +20,7 @@ import {
   PROGRAM_ID as METADATA_PROGRAM_ID,
 } from "@metaplex-foundation/mpl-token-metadata";
 
-// Platform wallet - holds bonding curve reserves and receives fees
+// Platform wallet - receives fees
 const PLATFORM_WALLET = new PublicKey(
   "FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc"
 );
@@ -30,11 +29,11 @@ const PLATFORM_WALLET = new PublicKey(
 const CREATION_FEE = 0.02 * LAMPORTS_PER_SOL;
 
 // Pump.fun style initial market cap: $5k at ~$200/SOL
-// Market cap = (sol_reserves / token_reserves) * total_supply
-// For $5k at $200/SOL: 25 SOL market cap = (25 SOL / 1B tokens) * 1B = 25 SOL
+// Bonding curve reserves tracked in database (virtual), only 5% minted to creator
 export const INITIAL_VIRTUAL_SOL_RESERVES = 25 * LAMPORTS_PER_SOL; // 25 SOL virtual reserves for $5k market cap
-export const INITIAL_TOKEN_RESERVES = BigInt(950_000_000 * 1e9); // 950M tokens (95% for bonding curve)
+export const INITIAL_TOKEN_RESERVES = BigInt(950_000_000 * 1e9); // 950M tokens (95% for bonding curve - virtual)
 export const CREATOR_ALLOCATION = BigInt(50_000_000 * 1e9); // 50M tokens (5% to creator)
+export const TOTAL_SUPPLY = BigInt(1_000_000_000 * 1e9); // 1B total
 
 export interface CreateTokenParams {
   name: string;
@@ -56,8 +55,9 @@ function getMetadataAddress(mint: PublicKey): PublicKey {
 }
 
 /**
- * Creates a new SPL token with Metaplex metadata using standard, proven Solana programs.
- * This approach is more reliable than custom Anchor programs.
+ * Creates a new SPL token with Metaplex metadata.
+ * Only mints 5% to creator - the 95% bonding curve reserves are tracked virtually in database.
+ * This approach avoids issues with platform wallet token accounts.
  */
 export async function createTokenWithMetaplex(
   connection: Connection,
@@ -105,7 +105,7 @@ export async function createTokenWithMetaplex(
     )
   );
 
-  // 3. Create creator's token account (for receiving creator allocation - 5%)
+  // 3. Create creator's token account
   tx.add(
     createAssociatedTokenAccountInstruction(
       creator, // payer
@@ -115,18 +115,8 @@ export async function createTokenWithMetaplex(
     )
   );
 
-  // 4. Create platform wallet's token account (for holding bonding curve reserves - 95%)
-  const platformTokenAccount = await getAssociatedTokenAddress(mint, PLATFORM_WALLET);
-  tx.add(
-    createAssociatedTokenAccountInstruction(
-      creator, // payer
-      platformTokenAccount, // associated token account
-      PLATFORM_WALLET, // owner
-      mint // mint
-    )
-  );
-
-  // 5. Mint 5% to creator's wallet
+  // 4. Mint 5% to creator's wallet
+  // The 95% bonding curve reserves are tracked virtually in the database
   tx.add(
     createMintToInstruction(
       mint,
@@ -138,19 +128,7 @@ export async function createTokenWithMetaplex(
     )
   );
 
-  // 6. Mint 95% to platform wallet (bonding curve reserves)
-  tx.add(
-    createMintToInstruction(
-      mint,
-      platformTokenAccount,
-      creator, // mint authority
-      INITIAL_TOKEN_RESERVES, // 950M tokens (95% of 1B)
-      [],
-      TOKEN_PROGRAM_ID
-    )
-  );
-
-  // 7. Create Metaplex metadata
+  // 5. Create Metaplex metadata
   const metadataInstruction = createCreateMetadataAccountV3Instruction(
     {
       metadata: metadataAddress,
@@ -177,7 +155,7 @@ export async function createTokenWithMetaplex(
   );
   tx.add(metadataInstruction);
 
-  // 8. Transfer platform creation fee
+  // 6. Transfer platform fee
   tx.add(
     SystemProgram.transfer({
       fromPubkey: creator,

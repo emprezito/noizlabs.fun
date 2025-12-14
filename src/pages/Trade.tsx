@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -84,6 +84,7 @@ const TradePage = () => {
   const [userBalance, setUserBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [candleData, setCandleData] = useState<CandleData[]>([]);
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
   const [isLive, setIsLive] = useState(false);
@@ -270,15 +271,17 @@ const TradePage = () => {
         // This gives price in SOL per 1 token
         const price = tokenReserves > 0 ? solReserves / tokenReserves : 0;
         
-        // Fetch associated audio clip for cover image
+        // Fetch associated audio clip for cover image and audio
         let imageUri = undefined;
+        let audioUrl = token.audio_url || "";
         if (token.audio_clip_id) {
           const { data: clip } = await supabase
             .from("audio_clips")
-            .select("cover_image_url")
+            .select("cover_image_url, audio_url")
             .eq("id", token.audio_clip_id)
             .maybeSingle();
           imageUri = clip?.cover_image_url || undefined;
+          audioUrl = clip?.audio_url || audioUrl;
         }
 
         // Try to get DexScreener data for additional info
@@ -299,7 +302,7 @@ const TradePage = () => {
         setTokenInfo({
           name: token.name,
           symbol: token.symbol,
-          audioUri: token.audio_url || "",
+          audioUri: audioUrl,
           imageUri,
           totalSupply: Number(token.total_supply),
           price,
@@ -331,6 +334,44 @@ const TradePage = () => {
     if (minutes < 60) return `${minutes}m ago`;
     return `${Math.floor(minutes / 60)}h ago`;
   };
+
+  // Audio playback toggle
+  const toggleAudio = () => {
+    if (!tokenInfo?.audioUri) {
+      toast.error("No audio available for this token");
+      return;
+    }
+
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
+    } else {
+      // Stop any other playing audio
+      document.querySelectorAll('audio').forEach(audio => audio.pause());
+      
+      if (!audioRef.current) {
+        audioRef.current = new Audio(tokenInfo.audioUri);
+        audioRef.current.onended = () => setPlaying(false);
+        audioRef.current.onerror = () => {
+          toast.error("Failed to load audio");
+          setPlaying(false);
+        };
+      }
+      audioRef.current.play().catch(() => {
+        toast.error("Failed to play audio");
+        setPlaying(false);
+      });
+      setPlaying(true);
+    }
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
 
   const handleSearch = () => {
     const trimmed = mintInput.trim();
@@ -573,7 +614,7 @@ const TradePage = () => {
               <div className="lg:col-span-2 space-y-6">
                 <div className="bg-card rounded-xl border border-border p-6">
                   <div className="flex items-start gap-6">
-                    {/* Token Image or Play Button */}
+                    {/* Token Image with Play Button */}
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
                       {tokenInfo.imageUri ? (
                         <img
@@ -587,11 +628,16 @@ const TradePage = () => {
                         </div>
                       )}
                       <button
-                        onClick={() => setPlaying(!playing)}
+                        onClick={toggleAudio}
                         className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
                       >
                         {playing ? <Pause className="w-8 h-8 text-white" /> : <Play className="w-8 h-8 text-white ml-1" />}
                       </button>
+                      {playing && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <Pause className="w-8 h-8 text-white animate-pulse" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 flex-wrap">
