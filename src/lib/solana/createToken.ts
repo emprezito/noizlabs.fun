@@ -20,18 +20,19 @@ import {
   PROGRAM_ID as METADATA_PROGRAM_ID,
 } from "@metaplex-foundation/mpl-token-metadata";
 
-// Platform wallet - receives fees
-const PLATFORM_WALLET = new PublicKey(
+// Platform wallet - holds bonding curve tokens and receives fees
+export const PLATFORM_WALLET = new PublicKey(
   "FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc"
 );
 
 // Platform creation fee: 0.02 SOL
 const CREATION_FEE = 0.02 * LAMPORTS_PER_SOL;
 
-// Pump.fun style initial market cap: $5k at ~$200/SOL
-// Bonding curve reserves tracked in database (virtual), only 5% minted to creator
+// Token distribution:
+// - 95% goes to platform wallet for bonding curve trades
+// - 5% goes to creator
 export const INITIAL_VIRTUAL_SOL_RESERVES = 25 * LAMPORTS_PER_SOL; // 25 SOL virtual reserves for $5k market cap
-export const INITIAL_TOKEN_RESERVES = BigInt(950_000_000 * 1e9); // 950M tokens (95% for bonding curve - virtual)
+export const BONDING_CURVE_ALLOCATION = BigInt(950_000_000 * 1e9); // 950M tokens (95% for bonding curve)
 export const CREATOR_ALLOCATION = BigInt(50_000_000 * 1e9); // 50M tokens (5% to creator)
 export const TOTAL_SUPPLY = BigInt(1_000_000_000 * 1e9); // 1B total
 
@@ -56,8 +57,8 @@ function getMetadataAddress(mint: PublicKey): PublicKey {
 
 /**
  * Creates a new SPL token with Metaplex metadata.
- * Only mints 5% to creator - the 95% bonding curve reserves are tracked virtually in database.
- * This approach avoids issues with platform wallet token accounts.
+ * Mints 95% to platform wallet (for bonding curve trades) and 5% to creator.
+ * This enables real on-chain token transfers during trades.
  */
 export async function createTokenWithMetaplex(
   connection: Connection,
@@ -71,14 +72,19 @@ export async function createTokenWithMetaplex(
   // Get minimum rent for mint account
   const lamports = await getMinimumBalanceForRentExemptMint(connection);
   
-  // Get creator's associated token account
+  // Get associated token accounts
   const creatorTokenAccount = await getAssociatedTokenAddress(mint, creator);
+  const platformTokenAccount = await getAssociatedTokenAddress(mint, PLATFORM_WALLET);
 
-  console.log("Creating token with standard SPL Token + Metaplex:", {
+  console.log("Creating token with real on-chain distribution:", {
     mint: mint.toString(),
     metadataAddress: metadataAddress.toString(),
     creatorTokenAccount: creatorTokenAccount.toString(),
+    platformTokenAccount: platformTokenAccount.toString(),
     creator: creator.toString(),
+    platformWallet: PLATFORM_WALLET.toString(),
+    creatorAllocation: CREATOR_ALLOCATION.toString(),
+    bondingCurveAllocation: BONDING_CURVE_ALLOCATION.toString(),
   });
 
   const tx = new Transaction();
@@ -115,20 +121,41 @@ export async function createTokenWithMetaplex(
     )
   );
 
-  // 4. Mint 5% to creator's wallet
-  // The 95% bonding curve reserves are tracked virtually in the database
+  // 4. Create platform wallet's token account (for bonding curve)
+  tx.add(
+    createAssociatedTokenAccountInstruction(
+      creator, // payer
+      platformTokenAccount, // associated token account
+      PLATFORM_WALLET, // owner
+      mint // mint
+    )
+  );
+
+  // 5. Mint 5% to creator's wallet
   tx.add(
     createMintToInstruction(
       mint,
       creatorTokenAccount,
       creator, // mint authority
-      CREATOR_ALLOCATION, // 50M tokens (5% of 1B)
+      CREATOR_ALLOCATION,
       [],
       TOKEN_PROGRAM_ID
     )
   );
 
-  // 5. Create Metaplex metadata
+  // 6. Mint 95% to platform wallet (for bonding curve trades)
+  tx.add(
+    createMintToInstruction(
+      mint,
+      platformTokenAccount,
+      creator, // mint authority
+      BONDING_CURVE_ALLOCATION,
+      [],
+      TOKEN_PROGRAM_ID
+    )
+  );
+
+  // 7. Create Metaplex metadata
   const metadataInstruction = createCreateMetadataAccountV3Instruction(
     {
       metadata: metadataAddress,
@@ -155,7 +182,7 @@ export async function createTokenWithMetaplex(
   );
   tx.add(metadataInstruction);
 
-  // 6. Transfer platform fee
+  // 8. Transfer platform fee
   tx.add(
     SystemProgram.transfer({
       fromPubkey: creator,
