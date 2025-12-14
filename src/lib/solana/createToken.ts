@@ -29,11 +29,11 @@ const PLATFORM_FEE_WALLET = new PublicKey(
 // Platform creation fee: 0.02 SOL
 const CREATION_FEE = 0.02 * LAMPORTS_PER_SOL;
 
-// Pump.fun style initial market cap: $5k at ~$200/SOL = 25 SOL worth of virtual reserves
-// Initial virtual SOL reserves for bonding curve pricing
-export const INITIAL_VIRTUAL_SOL_RESERVES = 0.01 * LAMPORTS_PER_SOL; // 0.01 SOL
-export const INITIAL_TOKEN_RESERVES = BigInt(800_000_000 * 1e9); // 800M tokens (80% of 1B for bonding curve)
-export const CREATOR_ALLOCATION = BigInt(200_000_000 * 1e9); // 200M tokens (20% to creator for rewards/airdrops)
+// Pump.fun style initial market cap: $5k at ~$200/SOL
+// Price = virtual_sol / token_reserves, Market cap = price * total_supply
+export const INITIAL_VIRTUAL_SOL_RESERVES = 0.025 * LAMPORTS_PER_SOL; // 0.025 SOL virtual reserves
+export const INITIAL_TOKEN_RESERVES = BigInt(950_000_000 * 1e9); // 950M tokens (95% for bonding curve)
+export const CREATOR_ALLOCATION = BigInt(50_000_000 * 1e9); // 50M tokens (5% to creator)
 
 export interface CreateTokenParams {
   name: string;
@@ -114,15 +114,14 @@ export async function createTokenWithMetaplex(
     )
   );
 
-  // 4. Mint full supply to creator's wallet
-  // The bonding curve reserves are tracked virtually in the database
-  // Creator gets 20% allocation, 80% is "virtual" for the bonding curve
+  // 4. Mint 5% to creator's wallet
+  // The bonding curve reserves (95%) are tracked virtually in the database
   tx.add(
     createMintToInstruction(
       mint,
       creatorTokenAccount,
       creator, // mint authority
-      CREATOR_ALLOCATION, // 200M tokens (20% of 1B)
+      CREATOR_ALLOCATION, // 50M tokens (5% of 1B)
       [],
       TOKEN_PROGRAM_ID
     )

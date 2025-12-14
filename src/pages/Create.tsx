@@ -204,9 +204,9 @@ const CreatePage = () => {
       const mintAddr = mintKeypair.publicKey.toString();
 
       // Save token to database with pump.fun style bonding curve
-      // Initial: 0.01 SOL virtual reserves, 800M tokens = price starts very low
-      const initialSolReserves = 10000000; // 0.01 SOL in lamports
-      const initialTokenReserves = 800_000_000_000_000_000; // 800M tokens with 9 decimals
+      // Initial: 0.025 SOL virtual reserves, 950M tokens = $5k market cap
+      const initialSolReserves = 25000000; // 0.025 SOL in lamports
+      const initialTokenReserves = 950_000_000_000_000_000; // 950M tokens with 9 decimals (95%)
       try {
         await supabase.from("tokens").insert({
           mint_address: mintAddr,

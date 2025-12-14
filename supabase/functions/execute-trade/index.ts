@@ -11,10 +11,10 @@ const PLATFORM_FEE_BPS = 100; // 1% platform fee
 const BASIS_POINTS_DIVISOR = 10000;
 
 // Initial virtual reserves for $5k market cap at ~$200/SOL
-// Virtual SOL = 0.01 SOL, Virtual Tokens = 800M (80% of 1B supply)
+// Virtual SOL = 0.025 SOL, Virtual Tokens = 950M (95% of 1B supply)
 // Price = sol_reserves / token_reserves = very small, rises as people buy
-const INITIAL_VIRTUAL_SOL = 10000000; // 0.01 SOL in lamports
-const INITIAL_TOKEN_RESERVES = 800_000_000_000_000_000; // 800M tokens with 9 decimals
+const INITIAL_VIRTUAL_SOL = 25000000; // 0.025 SOL in lamports
+const INITIAL_TOKEN_RESERVES = 950_000_000_000_000_000; // 950M tokens with 9 decimals
 
 interface TradeRequest {
   mintAddress: string;
