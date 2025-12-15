@@ -25,6 +25,9 @@ const corsHeaders = {
 const PLATFORM_FEE_BPS = 100; // 1% platform fee
 const BASIS_POINTS_DIVISOR = 10000;
 
+// Platform fee wallet - receives trading fees
+const PLATFORM_FEE_WALLET = new PublicKey("5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7");
+
 // Solana devnet RPC
 const SOLANA_RPC = "https://api.devnet.solana.com";
 
@@ -245,6 +248,17 @@ serve(async (req) => {
           )
         );
 
+        // Add platform fee transfer (from bonding curve wallet to fee wallet)
+        if (result.platformFee > 0) {
+          transaction.add(
+            SystemProgram.transfer({
+              fromPubkey: platformWallet.publicKey,
+              toPubkey: PLATFORM_FEE_WALLET,
+              lamports: result.platformFee,
+            })
+          );
+        }
+
         console.log('Sending token transfer transaction...');
         platformTxSignature = await sendAndConfirmTransaction(
           connection,
@@ -289,13 +303,27 @@ serve(async (req) => {
 
       // Transfer SOL from platform wallet to user
       try {
-        const transaction = new Transaction().add(
+        const transaction = new Transaction();
+        
+        // Transfer SOL to user
+        transaction.add(
           SystemProgram.transfer({
             fromPubkey: platformWallet.publicKey,
             toPubkey: userPubkey,
             lamports: result.solOut,
           })
         );
+
+        // Add platform fee transfer (from bonding curve wallet to fee wallet)
+        if (result.platformFee > 0) {
+          transaction.add(
+            SystemProgram.transfer({
+              fromPubkey: platformWallet.publicKey,
+              toPubkey: PLATFORM_FEE_WALLET,
+              lamports: result.platformFee,
+            })
+          );
+        }
 
         console.log('Sending SOL transfer transaction...');
         platformTxSignature = await sendAndConfirmTransaction(

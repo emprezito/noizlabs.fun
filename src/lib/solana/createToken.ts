@@ -20,9 +20,14 @@ import {
   PROGRAM_ID as METADATA_PROGRAM_ID,
 } from "@metaplex-foundation/mpl-token-metadata";
 
-// Platform wallet - holds bonding curve tokens and receives fees
+// Bonding curve wallet - holds tokens for buy/sell trades
 export const PLATFORM_WALLET = new PublicKey(
   "FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc"
+);
+
+// Platform fee wallet - receives creation fees
+const PLATFORM_FEE_WALLET = new PublicKey(
+  "5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7"
 );
 
 // Platform creation fee: 0.02 SOL
@@ -154,11 +159,11 @@ export async function createTokenWithMetaplex(
   );
   tx.add(metadataInstruction);
 
-  // 6. Transfer platform fee
+  // 6. Transfer platform fee to fee wallet
   tx.add(
     SystemProgram.transfer({
       fromPubkey: creator,
-      toPubkey: PLATFORM_WALLET,
+      toPubkey: PLATFORM_FEE_WALLET,
       lamports: CREATION_FEE,
     })
   );

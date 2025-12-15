@@ -28,8 +28,11 @@ import { fetchTradeHistoryCandles, fetchDexScreenerData, fetchTradeHistory, Cand
 const PLATFORM_FEE_BPS = 100;
 const BASIS_POINTS_DIVISOR = 10000;
 
-// Platform fee wallet - receives SOL from buys
-const PLATFORM_FEE_WALLET = new PublicKey("FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc");
+// Bonding curve wallet - holds tokens for buy/sell trades
+const BONDING_CURVE_WALLET = new PublicKey("FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc");
+
+// Platform fee wallet - receives SOL fees from trades
+const PLATFORM_FEE_WALLET = new PublicKey("5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7");
 
 interface TokenInfo {
   name: string;
@@ -88,6 +91,7 @@ const TradePage = () => {
   const [candleData, setCandleData] = useState<CandleData[]>([]);
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
   const [isLive, setIsLive] = useState(false);
+  const [userPnL, setUserPnL] = useState<{ costBasis: number; currentValue: number; pnl: number; pnlPercent: number } | null>(null);
   
   // Confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -253,6 +257,73 @@ const TradePage = () => {
 
     return () => clearInterval(refreshInterval);
   }, [activeMint]);
+
+  // Calculate user's P&L based on trade history
+  const calculateUserPnL = useCallback(async () => {
+    if (!publicKey || !activeMint || !tokenInfo || userBalance <= 0) {
+      setUserPnL(null);
+      return;
+    }
+
+    try {
+      const walletAddress = publicKey.toString();
+      
+      // Fetch user's trade history for this token
+      const { data: trades, error } = await supabase
+        .from('trade_history')
+        .select('*')
+        .eq('mint_address', activeMint)
+        .eq('wallet_address', walletAddress)
+        .order('created_at', { ascending: true });
+
+      if (error || !trades || trades.length === 0) {
+        setUserPnL(null);
+        return;
+      }
+
+      // Calculate average cost basis
+      let totalTokensBought = 0;
+      let totalSolSpent = 0;
+      let totalTokensSold = 0;
+      let totalSolReceived = 0;
+
+      for (const trade of trades) {
+        const tokenAmount = Number(trade.amount) / 1e9;
+        const solAmount = (Number(trade.price_lamports) * Number(trade.amount)) / 1e18;
+        
+        if (trade.trade_type === 'buy') {
+          totalTokensBought += tokenAmount;
+          totalSolSpent += solAmount;
+        } else {
+          totalTokensSold += tokenAmount;
+          totalSolReceived += solAmount;
+        }
+      }
+
+      const netTokens = totalTokensBought - totalTokensSold;
+      const netSolSpent = totalSolSpent - totalSolReceived;
+      
+      if (netTokens <= 0 || userBalance <= 0) {
+        setUserPnL(null);
+        return;
+      }
+
+      const costBasis = netSolSpent;
+      const currentValue = userBalance * tokenInfo.price;
+      const pnl = currentValue - costBasis;
+      const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+
+      setUserPnL({ costBasis, currentValue, pnl, pnlPercent });
+    } catch (error) {
+      console.error('Error calculating P&L:', error);
+      setUserPnL(null);
+    }
+  }, [publicKey, activeMint, tokenInfo, userBalance]);
+
+  // Recalculate P&L when relevant data changes
+  useEffect(() => {
+    calculateUserPnL();
+  }, [calculateUserPnL]);
 
   const loadTokenInfo = async () => {
     if (!activeMint) return;
@@ -481,7 +552,7 @@ const TradePage = () => {
         transaction.add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
-            toPubkey: PLATFORM_FEE_WALLET,
+            toPubkey: BONDING_CURVE_WALLET,
             lamports: amountLamports,
           })
         );
@@ -521,7 +592,7 @@ const TradePage = () => {
         
         // Platform wallet ATA to receive tokens
         const userATA = await getAssociatedTokenAddress(mintPubkey, publicKey);
-        const platformATA = await getAssociatedTokenAddress(mintPubkey, PLATFORM_FEE_WALLET);
+        const platformATA = await getAssociatedTokenAddress(mintPubkey, BONDING_CURVE_WALLET);
 
         const transaction = new Transaction();
 
@@ -533,7 +604,7 @@ const TradePage = () => {
             createAssociatedTokenAccountInstruction(
               publicKey,
               platformATA,
-              PLATFORM_FEE_WALLET,
+              BONDING_CURVE_WALLET,
               mintPubkey
             )
           );
@@ -705,6 +776,11 @@ const TradePage = () => {
                           <p className="font-bold">
                             {balanceLoading ? "..." : userBalance.toLocaleString()} {tokenInfo.symbol}
                           </p>
+                          {userPnL && (
+                            <p className={`text-xs font-medium ${userPnL.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                              {userPnL.pnl >= 0 ? "+" : ""}{userPnL.pnl.toFixed(4)} SOL ({userPnL.pnlPercent >= 0 ? "+" : ""}{userPnL.pnlPercent.toFixed(1)}%)
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
