@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useNavigate } from "react-router-dom";
+import { Keypair, Transaction } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Shield, ArrowLeft, Coins, Trophy, Loader2, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, ArrowLeft, Coins, Trophy, Loader2, Check, Calendar, Clock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +40,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { createTokenWithMetaplex, CreateTokenParams, PLATFORM_WALLET, TOTAL_SUPPLY } from "@/lib/solana/createToken";
+import { uploadTokenMetadata } from "@/lib/ipfsUpload";
 
 interface QuestDefinition {
   id: string;
@@ -68,7 +77,8 @@ const ICON_OPTIONS = [
 ];
 
 const Admin = () => {
-  const { publicKey } = useWallet();
+  const { connection } = useConnection();
+  const { publicKey, sendTransaction } = useWallet();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -81,6 +91,7 @@ const Admin = () => {
   const [loadingClips, setLoadingClips] = useState(false);
   const [mintingClips, setMintingClips] = useState(false);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
+  const [weekInfo, setWeekInfo] = useState<{ isSunday: boolean; weekStart: Date; weekEnd: Date } | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -94,6 +105,31 @@ const Admin = () => {
     is_active: true,
     social_link: "",
   });
+
+  // Calculate week info (Monday-Saturday engagement, Sunday snapshot)
+  useEffect(() => {
+    const now = new Date();
+    const dayOfWeek = now.getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    const isSunday = dayOfWeek === 0;
+    
+    // Get the Monday of the current/previous week
+    const monday = new Date(now);
+    if (isSunday) {
+      // Go back to the previous Monday (6 days ago)
+      monday.setUTCDate(now.getUTCDate() - 6);
+    } else {
+      // Go back to this week's Monday
+      monday.setUTCDate(now.getUTCDate() - (dayOfWeek - 1));
+    }
+    monday.setUTCHours(0, 0, 0, 0);
+    
+    // Get Saturday end
+    const saturday = new Date(monday);
+    saturday.setUTCDate(monday.getUTCDate() + 5);
+    saturday.setUTCHours(23, 59, 59, 999);
+    
+    setWeekInfo({ isSunday, weekStart: monday, weekEnd: saturday });
+  }, []);
 
   // Check if user is admin
   useEffect(() => {
@@ -136,13 +172,18 @@ const Admin = () => {
     }
   }, [isAdmin]);
 
-  // Fetch top clips for tokenization
+  // Fetch top clips for tokenization (Monday-Saturday engagement only)
   const fetchTopClips = async () => {
+    if (!weekInfo) return;
+    
     setLoadingClips(true);
     try {
+      // Get clips created during Monday-Saturday of the week
       const { data, error } = await supabase
         .from("audio_clips")
         .select("*")
+        .gte("created_at", weekInfo.weekStart.toISOString())
+        .lte("created_at", weekInfo.weekEnd.toISOString())
         .order("likes", { ascending: false })
         .limit(10);
 
@@ -172,6 +213,13 @@ const Admin = () => {
     }
   };
 
+  // Refetch when weekInfo changes
+  useEffect(() => {
+    if (isAdmin && weekInfo) {
+      fetchTopClips();
+    }
+  }, [isAdmin, weekInfo]);
+
   const toggleClipSelection = (clipId: string) => {
     setSelectedClipIds(prev => {
       const next = new Set(prev);
@@ -184,48 +232,149 @@ const Admin = () => {
     });
   };
 
+  // Real on-chain minting using the same method as Create page
   const handleMintSelectedClips = async () => {
     if (selectedClipIds.size === 0) {
       toast.error("Please select at least one clip to tokenize");
       return;
     }
 
+    if (!publicKey || !connection) {
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
+    if (!weekInfo?.isSunday) {
+      toast.error("Tokens can only be minted on Sunday (snapshot day)");
+      return;
+    }
+
     setMintingClips(true);
     const selectedClips = topClips.filter(c => selectedClipIds.has(c.id));
+    let successCount = 0;
     
     for (const clip of selectedClips) {
       try {
-        // Generate a simple mint address for demo (in production, this would be a real token)
-        const fakeMintAddress = `MINT${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-        const symbol = clip.title.slice(0, 5).toUpperCase().replace(/[^A-Z]/g, "") || "TOKEN";
+        toast.info(`Minting token for: ${clip.title}...`);
+        
+        // Generate symbol from title
+        const symbol = clip.title.slice(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, "") || "TOKEN";
+        const description = `Audio token for ${clip.title} by ${clip.creator}`;
 
-        // Create token record
-        const { error } = await supabase.from("tokens").insert({
-          name: clip.title,
-          symbol,
-          mint_address: fakeMintAddress,
-          creator_wallet: publicKey?.toBase58() || "",
-          total_supply: 1000000000000000,
-          initial_price: 1000,
-          audio_url: clip.audio_url,
-          audio_clip_id: clip.id,
-          sol_reserves: 10000000,
-          token_reserves: 100000000000000000,
-          is_active: true,
+        // Step 1: Upload metadata to IPFS
+        const uploadResult = await uploadTokenMetadata(
+          null, // no audio file, use URL
+          null, // no image file, use URL
+          { name: clip.title, symbol, description },
+          clip.audio_url,
+          clip.cover_image_url
+        );
+
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || "Failed to upload metadata to IPFS");
+        }
+
+        const metadataUri = uploadResult.url!;
+
+        // Step 2: Create token on-chain
+        const mintKeypair = Keypair.generate();
+        const params: CreateTokenParams = {
+          name: clip.title.slice(0, 32),
+          symbol: symbol.slice(0, 10),
+          metadataUri: metadataUri.slice(0, 200),
+          totalSupply: BigInt(1_000_000_000 * 1e9),
+        };
+
+        const transaction = await createTokenWithMetaplex(
+          connection,
+          publicKey,
+          mintKeypair,
+          params
+        );
+
+        const signature = await sendTransaction(transaction, connection, {
+          signers: [mintKeypair],
         });
+        
+        await connection.confirmTransaction(signature, "confirmed");
 
-        if (error) throw error;
-        toast.success(`Tokenized: ${clip.title}`);
-      } catch (error) {
-        console.error("Error tokenizing clip:", error);
-        toast.error(`Failed to tokenize: ${clip.title}`);
+        const mintAddr = mintKeypair.publicKey.toString();
+
+        // Step 3: Transfer 95% of tokens to platform wallet
+        const mintPubkey = mintKeypair.publicKey;
+        const creatorATA = await getAssociatedTokenAddress(mintPubkey, publicKey);
+        const platformATA = await getAssociatedTokenAddress(mintPubkey, PLATFORM_WALLET);
+        
+        const bondingCurveAllocation = (TOTAL_SUPPLY * BigInt(95)) / BigInt(100);
+        
+        const transferTx = new Transaction();
+        
+        const platformATAInfo = await connection.getAccountInfo(platformATA);
+        if (!platformATAInfo) {
+          transferTx.add(
+            createAssociatedTokenAccountInstruction(
+              publicKey,
+              platformATA,
+              PLATFORM_WALLET,
+              mintPubkey
+            )
+          );
+        }
+        
+        transferTx.add(
+          createTransferInstruction(
+            creatorATA,
+            platformATA,
+            publicKey,
+            bondingCurveAllocation,
+            [],
+            TOKEN_PROGRAM_ID
+          )
+        );
+        
+        transferTx.feePayer = publicKey;
+        const { blockhash } = await connection.getLatestBlockhash();
+        transferTx.recentBlockhash = blockhash;
+        
+        const transferSig = await sendTransaction(transferTx, connection);
+        await connection.confirmTransaction(transferSig, "confirmed");
+
+        // Step 4: Save token to database
+        const initialSolReserves = 25_000_000_000;
+        const initialTokenReserves = 950_000_000_000_000_000;
+        
+        await supabase.from("tokens").insert({
+          mint_address: mintAddr,
+          name: clip.title.slice(0, 32),
+          symbol: symbol.slice(0, 10),
+          creator_wallet: publicKey.toBase58(),
+          initial_price: 1,
+          total_supply: 1_000_000_000,
+          metadata_uri: metadataUri,
+          audio_clip_id: clip.id,
+          audio_url: clip.audio_url,
+          sol_reserves: initialSolReserves,
+          token_reserves: initialTokenReserves,
+          tokens_sold: 0,
+          total_volume: 0,
+          is_active: true,
+        } as any);
+
+        toast.success(`Minted: ${clip.title}`);
+        successCount++;
+      } catch (error: any) {
+        console.error("Error minting clip:", error);
+        toast.error(`Failed to mint: ${clip.title} - ${error.message}`);
       }
     }
 
     setMintingClips(false);
     setSelectedClipIds(new Set());
-    fetchTopClips(); // Refresh list
-    toast.success(`Successfully tokenized ${selectedClips.length} clips!`);
+    fetchTopClips();
+    
+    if (successCount > 0) {
+      toast.success(`Successfully minted ${successCount} tokens on-chain!`);
+    }
   };
 
   const resetForm = () => {
@@ -613,14 +762,48 @@ const Admin = () => {
 
           {/* Tokenize Clips Tab */}
           <TabsContent value="tokenize" className="space-y-6">
+            {/* Week Info Card */}
+            <Card className={weekInfo?.isSunday ? "border-primary bg-primary/5" : ""}>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-3 rounded-xl ${weekInfo?.isSunday ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">
+                        {weekInfo?.isSunday ? "📸 Snapshot Day - Ready to Mint!" : "Engagement Tracking Active"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Week: {weekInfo?.weekStart.toLocaleDateString()} - {weekInfo?.weekEnd.toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {weekInfo?.isSunday ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-full">
+                        <Check className="w-4 h-4" />
+                        Sunday - Mint Enabled
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-muted text-muted-foreground text-sm rounded-full">
+                        <Clock className="w-4 h-4" />
+                        Mint available Sunday
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-primary" />
-                  Top 5 Clips by Engagement
+                  Top 5 Clips by Weekly Engagement
                 </CardTitle>
                 <CardDescription>
-                  Select clips to tokenize. These are the most popular clips that haven't been minted yet.
+                  Clips uploaded Mon-Sat ranked by engagement. On Sunday, take a snapshot and mint the top performers as on-chain tokens.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -630,7 +813,7 @@ const Admin = () => {
                   </div>
                 ) : topClips.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">
-                    No clips available to tokenize. All top clips have been minted.
+                    No clips uploaded this week yet, or all top clips have been minted.
                   </p>
                 ) : (
                   <div className="space-y-4">
@@ -644,6 +827,7 @@ const Admin = () => {
                         <Checkbox
                           checked={selectedClipIds.has(clip.id)}
                           onCheckedChange={() => toggleClipSelection(clip.id)}
+                          disabled={!weekInfo?.isSunday}
                         />
                         <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
                           {index + 1}
@@ -674,21 +858,26 @@ const Admin = () => {
                       </p>
                       <Button
                         onClick={handleMintSelectedClips}
-                        disabled={mintingClips || selectedClipIds.size === 0}
+                        disabled={mintingClips || selectedClipIds.size === 0 || !weekInfo?.isSunday}
                       >
                         {mintingClips ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Minting...
+                            Minting On-Chain...
                           </>
                         ) : (
                           <>
                             <Coins className="w-4 h-4 mr-2" />
-                            Mint Selected ({selectedClipIds.size})
+                            Mint On-Chain ({selectedClipIds.size})
                           </>
                         )}
                       </Button>
                     </div>
+                    {!weekInfo?.isSunday && (
+                      <p className="text-sm text-center text-muted-foreground pt-2">
+                        ⏰ Minting is only available on Sunday (snapshot day)
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
