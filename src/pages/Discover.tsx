@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, Trophy, ZoomIn } from "lucide-react";
+import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, Trophy, ZoomIn, ArrowRightLeft, Sparkles } from "lucide-react";
 import ImageLightbox from "@/components/ImageLightbox";
 import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
 
@@ -38,6 +38,8 @@ interface AudioClip {
   plays: number;
   createdAt: string;
   hasLiked?: boolean;
+  mintedTokenId?: string | null;
+  mintAddress?: string | null;
 }
 
 const CATEGORIES = ["All", "Memes", "Music", "Voice", "Sound Effects", "AI Generated", "Other"];
@@ -169,26 +171,49 @@ const DiscoverPage = () => {
 
   const fetchClips = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch clips
+      const { data: clipsData, error: clipsError } = await supabase
         .from("audio_clips")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (clipsError) throw clipsError;
 
-      const mappedClips: AudioClip[] = (data || []).map((clip) => ({
-        id: clip.id,
-        title: clip.title,
-        creator: clip.creator,
-        audioUrl: clip.audio_url,
-        coverImageUrl: clip.cover_image_url || null,
-        category: clip.category || "Other",
-        likes: clip.likes || 0,
-        shares: clip.shares || 0,
-        plays: clip.plays || 0,
-        createdAt: clip.created_at,
-        hasLiked: false,
-      }));
+      // Fetch tokens to check which clips are already minted
+      const { data: tokensData } = await supabase
+        .from("tokens")
+        .select("id, audio_clip_id, mint_address, is_remix")
+        .not("audio_clip_id", "is", null);
+
+      // Create a map of clip IDs to their minted token info (only original tokens, not remixes)
+      const mintedClipsMap = new Map<string, { tokenId: string; mintAddress: string }>();
+      (tokensData || []).forEach((token: any) => {
+        if (token.audio_clip_id && !token.is_remix) {
+          mintedClipsMap.set(token.audio_clip_id, {
+            tokenId: token.id,
+            mintAddress: token.mint_address,
+          });
+        }
+      });
+
+      const mappedClips: AudioClip[] = (clipsData || []).map((clip) => {
+        const mintedInfo = mintedClipsMap.get(clip.id);
+        return {
+          id: clip.id,
+          title: clip.title,
+          creator: clip.creator,
+          audioUrl: clip.audio_url,
+          coverImageUrl: clip.cover_image_url || null,
+          category: clip.category || "Other",
+          likes: clip.likes || 0,
+          shares: clip.shares || 0,
+          plays: clip.plays || 0,
+          createdAt: clip.created_at,
+          hasLiked: false,
+          mintedTokenId: mintedInfo?.tokenId || null,
+          mintAddress: mintedInfo?.mintAddress || null,
+        };
+      });
 
       setClips(mappedClips);
     } catch (error) {
@@ -452,6 +477,28 @@ const DiscoverPage = () => {
     toast.success("Audio loaded! Complete the form to mint your token.");
   };
 
+  const handleRemixClick = (clip: AudioClip) => {
+    localStorage.setItem(
+      "noizlabs_mint_audio",
+      JSON.stringify({
+        id: clip.id,
+        title: `${clip.title} (Remix)`,
+        audioUrl: clip.audioUrl,
+        coverImageUrl: clip.coverImageUrl,
+        category: clip.category,
+        isRemix: true,
+        originalTokenId: clip.mintedTokenId,
+        originalMintAddress: clip.mintAddress,
+      })
+    );
+    navigate("/create");
+    toast.success("Creating remix! Original creator earns 10% royalties on trades.");
+  };
+
+  const handleTradeClick = (mintAddress: string) => {
+    navigate(`/trade?mint=${mintAddress}`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -633,13 +680,33 @@ const DiscoverPage = () => {
                       </Button>
                     </div>
 
-                    <Button
-                      onClick={() => handleMintClick(clip)}
-                      className="w-full"
-                    >
-                      <Coins className="w-4 h-4 mr-2" />
-                      Mint as Token
-                    </Button>
+                    {clip.mintedTokenId ? (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleTradeClick(clip.mintAddress!)}
+                          className="flex-1"
+                        >
+                          <ArrowRightLeft className="w-4 h-4 mr-2" />
+                          Trade
+                        </Button>
+                        <Button
+                          onClick={() => handleRemixClick(clip)}
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Remix
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => handleMintClick(clip)}
+                        className="w-full"
+                      >
+                        <Coins className="w-4 h-4 mr-2" />
+                        Mint as Token
+                      </Button>
+                    )}
                   </div>
 
                   {/* Timestamp */}

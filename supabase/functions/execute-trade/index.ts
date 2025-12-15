@@ -53,19 +53,25 @@ interface BondingCurveResult {
  * Price = sol_reserves / token_reserves
  * As people buy, sol_reserves ↑ and token_reserves ↓, so price ↑
  */
-function calculateBuy(solAmount: number, solReserves: number, tokenReserves: number): BondingCurveResult {
+function calculateBuy(solAmount: number, solReserves: number, tokenReserves: number, royaltyPercentage: number = 0): BondingCurveResult & { royaltyFee: number } {
   const platformFee = Math.floor(solAmount * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
-  const solAfterFee = solAmount - platformFee;
+  
+  // Calculate royalty fee (for remix tokens)
+  const royaltyFee = royaltyPercentage > 0 
+    ? Math.floor(solAmount * royaltyPercentage * 100 / BASIS_POINTS_DIVISOR) 
+    : 0;
+  
+  const solAfterFees = solAmount - platformFee - royaltyFee;
   
   // Constant product: k = x * y
   const k = solReserves * tokenReserves;
-  const newSolReserves = solReserves + solAfterFee;
+  const newSolReserves = solReserves + solAfterFees;
   const newTokenReserves = Math.floor(k / newSolReserves);
   const tokensOut = tokenReserves - newTokenReserves;
   
   // Calculate price impact
   const spotPrice = solReserves / tokenReserves;
-  const executionPrice = tokensOut > 0 ? solAfterFee / tokensOut : 0;
+  const executionPrice = tokensOut > 0 ? solAfterFees / tokensOut : 0;
   const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
   
   return {
@@ -74,23 +80,30 @@ function calculateBuy(solAmount: number, solReserves: number, tokenReserves: num
     newTokenReserves,
     platformFee,
     priceImpact,
+    royaltyFee,
   };
 }
 
 /**
  * Sell tokens back to the curve
  */
-function calculateSell(tokenAmount: number, solReserves: number, tokenReserves: number): BondingCurveResult {
+function calculateSell(tokenAmount: number, solReserves: number, tokenReserves: number, royaltyPercentage: number = 0): BondingCurveResult & { royaltyFee: number } {
   const k = solReserves * tokenReserves;
   const newTokenReserves = tokenReserves + tokenAmount;
   const newSolReserves = Math.floor(k / newTokenReserves);
-  const solOutBeforeFee = solReserves - newSolReserves;
+  const solOutBeforeFees = solReserves - newSolReserves;
   
-  const platformFee = Math.floor(solOutBeforeFee * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
-  const solOut = solOutBeforeFee - platformFee;
+  const platformFee = Math.floor(solOutBeforeFees * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
+  
+  // Calculate royalty fee (for remix tokens)
+  const royaltyFee = royaltyPercentage > 0 
+    ? Math.floor(solOutBeforeFees * royaltyPercentage * 100 / BASIS_POINTS_DIVISOR) 
+    : 0;
+  
+  const solOut = solOutBeforeFees - platformFee - royaltyFee;
   
   const spotPrice = solReserves / tokenReserves;
-  const executionPrice = tokenAmount > 0 ? solOutBeforeFee / tokenAmount : 0;
+  const executionPrice = tokenAmount > 0 ? solOutBeforeFees / tokenAmount : 0;
   const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
   
   return {
@@ -99,6 +112,7 @@ function calculateSell(tokenAmount: number, solReserves: number, tokenReserves: 
     newTokenReserves,
     platformFee,
     priceImpact,
+    royaltyFee,
   };
 }
 
@@ -179,13 +193,17 @@ serve(async (req) => {
 
     const solReserves = Number(token.sol_reserves);
     const tokenReserves = Number(token.token_reserves);
+    
+    // Get royalty info for remix tokens
+    const royaltyPercentage = Number(token.royalty_percentage) || 0;
+    const royaltyRecipient = token.royalty_recipient;
 
-    let result: BondingCurveResult;
+    let result: (BondingCurveResult & { royaltyFee: number });
     let tradeRecord: any;
     let platformTxSignature: string | null = null;
 
     if (tradeType === 'buy') {
-      result = calculateBuy(amount, solReserves, tokenReserves);
+      result = calculateBuy(amount, solReserves, tokenReserves, royaltyPercentage);
       
       if (!result.tokensOut || result.tokensOut <= 0) {
         return new Response(
@@ -194,7 +212,7 @@ serve(async (req) => {
         );
       }
 
-      console.log(`Buy calculation: ${result.tokensOut} tokens for ${amount} lamports`);
+      console.log(`Buy calculation: ${result.tokensOut} tokens for ${amount} lamports, royalty: ${result.royaltyFee}`);
 
       // Transfer tokens from platform wallet to user
       try {
@@ -259,6 +277,18 @@ serve(async (req) => {
           );
         }
 
+        // Add royalty transfer to original creator (for remix tokens)
+        if (result.royaltyFee > 0 && royaltyRecipient) {
+          console.log(`Sending ${result.royaltyFee} lamports royalty to ${royaltyRecipient}`);
+          transaction.add(
+            SystemProgram.transfer({
+              fromPubkey: platformWallet.publicKey,
+              toPubkey: new PublicKey(royaltyRecipient),
+              lamports: result.royaltyFee,
+            })
+          );
+        }
+
         console.log('Sending token transfer transaction...');
         platformTxSignature = await sendAndConfirmTransaction(
           connection,
@@ -290,7 +320,7 @@ serve(async (req) => {
       console.log(`Buy result: ${result.tokensOut} tokens for ${amount} lamports`);
 
     } else {
-      result = calculateSell(amount, solReserves, tokenReserves);
+      result = calculateSell(amount, solReserves, tokenReserves, royaltyPercentage);
       
       if (!result.solOut || result.solOut <= 0) {
         return new Response(
@@ -299,7 +329,7 @@ serve(async (req) => {
         );
       }
 
-      console.log(`Sell calculation: ${result.solOut} lamports for ${amount} tokens`);
+      console.log(`Sell calculation: ${result.solOut} lamports for ${amount} tokens, royalty: ${result.royaltyFee}`);
 
       // Transfer SOL from platform wallet to user
       try {
@@ -321,6 +351,18 @@ serve(async (req) => {
               fromPubkey: platformWallet.publicKey,
               toPubkey: PLATFORM_FEE_WALLET,
               lamports: result.platformFee,
+            })
+          );
+        }
+
+        // Add royalty transfer to original creator (for remix tokens)
+        if (result.royaltyFee > 0 && royaltyRecipient) {
+          console.log(`Sending ${result.royaltyFee} lamports royalty to ${royaltyRecipient}`);
+          transaction.add(
+            SystemProgram.transfer({
+              fromPubkey: platformWallet.publicKey,
+              toPubkey: new PublicKey(royaltyRecipient),
+              lamports: result.royaltyFee,
             })
           );
         }
@@ -392,6 +434,7 @@ serve(async (req) => {
       tokensOut: result.tokensOut,
       solOut: result.solOut,
       platformFee: result.platformFee,
+      royaltyFee: result.royaltyFee,
       priceImpact: result.priceImpact,
       newSolReserves: result.newSolReserves,
       newTokenReserves: result.newTokenReserves,
