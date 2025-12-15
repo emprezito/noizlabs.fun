@@ -43,6 +43,9 @@ const CreatePage = () => {
   const [preloadedAudioUrl, setPreloadedAudioUrl] = useState<string | null>(null);
   const [preloadedClipId, setPreloadedClipId] = useState<string | null>(null);
   const [preloadedCoverImageUrl, setPreloadedCoverImageUrl] = useState<string | null>(null);
+  const [isRemix, setIsRemix] = useState(false);
+  const [originalTokenId, setOriginalTokenId] = useState<string | null>(null);
+  const [originalMintAddress, setOriginalMintAddress] = useState<string | null>(null);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +60,11 @@ const CreatePage = () => {
         if (audioData.audioUrl) setPreloadedAudioUrl(audioData.audioUrl);
         if (audioData.id) setPreloadedClipId(audioData.id);
         if (audioData.coverImageUrl) setPreloadedCoverImageUrl(audioData.coverImageUrl);
+        if (audioData.isRemix) {
+          setIsRemix(true);
+          setOriginalTokenId(audioData.originalTokenId || null);
+          setOriginalMintAddress(audioData.originalMintAddress || null);
+        }
         if (audioData.title) {
           const generatedSymbol = audioData.title
             .toUpperCase()
@@ -264,6 +272,24 @@ const CreatePage = () => {
       // Initial: 25 SOL virtual reserves, 950M tokens = $5k market cap at $200/SOL
       const initialSolReserves = 25_000_000_000; // 25 SOL in lamports
       const initialTokenReserves = 950_000_000_000_000_000; // 950M tokens with 9 decimals (95%)
+      
+      // For remix tokens, fetch original token's creator wallet for royalties
+      let royaltyRecipient: string | null = null;
+      if (isRemix && originalTokenId) {
+        try {
+          const { data: originalToken } = await supabase
+            .from("tokens")
+            .select("creator_wallet")
+            .eq("id", originalTokenId)
+            .single();
+          if (originalToken) {
+            royaltyRecipient = originalToken.creator_wallet;
+          }
+        } catch (e) {
+          console.error("Error fetching original token:", e);
+        }
+      }
+      
       try {
         await supabase.from("tokens").insert({
           mint_address: mintAddr,
@@ -278,7 +304,15 @@ const CreatePage = () => {
           token_reserves: initialTokenReserves,
           tokens_sold: 0,
           total_volume: 0,
+          is_remix: isRemix,
+          original_token_id: isRemix ? originalTokenId : null,
+          royalty_recipient: royaltyRecipient,
+          royalty_percentage: isRemix ? 10 : 0, // 10% royalty to original creator
         } as any);
+        
+        if (isRemix) {
+          toast.success("Remix token created! Original creator earns 10% on trades.");
+        }
       } catch (dbError) {
         console.error("Error saving token to database:", dbError);
       }
@@ -311,8 +345,13 @@ const CreatePage = () => {
           <div className="max-w-4xl mx-auto">
             <div className="mb-8">
               <h1 className="text-4xl md:text-5xl font-bold text-primary">
-                Create Your Audio Token
+                {isRemix ? "Create Remix Token" : "Create Your Audio Token"}
               </h1>
+              {isRemix && (
+                <p className="mt-2 text-muted-foreground">
+                  Creating a remix of an existing token. Original creator earns 10% royalty on all trades.
+                </p>
+              )}
             </div>
 
             {/* Wallet Connection Warning */}

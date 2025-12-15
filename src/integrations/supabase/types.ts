@@ -128,9 +128,13 @@ export type Database = {
           id: string
           initial_price: number
           is_active: boolean | null
+          is_remix: boolean | null
           metadata_uri: string | null
           mint_address: string
           name: string
+          original_token_id: string | null
+          royalty_percentage: number | null
+          royalty_recipient: string | null
           sol_reserves: number | null
           symbol: string
           token_reserves: number | null
@@ -146,9 +150,13 @@ export type Database = {
           id?: string
           initial_price: number
           is_active?: boolean | null
+          is_remix?: boolean | null
           metadata_uri?: string | null
           mint_address: string
           name: string
+          original_token_id?: string | null
+          royalty_percentage?: number | null
+          royalty_recipient?: string | null
           sol_reserves?: number | null
           symbol: string
           token_reserves?: number | null
@@ -164,9 +172,13 @@ export type Database = {
           id?: string
           initial_price?: number
           is_active?: boolean | null
+          is_remix?: boolean | null
           metadata_uri?: string | null
           mint_address?: string
           name?: string
+          original_token_id?: string | null
+          royalty_percentage?: number | null
+          royalty_recipient?: string | null
           sol_reserves?: number | null
           symbol?: string
           token_reserves?: number | null
@@ -180,6 +192,13 @@ export type Database = {
             columns: ["audio_clip_id"]
             isOneToOne: false
             referencedRelation: "audio_clips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tokens_original_token_id_fkey"
+            columns: ["original_token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
             referencedColumns: ["id"]
           },
         ]
