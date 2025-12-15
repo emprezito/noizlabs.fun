@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PointsRewards from "@/components/PointsRewards";
 import { Button } from "@/components/ui/button";
-import { Trophy, Crown, Medal, Star, Users, Zap, TrendingUp, Music, Clock, Calendar, Play, Heart, Share2 } from "lucide-react";
+import { Trophy, Crown, Medal, Star, Users, Zap, TrendingUp, Music, Clock, Calendar, Play, Heart, Share2, Award, ExternalLink } from "lucide-react";
 
 interface LeaderboardUser {
   wallet_address: string;
@@ -23,6 +23,23 @@ interface TopClip {
   plays: number;
   shares: number;
   total_engagement: number;
+}
+
+interface MintedWinner {
+  id: string;
+  name: string;
+  symbol: string;
+  mint_address: string;
+  created_at: string;
+  audio_url: string | null;
+  audio_clip: {
+    title: string;
+    creator: string;
+    cover_image_url: string | null;
+    likes: number;
+    plays: number;
+    shares: number;
+  } | null;
 }
 
 const BADGES = [
@@ -78,6 +95,8 @@ const LeaderboardPage = () => {
   const [topClips, setTopClips] = useState<TopClip[]>([]);
   const [loadingClips, setLoadingClips] = useState(true);
   const [countdown, setCountdown] = useState(getCountdownToSunday());
+  const [pastWinners, setPastWinners] = useState<MintedWinner[]>([]);
+  const [loadingWinners, setLoadingWinners] = useState(true);
 
   // Countdown timer
   useEffect(() => {
@@ -90,7 +109,48 @@ const LeaderboardPage = () => {
   useEffect(() => {
     fetchLeaderboard();
     fetchWeeklyTopClips();
+    fetchPastWinners();
   }, [publicKey]);
+
+  const fetchPastWinners = async () => {
+    try {
+      // Get tokens that were minted from audio clips (winners)
+      const { data, error } = await supabase
+        .from("tokens")
+        .select(`
+          id,
+          name,
+          symbol,
+          mint_address,
+          created_at,
+          audio_url,
+          audio_clips:audio_clip_id (
+            title,
+            creator,
+            cover_image_url,
+            likes,
+            plays,
+            shares
+          )
+        `)
+        .not("audio_clip_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      const winners = (data || []).map((token: any) => ({
+        ...token,
+        audio_clip: token.audio_clips,
+      }));
+
+      setPastWinners(winners);
+    } catch (error) {
+      console.error("Error fetching past winners:", error);
+    } finally {
+      setLoadingWinners(false);
+    }
+  };
 
   const fetchLeaderboard = async () => {
     try {
@@ -440,6 +500,55 @@ const LeaderboardPage = () => {
               </div>
 
               <PointsRewards />
+
+              {/* Past Winners Archive */}
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 p-4 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-yellow-500" />
+                    <h3 className="font-bold text-foreground">Hall of Fame</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Past winning clips minted as tokens</p>
+                </div>
+                <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
+                  {loadingWinners ? (
+                    <div className="flex justify-center py-4">
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : pastWinners.length === 0 ? (
+                    <p className="text-center text-muted-foreground text-sm py-4">
+                      No winners minted yet. Check back after Sunday!
+                    </p>
+                  ) : (
+                    pastWinners.map((winner) => (
+                      <div
+                        key={winner.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
+                        onClick={() => navigate(`/trade?mint=${winner.mint_address}`)}
+                      >
+                        {winner.audio_clip?.cover_image_url ? (
+                          <img
+                            src={winner.audio_clip.cover_image_url}
+                            alt={winner.name}
+                            className="w-10 h-10 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/20 to-amber-500/20 flex items-center justify-center">
+                            <Trophy className="w-5 h-5 text-yellow-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate text-foreground">{winner.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            ${winner.symbol} • {new Date(winner.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
 
               {/* Badge Guide */}
               <div className="bg-card rounded-xl border border-border overflow-hidden">
