@@ -265,11 +265,10 @@ const ProfilePage = () => {
     }
   };
 
-  const copyReferralLink = () => {
+  const copyReferralCode = () => {
     if (userStats?.referral_code) {
-      const referralLink = `${window.location.origin}?ref=${userStats.referral_code}`;
-      navigator.clipboard.writeText(referralLink);
-      toast.success("Referral link copied!");
+      navigator.clipboard.writeText(userStats.referral_code);
+      toast.success("Referral code copied!");
     }
   };
 
@@ -489,21 +488,46 @@ const ProfilePage = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <Label className="text-sm">Your Referral Link</Label>
+                    <Label className="text-sm">Your Referral Code</Label>
                     <p className="text-xs text-muted-foreground mb-2">
-                      Share this link to earn bonus points when friends join!
+                      Share this code to earn bonus points when friends join!
                     </p>
                     <div className="flex gap-2 mt-2">
                       <Input
-                        value={userStats?.referral_code ? `${window.location.origin}?ref=${userStats.referral_code}` : ""}
+                        value={userStats?.referral_code || ""}
                         readOnly
-                        className="font-mono text-xs"
+                        className="font-mono text-sm"
                       />
-                      <Button size="icon" variant="outline" onClick={copyReferralLink}>
+                      <Button size="icon" variant="outline" onClick={copyReferralCode}>
                         <Copy className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
+
+                  {!userStats?.referred_by && (
+                    <div>
+                      <Label className="text-sm">Enter Referral Code</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Have a friend's code? Enter it to earn 100 bonus points!
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          value={referralInput}
+                          onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+                          placeholder="Enter code"
+                          maxLength={8}
+                          className="font-mono"
+                        />
+                        <Button 
+                          size="sm" 
+                          onClick={applyReferralCode}
+                          disabled={applyingReferral || !referralInput.trim()}
+                        >
+                          {applyingReferral ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {userStats?.referred_by && (
                     <p className="text-sm text-muted-foreground">
