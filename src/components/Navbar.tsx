@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Droplets, Loader2, Wallet, Shield, ChevronDown } from "lucide-react";
+import { Droplets, Loader2, Wallet, Shield, ChevronDown } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -23,7 +23,6 @@ const navigation = [
 ];
 
 const Navbar = () => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestingAirdrop, setRequestingAirdrop] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
@@ -173,82 +172,12 @@ const Navbar = () => {
               <WalletButton />
             </div>
 
-            {/* Mobile menu button */}
-            <button
-              className="md:hidden p-1.5 rounded-md hover:bg-muted"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? (
-                <X className="w-5 h-5 text-foreground" />
-              ) : (
-                <Menu className="w-5 h-5 text-foreground" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-3 border-t border-border">
-            <div className="flex flex-col space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive(item.href)
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                    isActive("/admin")
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  Admin
-                </Link>
-              )}
-              {connected && (
-                <div className="pt-2 space-y-2">
-                  <div className="flex items-center justify-between px-3 py-2 bg-muted rounded-md">
-                    <span className="text-sm text-muted-foreground">Balance</span>
-                    <span className="text-sm font-medium">
-                      {balanceLoading ? "..." : `${balance?.toFixed(4) ?? "0"} SOL`}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={requestAirdrop}
-                    disabled={requestingAirdrop}
-                    className="w-full"
-                  >
-                    {requestingAirdrop ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    ) : (
-                      <Droplets className="w-3.5 h-3.5 mr-1.5" />
-                    )}
-                    Get Devnet SOL
-                  </Button>
-                </div>
-              )}
-              <div className="pt-2">
-                <WalletButton />
-              </div>
+            {/* Mobile wallet button */}
+            <div className="md:hidden">
+              <WalletButton />
             </div>
           </div>
-        )}
+        </div>
       </div>
     </nav>
   );

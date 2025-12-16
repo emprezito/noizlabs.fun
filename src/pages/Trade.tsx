@@ -11,6 +11,7 @@ import {
 } from "@solana/spl-token";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import MobileTabBar from "@/components/MobileTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -667,7 +668,7 @@ const TradePage = () => {
   const estimatedSellSol = sellAmount && tokenInfo ? (parseFloat(sellAmount) * tokenInfo.price).toFixed(6) : "0";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Navbar />
       <main className="pt-24 pb-20 min-h-screen">
         <div className="container mx-auto px-4 max-w-6xl">
@@ -888,6 +889,7 @@ const TradePage = () => {
           currentPrice={tokenInfo.price}
         />
       )}
+      <MobileTabBar />
     </div>
   );
 };

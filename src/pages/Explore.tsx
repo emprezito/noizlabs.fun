@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import MobileTabBar from "@/components/MobileTabBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TokensTab from "@/components/explore/TokensTab";
 import ClipsTab from "@/components/explore/ClipsTab";
@@ -15,7 +15,7 @@ const ExplorePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Navbar />
       <main className="pt-16 pb-8">
         <div className="container mx-auto px-4">
@@ -43,6 +43,7 @@ const ExplorePage = () => {
         </div>
       </main>
       <Footer />
+      <MobileTabBar />
     </div>
   );
 };

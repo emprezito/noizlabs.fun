@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import MobileTabBar from "@/components/MobileTabBar";
 import PointsRewards from "@/components/PointsRewards";
 import { Button } from "@/components/ui/button";
 import { Trophy, Crown, Medal, Star, Users, Zap, TrendingUp, Music, Clock, Calendar, Play, Heart, Share2, Award, ExternalLink } from "lucide-react";
@@ -232,7 +233,7 @@ const LeaderboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Navbar />
       <main className="pt-24 pb-20 min-h-screen">
         <div className="container mx-auto px-4">
@@ -577,6 +578,7 @@ const LeaderboardPage = () => {
         </div>
       </main>
       <Footer />
+      <MobileTabBar />
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BadgeLevel } from "@/lib/solana/metaplex";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import MobileTabBar from "@/components/MobileTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -264,10 +265,11 @@ const ProfilePage = () => {
     }
   };
 
-  const copyReferralCode = () => {
+  const copyReferralLink = () => {
     if (userStats?.referral_code) {
-      navigator.clipboard.writeText(userStats.referral_code);
-      toast.success("Referral code copied!");
+      const referralLink = `${window.location.origin}?ref=${userStats.referral_code}`;
+      navigator.clipboard.writeText(referralLink);
+      toast.success("Referral link copied!");
     }
   };
 
@@ -387,7 +389,7 @@ const ProfilePage = () => {
 
   if (!connected) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background pb-16 md:pb-0">
         <Navbar />
         <main className="pt-24 pb-20 min-h-screen">
           <div className="container mx-auto px-4">
@@ -401,13 +403,14 @@ const ProfilePage = () => {
           </div>
         </main>
         <Footer />
+        <MobileTabBar />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background pb-16 md:pb-0">
         <Navbar />
         <main className="pt-24 pb-20 min-h-screen">
           <div className="container mx-auto px-4 text-center py-20">
@@ -416,12 +419,13 @@ const ProfilePage = () => {
           </div>
         </main>
         <Footer />
+        <MobileTabBar />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Navbar />
       <main className="pt-24 pb-20 min-h-screen">
         <div className="container mx-auto px-4">
@@ -476,7 +480,7 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              {/* Referral Code */}
+              {/* Referral Program */}
               <div className="bg-card rounded-xl border border-border p-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Users className="w-5 h-5 text-primary" />
@@ -485,44 +489,25 @@ const ProfilePage = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <Label className="text-sm">Your Referral Code</Label>
+                    <Label className="text-sm">Your Referral Link</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Share this link to earn bonus points when friends join!
+                    </p>
                     <div className="flex gap-2 mt-2">
                       <Input
-                        value={userStats?.referral_code || ""}
+                        value={userStats?.referral_code ? `${window.location.origin}?ref=${userStats.referral_code}` : ""}
                         readOnly
-                        className="font-mono"
+                        className="font-mono text-xs"
                       />
-                      <Button size="icon" variant="outline" onClick={copyReferralCode}>
+                      <Button size="icon" variant="outline" onClick={copyReferralLink}>
                         <Copy className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
 
-                  {!userStats?.referred_by && (
-                    <div>
-                      <Label className="text-sm">Enter Referral Code</Label>
-                      <div className="flex gap-2 mt-2">
-                        <Input
-                          value={referralInput}
-                          onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
-                          placeholder="XXXXXXXX"
-                          maxLength={8}
-                          className="font-mono"
-                        />
-                        <Button 
-                          size="sm" 
-                          onClick={applyReferralCode}
-                          disabled={applyingReferral || !referralInput.trim()}
-                        >
-                          {applyingReferral ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   {userStats?.referred_by && (
                     <p className="text-sm text-muted-foreground">
-                      Referred by: <span className="font-mono">{userStats.referred_by}</span>
+                      ✓ You were referred by someone
                     </p>
                   )}
                 </div>
@@ -750,6 +735,7 @@ const ProfilePage = () => {
           )}
         </DialogContent>
       </Dialog>
+      <MobileTabBar />
     </div>
   );
 };

@@ -279,21 +279,22 @@ const ClipsTab = () => {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <TopClipsSection />
-        <Button size="sm" onClick={() => setShowUploadModal(true)}>
-          <Plus className="w-4 h-4 mr-1" />Upload
-        </Button>
-      </div>
+      {/* Top Clips */}
+      <TopClipsSection />
 
-      {/* Category Filter */}
-      <div className="flex gap-1.5 overflow-x-auto pb-3 mb-4">
-        {CATEGORIES.map((cat) => (
-          <Button key={cat} onClick={() => setSelectedCategory(cat)} variant={selectedCategory === cat ? "default" : "outline"} size="sm" className="text-xs">
-            {cat}
-          </Button>
-        ))}
+      {/* Category Filter with Upload Button */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="flex gap-1.5 overflow-x-auto flex-1">
+          {CATEGORIES.map((cat) => (
+            <Button key={cat} onClick={() => setSelectedCategory(cat)} variant={selectedCategory === cat ? "default" : "outline"} size="sm" className="text-xs whitespace-nowrap">
+              {cat}
+            </Button>
+          ))}
+        </div>
+        <Button size="sm" onClick={() => setShowUploadModal(true)} className="shrink-0">
+          <Plus className="w-4 h-4 mr-1" />
+          <span className="hidden sm:inline">Upload</span>
+        </Button>
       </div>
 
       {/* Clips Grid */}
