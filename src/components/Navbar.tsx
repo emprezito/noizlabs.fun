@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Droplets, Loader2, Wallet, Shield } from "lucide-react";
+import { Menu, X, Droplets, Loader2, Wallet, Shield, ChevronDown } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -8,13 +8,16 @@ import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const navigation = [
-  { name: "Home", href: "/" },
-  { name: "Explore", href: "/tokens" },
+  { name: "Explore", href: "/explore" },
   { name: "Create", href: "/create" },
   { name: "Trade", href: "/trade" },
-  { name: "Discover", href: "/discover" },
   { name: "Leaderboard", href: "/leaderboard" },
   { name: "Profile", href: "/profile" },
 ];
@@ -28,7 +31,6 @@ const Navbar = () => {
   const { publicKey, connected } = useWallet();
   const { balance, loading: balanceLoading, refetch: refetchBalance } = useWalletBalance();
 
-  // Check if wallet is admin
   useEffect(() => {
     const checkAdmin = async () => {
       if (!publicKey) {
@@ -57,16 +59,10 @@ const Navbar = () => {
         body: { walletAddress: publicKey.toBase58() },
       });
 
-      if (error) {
-        throw new Error(error.message || "Faucet request failed");
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message || "Faucet request failed");
+      if (data?.error) throw new Error(data.error);
 
       toast.success(`Received ${data.amount} SOL! (Devnet)`);
-      // Refetch balance after successful faucet
       setTimeout(() => refetchBalance(), 2000);
     } catch (error: any) {
       console.error("Faucet error:", error);
@@ -77,29 +73,27 @@ const Navbar = () => {
   };
 
   const isActive = (href: string) => {
-    if (href === "/") {
-      return location.pathname === "/";
-    }
+    if (href === "/") return location.pathname === "/";
     return location.pathname.startsWith(href);
   };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <span className="text-2xl">🎵</span>
-            <span className="text-xl font-bold text-primary">NoizLabs</span>
+            <span className="text-xl">🎵</span>
+            <span className="text-lg font-bold text-primary">NoizLabs</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-0.5">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -111,78 +105,83 @@ const Navbar = () => {
             {isAdmin && (
               <Link
                 to="/admin"
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
                   isActive("/admin")
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
-                <Shield className="w-4 h-4" />
+                <Shield className="w-3.5 h-3.5" />
                 Admin
               </Link>
             )}
           </div>
 
-          {/* SOL Price & Connect Wallet */}
-          <div className="flex items-center gap-3">
-            {/* SOL Price Ticker */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg text-sm">
-              <span className="text-muted-foreground">SOL</span>
-              {loading ? (
-                <span className="text-foreground font-medium">...</span>
-              ) : (
-                <span className="text-foreground font-bold">
-                  ${price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {/* Right Side */}
+          <div className="flex items-center gap-2">
+            {/* Wallet Info Popover (Desktop) */}
+            {connected ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 h-8 text-xs">
+                    <Wallet className="w-3.5 h-3.5" />
+                    {balanceLoading ? "..." : `${balance?.toFixed(2) ?? "0"} SOL`}
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" align="end">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">SOL Price</span>
+                      <span className="font-medium">
+                        {loading ? "..." : `$${price?.toFixed(2)}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Balance</span>
+                      <span className="font-medium">
+                        {balanceLoading ? "..." : `${balance?.toFixed(4) ?? "0"} SOL`}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={requestAirdrop}
+                      disabled={requestingAirdrop}
+                      className="w-full"
+                    >
+                      {requestingAirdrop ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                      ) : (
+                        <Droplets className="w-3.5 h-3.5 mr-1.5" />
+                      )}
+                      Get Devnet SOL
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md text-xs">
+                <span className="text-muted-foreground">SOL</span>
+                <span className="font-medium">
+                  {loading ? "..." : `$${price?.toFixed(2)}`}
                 </span>
-              )}
-            </div>
-
-            {/* Wallet Balance & Devnet Faucet */}
-            {connected && (
-              <div className="hidden sm:flex items-center gap-2">
-                {/* Balance Display */}
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 rounded-lg text-sm">
-                  <Wallet className="w-4 h-4 text-primary" />
-                  {balanceLoading ? (
-                    <span className="text-muted-foreground">...</span>
-                  ) : (
-                    <span className="text-foreground font-bold">
-                      {balance?.toFixed(4) ?? "0"} SOL
-                    </span>
-                  )}
-                </div>
-                
-                {/* Faucet Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={requestAirdrop}
-                  disabled={requestingAirdrop}
-                  className="flex items-center gap-2"
-                >
-                  {requestingAirdrop ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Droplets className="w-4 h-4" />
-                  )}
-                  <span className="hidden lg:inline">Get SOL</span>
-                </Button>
               </div>
             )}
-            
+
             <div className="hidden sm:block">
               <WalletButton />
             </div>
 
             {/* Mobile menu button */}
             <button
-              className="md:hidden p-2 rounded-lg hover:bg-muted"
+              className="md:hidden p-1.5 rounded-md hover:bg-muted"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
-                <X className="w-6 h-6 text-foreground" />
+                <X className="w-5 h-5 text-foreground" />
               ) : (
-                <Menu className="w-6 h-6 text-foreground" />
+                <Menu className="w-5 h-5 text-foreground" />
               )}
             </button>
           </div>
@@ -190,14 +189,14 @@ const Navbar = () => {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border">
-            <div className="flex flex-col space-y-2">
+          <div className="md:hidden py-3 border-t border-border">
+            <div className="flex flex-col space-y-1">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`px-4 py-3 rounded-lg font-medium transition-colors ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(item.href)
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -210,44 +209,41 @@ const Navbar = () => {
                 <Link
                   to="/admin"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
                     isActive("/admin")
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
-                  <Shield className="w-4 h-4" />
-                  Admin Panel
+                  <Shield className="w-3.5 h-3.5" />
+                  Admin
                 </Link>
               )}
-              {/* Mobile Balance & Faucet */}
               {connected && (
-                <div className="space-y-2">
-                  {/* Mobile Balance Display */}
-                  <div className="flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 rounded-lg">
-                    <Wallet className="w-4 h-4 text-primary" />
-                    <span className="text-foreground font-bold">
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center justify-between px-3 py-2 bg-muted rounded-md">
+                    <span className="text-sm text-muted-foreground">Balance</span>
+                    <span className="text-sm font-medium">
                       {balanceLoading ? "..." : `${balance?.toFixed(4) ?? "0"} SOL`}
                     </span>
                   </div>
-                  
-                  {/* Mobile Faucet Button */}
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={requestAirdrop}
                     disabled={requestingAirdrop}
-                    className="w-full flex items-center justify-center gap-2"
+                    className="w-full"
                   >
                     {requestingAirdrop ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                     ) : (
-                      <Droplets className="w-4 h-4" />
+                      <Droplets className="w-3.5 h-3.5 mr-1.5" />
                     )}
                     Get Devnet SOL
                   </Button>
                 </div>
               )}
-              <div className="mt-2">
+              <div className="pt-2">
                 <WalletButton />
               </div>
             </div>

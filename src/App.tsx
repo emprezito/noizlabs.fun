@@ -2,12 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Create from "./pages/Create";
-import Tokens from "./pages/Tokens";
+import Explore from "./pages/Explore";
 import Trade from "./pages/Trade";
-import Discover from "./pages/Discover";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
@@ -24,12 +23,14 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/create" element={<Create />} />
-          <Route path="/tokens" element={<Tokens />} />
+          <Route path="/explore" element={<Explore />} />
           <Route path="/trade" element={<Trade />} />
-          <Route path="/discover" element={<Discover />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
+          {/* Redirects for old routes */}
+          <Route path="/tokens" element={<Navigate to="/explore?tab=tokens" replace />} />
+          <Route path="/discover" element={<Navigate to="/explore?tab=clips" replace />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
