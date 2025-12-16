@@ -291,6 +291,9 @@ const CreatePage = () => {
         }
       }
       
+      // Get the audio URL from upload result or preloaded URL
+      const finalAudioUrl = uploadResult.audioUrl || preloadedAudioUrl || null;
+      
       try {
         await supabase.from("tokens").insert({
           mint_address: mintAddr,
@@ -301,10 +304,12 @@ const CreatePage = () => {
           total_supply: 1_000_000_000,
           metadata_uri: metadataUri,
           audio_clip_id: preloadedClipId || null,
+          audio_url: finalAudioUrl,
           sol_reserves: initialSolReserves,
           token_reserves: initialTokenReserves,
           tokens_sold: 0,
           total_volume: 0,
+          is_active: true,
           is_remix: isRemix,
           original_token_id: isRemix ? originalTokenId : null,
           royalty_recipient: royaltyRecipient,
