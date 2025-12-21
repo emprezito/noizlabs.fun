@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Droplets, Loader2, Wallet, Shield, ChevronDown } from "lucide-react";
+import { Droplets, Loader2, Wallet, Shield, ChevronDown, Menu, X } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -13,6 +13,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const navigation = [
   { name: "Explore", href: "/explore" },
@@ -25,6 +32,7 @@ const navigation = [
 const Navbar = () => {
   const [requestingAirdrop, setRequestingAirdrop] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { price, loading } = useSolPrice();
   const { publicKey, connected } = useWallet();
@@ -122,7 +130,7 @@ const Navbar = () => {
             {connected ? (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 h-8 text-xs">
+                  <Button variant="outline" size="sm" className="hidden md:flex items-center gap-1.5 h-8 text-xs">
                     <Wallet className="w-3.5 h-3.5" />
                     {balanceLoading ? "..." : `${balance?.toFixed(2) ?? "0"} SOL`}
                     <ChevronDown className="w-3 h-3" />
@@ -160,7 +168,7 @@ const Navbar = () => {
                 </PopoverContent>
               </Popover>
             ) : (
-              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md text-xs">
+              <div className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md text-xs">
                 <span className="text-muted-foreground">SOL</span>
                 <span className="font-medium">
                   {loading ? "..." : `$${price?.toFixed(2)}`}
@@ -168,14 +176,99 @@ const Navbar = () => {
               </div>
             )}
 
-            <div className="hidden sm:block">
+            <div className="hidden md:block">
               <WalletButton />
             </div>
 
-            {/* Mobile wallet button */}
-            <div className="md:hidden">
-              <WalletButton />
-            </div>
+            {/* Mobile Hamburger Menu */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="md:hidden h-8 w-8 p-0">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] sm:w-[320px]">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <span className="text-xl">🎵</span>
+                    <span className="text-primary">NoizLabs</span>
+                  </SheetTitle>
+                </SheetHeader>
+                
+                <div className="mt-6 space-y-6">
+                  {/* Wallet Section */}
+                  <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Wallet</span>
+                      <WalletButton />
+                    </div>
+                    
+                    {connected && (
+                      <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Balance</span>
+                          <span className="font-semibold">
+                            {balanceLoading ? "..." : `${balance?.toFixed(4) ?? "0"} SOL`}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">SOL Price</span>
+                          <span className="font-medium">
+                            {loading ? "..." : `$${price?.toFixed(2)}`}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={requestAirdrop}
+                          disabled={requestingAirdrop}
+                          className="w-full"
+                        >
+                          {requestingAirdrop ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                          ) : (
+                            <Droplets className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          Get Devnet SOL
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Navigation Links */}
+                  <div className="space-y-1">
+                    {navigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                          isActive(item.href)
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                          isActive("/admin")
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <Shield className="w-4 h-4" />
+                        Admin
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>

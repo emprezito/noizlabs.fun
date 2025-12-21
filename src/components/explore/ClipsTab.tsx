@@ -321,22 +321,21 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
                     <span className="text-3xl">🎵</span>
                   </div>
                 )}
-                {/* Play button overlay */}
+                {/* Play button - always visible on mobile, hover on desktop */}
                 <button
                   onClick={(e) => { e.stopPropagation(); handlePlay(clip.id); }}
-                  className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity"
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity ${
+                    playingClip === clip.id 
+                      ? "bg-black/40 opacity-100" 
+                      : "bg-black/30 opacity-100 md:opacity-0 md:hover:opacity-100"
+                  }`}
                 >
                   {playingClip === clip.id ? (
-                    <Pause className="w-8 h-8 text-white" />
+                    <Pause className="w-8 h-8 text-white animate-pulse" />
                   ) : (
                     <Play className="w-8 h-8 text-white ml-1" />
                   )}
                 </button>
-                {playingClip === clip.id && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Pause className="w-8 h-8 text-white animate-pulse" />
-                  </div>
-                )}
               </div>
 
               {/* Info */}
@@ -392,20 +391,20 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Audio Clip</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 mt-2">
+          <div className="space-y-4 mt-2">
             <div>
-              <Label className="text-xs">Title</Label>
-              <Input type="text" placeholder="My Audio" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} className="mt-1 h-9" />
+              <Label className="text-xs font-medium">Title <span className="text-destructive">*</span></Label>
+              <Input type="text" placeholder="My Audio" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} className="mt-1 h-10" />
             </div>
             <div>
-              <Label className="text-xs">Category</Label>
+              <Label className="text-xs font-medium">Category</Label>
               <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger className="mt-1 h-10"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-popover">
                   {CATEGORIES.filter((c) => c !== "All").map((cat) => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
@@ -413,23 +412,38 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Cover Image</Label>
-              <Input type="file" accept="image/*" onChange={(e) => setUploadCoverImage(e.target.files?.[0] || null)} className="mt-1 h-9" />
-              {uploadCoverImage && (
-                <img src={URL.createObjectURL(uploadCoverImage)} alt="Cover" className="mt-1 w-full h-20 object-cover rounded" />
-              )}
+              <Label className="text-xs font-medium">Cover Image <span className="text-destructive">*</span></Label>
+              <div className="mt-1 border-2 border-dashed border-border rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => setUploadCoverImage(e.target.files?.[0] || null)}
+                  className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
+                />
+                {uploadCoverImage && (
+                  <img src={URL.createObjectURL(uploadCoverImage)} alt="Cover" className="mt-2 w-full h-24 object-cover rounded" />
+                )}
+              </div>
             </div>
             <div>
-              <Label className="text-xs">Audio File</Label>
-              <Input type="file" accept="audio/*" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} className="mt-1 h-9" />
+              <Label className="text-xs font-medium">Audio File <span className="text-destructive">*</span></Label>
+              <div className="mt-1 border-2 border-dashed border-border rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
+                />
+              </div>
             </div>
             {uploadFile && (
-              <audio controls className="w-full h-8">
+              <audio controls className="w-full h-10">
                 <source src={URL.createObjectURL(uploadFile)} type={uploadFile.type} />
               </audio>
             )}
-            <Button onClick={handleUpload} disabled={loading || !uploadTitle || !uploadFile || !uploadCoverImage} className="w-full">
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Uploading...</> : <><Upload className="w-4 h-4 mr-1" />Upload</>}
+            <Button onClick={handleUpload} disabled={loading || !uploadTitle || !uploadFile || !uploadCoverImage} className="w-full h-11">
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Uploading...</> : <><Upload className="w-4 h-4 mr-2" />Upload Clip</>}
             </Button>
           </div>
         </DialogContent>

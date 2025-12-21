@@ -112,8 +112,9 @@ const CreatePage = () => {
 
     // Check for audio - either uploaded file or preloaded from Discover page
     const hasAudio = audioFile || preloadedAudioUrl;
-    if (!name || !symbol || !hasAudio) {
-      toast.error("Please fill all required fields!");
+    const hasCoverImage = imageFile || preloadedCoverImageUrl;
+    if (!name || !symbol || !hasAudio || !hasCoverImage) {
+      toast.error("Please fill all required fields including cover image!");
       return;
     }
 
@@ -650,7 +651,9 @@ const CreatePage = () => {
                   )}
 
                   <div>
-                    <Label className="text-foreground">Cover Image (Optional)</Label>
+                    <Label className="text-foreground">
+                      Cover Image <span className="text-destructive">*</span>
+                    </Label>
                     <input
                       type="file"
                       accept="image/*"

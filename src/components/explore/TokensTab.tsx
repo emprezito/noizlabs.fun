@@ -196,17 +196,17 @@ function TokenCard({ token, formatUsd }: { token: TokenData; formatUsd: (sol: nu
               <span className="text-lg">🎵</span>
             </div>
           )}
+          {/* Play button - always visible on mobile, hover on desktop */}
           <button
             onClick={togglePlay}
-            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+            className={`absolute inset-0 flex items-center justify-center transition-opacity ${
+              playing 
+                ? "bg-black/40 opacity-100" 
+                : "bg-black/40 opacity-100 md:opacity-0 md:hover:opacity-100"
+            }`}
           >
-            {playing ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white ml-0.5" />}
+            {playing ? <Pause className="w-4 h-4 text-white animate-pulse" /> : <Play className="w-4 h-4 text-white ml-0.5" />}
           </button>
-          {playing && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <Pause className="w-4 h-4 text-white animate-pulse" />
-            </div>
-          )}
         </div>
 
         {/* Info */}
