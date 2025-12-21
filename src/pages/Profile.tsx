@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { BadgeLevel } from "@/lib/solana/metaplex";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
+import { clearMobileWalletCache } from "@/components/WalletButton";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import MobileTabBar from "@/components/MobileTabBar";
@@ -13,7 +15,7 @@ import { toast } from "sonner";
 import { 
   User, Trophy, Star, Zap, TrendingUp, Medal, Crown, 
   Copy, Users, ArrowUpRight, ArrowDownLeft, Clock,
-  Loader2, Wallet, Droplets
+  Loader2, Wallet, Droplets, RefreshCw
 } from "lucide-react";
 
 interface UserStats {
@@ -61,7 +63,8 @@ const BADGE_DEFINITIONS = [
 ];
 
 const ProfilePage = () => {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, disconnect } = useWallet();
+  const { setVisible } = useWalletModal();
   const { balance, loading: balanceLoading, refetch: refetchBalance } = useWalletBalance();
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -418,6 +421,22 @@ const ProfilePage = () => {
                     <Droplets className="w-4 h-4 mr-2" />
                   )}
                   Get Devnet SOL
+                </Button>
+
+                {/* Switch Wallet */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    clearMobileWalletCache();
+                    disconnect();
+                    toast.success("Wallet disconnected");
+                    setTimeout(() => setVisible(true), 150);
+                  }}
+                  className="w-full mt-2 text-muted-foreground"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Switch Wallet
                 </Button>
               </div>
 
