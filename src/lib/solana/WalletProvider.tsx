@@ -20,12 +20,10 @@ interface Props {
 // Use devnet for testing, switch to mainnet-beta for production
 const NETWORK = WalletAdapterNetwork.Devnet;
 
-// Check if running on mobile
-const isMobile = () => {
+// Check if running on Android (MWA is Android-focused)
+const isAndroid = () => {
   if (typeof window === "undefined") return false;
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
+  return /Android/i.test(navigator.userAgent);
 };
 
 export const WalletProvider: FC<Props> = ({ children }) => {
@@ -34,8 +32,9 @@ export const WalletProvider: FC<Props> = ({ children }) => {
   const wallets = useMemo(() => {
     const walletAdapters = [];
 
-    // Add Mobile Wallet Adapter for mobile devices - this enables deep linking
-    if (isMobile()) {
+    // Add Mobile Wallet Adapter for Android devices (MWA flow)
+    // On iOS, Phantom/Solflare deeplinks work better than the MWA "transact" flow.
+    if (isAndroid()) {
       walletAdapters.push(
         new SolanaMobileWalletAdapter({
           addressSelector: {
