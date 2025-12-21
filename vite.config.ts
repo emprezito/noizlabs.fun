@@ -30,14 +30,4 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  build: {
-    rollupOptions: {
-      plugins: [
-        {
-          name: "inject-buffer",
-          banner: `import { Buffer } from 'buffer'; window.Buffer = Buffer; window.global = window;`,
-        },
-      ],
-    },
-  },
 }));
