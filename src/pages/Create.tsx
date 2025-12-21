@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Music, Image, Check, Loader2, AlertCircle, Shield, AlertTriangle } from "lucide-react";
+import { Music, Image, Check, Loader2, AlertCircle, Shield, AlertTriangle, X } from "lucide-react";
 import { createTokenWithMetaplex, CreateTokenParams, PLATFORM_WALLET, TOTAL_SUPPLY } from "@/lib/solana/createToken";
 import { uploadTokenMetadata } from "@/lib/ipfsUpload";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -640,9 +640,22 @@ const CreatePage = () => {
                     </div>
                   </div>
 
-                  {/* Audio preview */}
+                  {/* Audio preview with clear button */}
                   {(preloadedAudioUrl || audioFile) && (
-                    <div className="bg-muted p-4 rounded-lg">
+                    <div className="bg-muted p-4 rounded-lg relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAudioFile(null);
+                          setPreloadedAudioUrl(null);
+                          setPreloadedClipId(null);
+                          if (audioInputRef.current) audioInputRef.current.value = "";
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/80 transition-colors z-10"
+                        aria-label="Remove audio"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                       <audio controls className="w-full">
                         <source
                           src={preloadedAudioUrl || (audioFile ? URL.createObjectURL(audioFile) : "")}
@@ -661,9 +674,17 @@ const CreatePage = () => {
                     <Label className="text-foreground">
                       Cover Image <span className="text-destructive">*</span>
                     </Label>
-                    {/* Show preloaded cover image from Discover */}
+                    {/* Show preloaded cover image from Discover with clear button */}
                     {preloadedCoverImageUrl && !imageFile && (
-                      <div className="mt-2 border-2 border-primary/50 bg-primary/5 rounded-xl p-4">
+                      <div className="mt-2 border-2 border-primary/50 bg-primary/5 rounded-xl p-4 relative">
+                        <button
+                          type="button"
+                          onClick={() => setPreloadedCoverImageUrl(null)}
+                          className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/80 transition-colors z-10"
+                          aria-label="Remove cover image"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                         <p className="text-primary font-semibold text-sm mb-2">
                           ✅ Cover image loaded from Discover
                         </p>
@@ -701,7 +722,7 @@ const CreatePage = () => {
                       <div className="pointer-events-none">
                         <Image className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                         {imageFile ? (
-                          <div>
+                          <div className="relative">
                             <p className="text-primary font-semibold mb-2">✅ {imageFile.name}</p>
                             <img
                               src={URL.createObjectURL(imageFile)}
@@ -717,6 +738,20 @@ const CreatePage = () => {
                           </p>
                         )}
                       </div>
+                      {imageFile && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setImageFile(null);
+                            if (imageInputRef.current) imageInputRef.current.value = "";
+                          }}
+                          className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/80 transition-colors z-20"
+                          aria-label="Remove cover image"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

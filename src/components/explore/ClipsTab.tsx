@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, MoreHorizontal, ArrowRightLeft, Sparkles } from "lucide-react";
+import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, MoreHorizontal, ArrowRightLeft, Sparkles, X } from "lucide-react";
 import ImageLightbox from "@/components/ImageLightbox";
 import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
 
@@ -446,11 +446,25 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
                   )}
                 </div>
                 {uploadCoverImage && (
-                  <img
-                    src={URL.createObjectURL(uploadCoverImage)}
-                    alt="Cover image preview"
-                    className="mt-2 w-full h-24 object-cover rounded"
-                  />
+                  <>
+                    <img
+                      src={URL.createObjectURL(uploadCoverImage)}
+                      alt="Cover image preview"
+                      className="mt-2 w-full h-24 object-cover rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUploadCoverImage(null);
+                        if (uploadCoverInputRef.current) uploadCoverInputRef.current.value = "";
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/80 transition-colors z-20"
+                      aria-label="Remove cover image"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -485,6 +499,20 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
                     <p className="text-sm text-muted-foreground">Tap to select audio file</p>
                   )}
                 </div>
+                {uploadFile && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setUploadFile(null);
+                      if (uploadAudioInputRef.current) uploadAudioInputRef.current.value = "";
+                    }}
+                    className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/80 transition-colors z-20"
+                    aria-label="Remove audio file"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
             {uploadFile && (
