@@ -601,18 +601,29 @@ const CreatePage = () => {
                     <Label className="text-foreground">
                       Audio File <span className="text-destructive">*</span>
                     </Label>
-                    <div className={`mt-2 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-                        preloadedAudioUrl || audioFile 
-                          ? "border-primary/50 bg-primary/5" 
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => audioInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          audioInputRef.current?.click();
+                        }
+                      }}
+                      className={`mt-2 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors relative overflow-hidden ${
+                        preloadedAudioUrl || audioFile
+                          ? "border-primary/50 bg-primary/5"
                           : "border-border hover:border-primary/50"
-                      }`}>
+                      }`}
+                      aria-label="Upload audio file"
+                    >
                       <input
                         type="file"
                         accept="audio/*"
                         onChange={handleAudioChange}
                         ref={audioInputRef}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        style={{ position: 'absolute' }}
+                        className="absolute inset-0 z-10 w-full h-full cursor-pointer opacity-0"
                       />
                       <div className="relative pointer-events-none">
                         <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
@@ -621,13 +632,9 @@ const CreatePage = () => {
                             ✅ Audio loaded from Discover
                           </p>
                         ) : audioFile ? (
-                          <p className="text-primary font-semibold">
-                            ✅ {audioFile.name}
-                          </p>
+                          <p className="text-primary font-semibold">✅ {audioFile.name}</p>
                         ) : (
-                          <p className="text-muted-foreground">
-                            Tap to upload audio file
-                          </p>
+                          <p className="text-muted-foreground">Tap to upload audio file</p>
                         )}
                       </div>
                     </div>
@@ -671,30 +678,42 @@ const CreatePage = () => {
                       </div>
                     )}
                     
-                    <div className="mt-2 border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => imageInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          imageInputRef.current?.click();
+                        }
+                      }}
+                      className="mt-2 border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors relative overflow-hidden"
+                      aria-label="Upload cover image"
+                    >
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleImageChange}
                         ref={imageInputRef}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        className="absolute inset-0 z-10 w-full h-full cursor-pointer opacity-0"
                       />
                       <div className="pointer-events-none">
                         <Image className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                         {imageFile ? (
                           <div>
-                            <p className="text-primary font-semibold mb-2">
-                              ✅ {imageFile.name}
-                            </p>
+                            <p className="text-primary font-semibold mb-2">✅ {imageFile.name}</p>
                             <img
                               src={URL.createObjectURL(imageFile)}
-                              alt="Preview"
+                              alt="Cover image preview"
                               className="w-32 h-32 object-cover rounded-lg mx-auto"
                             />
                           </div>
                         ) : (
                           <p className="text-muted-foreground">
-                            {preloadedCoverImageUrl ? "Tap to upload a different image" : "Tap to upload cover image"}
+                            {preloadedCoverImageUrl
+                              ? "Tap to upload a different image"
+                              : "Tap to upload cover image"}
                           </p>
                         )}
                       </div>

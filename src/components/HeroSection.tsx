@@ -47,7 +47,7 @@ const HeroSection = () => {
               <span className="text-muted-foreground text-sm ml-2">Creation Fee</span>
             </div>
             <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.5s" }}>
-              <span className="text-xl font-bold text-accent">1%</span>
+              <span className="text-xl font-bold text-accent">0.25%</span>
               <span className="text-muted-foreground text-sm ml-2">Trading Fee</span>
             </div>
             <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.6s" }}>

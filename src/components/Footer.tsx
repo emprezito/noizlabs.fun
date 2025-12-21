@@ -35,7 +35,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-4 text-center text-xs text-muted-foreground">
-          © 2024 NoizLabs. Built on Solana.
+          © 2025 NoizLabs. Built on Solana.
         </div>
       </div>
     </footer>

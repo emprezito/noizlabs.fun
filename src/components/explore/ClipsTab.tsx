@@ -64,6 +64,9 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
   const [loadingClips, setLoadingClips] = useState(true);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const uploadCoverInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadAudioInputRef = useRef<HTMLInputElement | null>(null);
+
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadCategory, setUploadCategory] = useState("Memes");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -412,29 +415,76 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-medium">Cover Image <span className="text-destructive">*</span></Label>
-              <div className="mt-1 border-2 border-dashed border-border rounded-lg p-4 text-center">
+              <Label className="text-xs font-medium">
+                Cover Image <span className="text-destructive">*</span>
+              </Label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => uploadCoverInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    uploadCoverInputRef.current?.click();
+                  }
+                }}
+                className="mt-1 border-2 border-dashed border-border rounded-lg p-4 text-center relative overflow-hidden cursor-pointer"
+                aria-label="Select cover image"
+              >
                 <input
+                  ref={uploadCoverInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   onChange={(e) => setUploadCoverImage(e.target.files?.[0] || null)}
-                  className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
+                  className="absolute inset-0 z-10 w-full h-full cursor-pointer opacity-0"
                 />
+                <div className="pointer-events-none">
+                  {uploadCoverImage ? (
+                    <p className="text-sm font-medium text-foreground">✅ {uploadCoverImage.name}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Tap to select cover image</p>
+                  )}
+                </div>
                 {uploadCoverImage && (
-                  <img src={URL.createObjectURL(uploadCoverImage)} alt="Cover" className="mt-2 w-full h-24 object-cover rounded" />
+                  <img
+                    src={URL.createObjectURL(uploadCoverImage)}
+                    alt="Cover image preview"
+                    className="mt-2 w-full h-24 object-cover rounded"
+                  />
                 )}
               </div>
             </div>
             <div>
-              <Label className="text-xs font-medium">Audio File <span className="text-destructive">*</span></Label>
-              <div className="mt-1 border-2 border-dashed border-border rounded-lg p-4 text-center">
+              <Label className="text-xs font-medium">
+                Audio File <span className="text-destructive">*</span>
+              </Label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => uploadAudioInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    uploadAudioInputRef.current?.click();
+                  }
+                }}
+                className="mt-1 border-2 border-dashed border-border rounded-lg p-4 text-center relative overflow-hidden cursor-pointer"
+                aria-label="Select audio file"
+              >
                 <input
+                  ref={uploadAudioInputRef}
                   type="file"
                   accept="audio/*"
                   onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
+                  className="absolute inset-0 z-10 w-full h-full cursor-pointer opacity-0"
                 />
+                <div className="pointer-events-none">
+                  {uploadFile ? (
+                    <p className="text-sm font-medium text-foreground">✅ {uploadFile.name}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Tap to select audio file</p>
+                  )}
+                </div>
               </div>
             </div>
             {uploadFile && (
