@@ -601,35 +601,35 @@ const CreatePage = () => {
                     <Label className="text-foreground">
                       Audio File <span className="text-destructive">*</span>
                     </Label>
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={handleAudioChange}
-                      ref={audioInputRef}
-                      className="hidden"
-                    />
-                    <div
-                      onClick={() => audioInputRef.current?.click()}
-                      className={`mt-2 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+                    <div className={`mt-2 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
                         preloadedAudioUrl || audioFile 
                           ? "border-primary/50 bg-primary/5" 
                           : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                      {preloadedAudioUrl ? (
-                        <p className="text-primary font-semibold">
-                          ✅ Audio loaded from Discover
-                        </p>
-                      ) : audioFile ? (
-                        <p className="text-primary font-semibold">
-                          ✅ {audioFile.name}
-                        </p>
-                      ) : (
-                        <p className="text-muted-foreground">
-                          Click to upload audio file
-                        </p>
-                      )}
+                      }`}>
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        onChange={handleAudioChange}
+                        ref={audioInputRef}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        style={{ position: 'absolute' }}
+                      />
+                      <div className="relative pointer-events-none">
+                        <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        {preloadedAudioUrl ? (
+                          <p className="text-primary font-semibold">
+                            ✅ Audio loaded from Discover
+                          </p>
+                        ) : audioFile ? (
+                          <p className="text-primary font-semibold">
+                            ✅ {audioFile.name}
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            Tap to upload audio file
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -654,14 +654,6 @@ const CreatePage = () => {
                     <Label className="text-foreground">
                       Cover Image <span className="text-destructive">*</span>
                     </Label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      ref={imageInputRef}
-                      className="hidden"
-                    />
-                    
                     {/* Show preloaded cover image from Discover */}
                     {preloadedCoverImageUrl && !imageFile && (
                       <div className="mt-2 border-2 border-primary/50 bg-primary/5 rounded-xl p-4">
@@ -674,32 +666,38 @@ const CreatePage = () => {
                           className="w-32 h-32 object-cover rounded-lg mx-auto"
                         />
                         <p className="text-xs text-muted-foreground mt-2 text-center">
-                          Click below to upload a different image
+                          Tap below to upload a different image
                         </p>
                       </div>
                     )}
                     
-                    <div
-                      onClick={() => imageInputRef.current?.click()}
-                      className="mt-2 border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                    >
-                      <Image className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                      {imageFile ? (
-                        <div>
-                          <p className="text-primary font-semibold mb-2">
-                            ✅ {imageFile.name}
+                    <div className="mt-2 border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        ref={imageInputRef}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="pointer-events-none">
+                        <Image className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        {imageFile ? (
+                          <div>
+                            <p className="text-primary font-semibold mb-2">
+                              ✅ {imageFile.name}
+                            </p>
+                            <img
+                              src={URL.createObjectURL(imageFile)}
+                              alt="Preview"
+                              className="w-32 h-32 object-cover rounded-lg mx-auto"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            {preloadedCoverImageUrl ? "Tap to upload a different image" : "Tap to upload cover image"}
                           </p>
-                          <img
-                            src={URL.createObjectURL(imageFile)}
-                            alt="Preview"
-                            className="w-32 h-32 object-cover rounded-lg mx-auto"
-                          />
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground">
-                          {preloadedCoverImageUrl ? "Click to upload a different image" : "Click to upload cover image"}
-                        </p>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
