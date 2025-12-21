@@ -1,25 +1,18 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { Wallet, RefreshCw, Trash2, HelpCircle } from "lucide-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { Wallet, Copy, LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-
-const isMobileDevice = () => {
-  if (typeof window === "undefined") return false;
-  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
-};
 
 export const clearMobileWalletCache = () => {
   try {
-    window.localStorage.removeItem("mwa_authorization");
     window.localStorage.removeItem("walletName");
   } catch {
     // ignore
@@ -27,81 +20,71 @@ export const clearMobileWalletCache = () => {
 };
 
 export const WalletButton = () => {
-  const { connected, publicKey, wallet, disconnect } = useWallet();
+  const { publicKey, wallet, disconnect, connecting } = useWallet();
   const { setVisible } = useWalletModal();
-  const [helpOpen, setHelpOpen] = useState(false);
-  const isMobile = useMemo(() => isMobileDevice(), []);
 
-  const label = useMemo(() => {
-    if (connected && publicKey) {
-      const key = publicKey.toString();
-      return `${key.slice(0, 4)}...${key.slice(-4)}`;
+  const truncatedAddress = useMemo(() => {
+    if (!publicKey) return null;
+    const address = publicKey.toBase58();
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  }, [publicKey]);
+
+  const handleCopyAddress = () => {
+    if (publicKey) {
+      navigator.clipboard.writeText(publicKey.toBase58());
+      toast.success("Address copied to clipboard");
     }
-    return wallet ? "Approve in wallet" : "Connect Wallet";
-  }, [connected, publicKey, wallet]);
-
-  const handleRetry = () => {
-    disconnect();
-    setTimeout(() => setVisible(true), 100);
   };
 
-  const handleClearCache = () => {
+  const handleDisconnect = () => {
     clearMobileWalletCache();
     disconnect();
-    toast.success("Cache cleared. Try connecting again.");
-    setTimeout(() => setVisible(true), 100);
+    toast.success("Wallet disconnected");
   };
 
-  return (
-    <div className="wallet-button-wrapper space-y-2">
-      <WalletMultiButton>
-        <span className="flex items-center gap-2">
-          <Wallet className="w-4 h-4" />
-          {label}
-        </span>
-      </WalletMultiButton>
+  if (!publicKey) {
+    return (
+      <Button
+        onClick={() => setVisible(true)}
+        disabled={connecting}
+        className="min-h-[48px] px-6 gap-2"
+        size="lg"
+      >
+        <Wallet className="w-5 h-5" />
+        {connecting ? "Connecting..." : "Connect Wallet"}
+      </Button>
+    );
+  }
 
-      {/* Mobile helper panel - only show when not connected on mobile */}
-      {isMobile && !connected && (
-        <Collapsible open={helpOpen} onOpenChange={setHelpOpen}>
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-xs text-muted-foreground"
-            >
-              <HelpCircle className="w-3 h-3 mr-1" />
-              Having trouble connecting?
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 p-3 bg-muted/50 rounded-lg space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Wallets open in native apps. After approving, you'll be redirected back.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRetry}
-                className="flex-1 text-xs"
-              >
-                <RefreshCw className="w-3 h-3 mr-1" />
-                Retry
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearCache}
-                className="flex-1 text-xs"
-              >
-                <Trash2 className="w-3 h-3 mr-1" />
-                Clear Cache
-              </Button>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-    </div>
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="min-h-[48px] px-4 gap-2" size="lg">
+          {wallet?.adapter.icon && (
+            <img
+              src={wallet.adapter.icon}
+              alt={wallet.adapter.name}
+              className="w-5 h-5"
+            />
+          )}
+          <span>{truncatedAddress}</span>
+          <ChevronDown className="w-4 h-4 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onClick={handleCopyAddress} className="gap-2 cursor-pointer">
+          <Copy className="w-4 h-4" />
+          Copy Address
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={handleDisconnect}
+          className="gap-2 cursor-pointer text-destructive"
+        >
+          <LogOut className="w-4 h-4" />
+          Disconnect
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
