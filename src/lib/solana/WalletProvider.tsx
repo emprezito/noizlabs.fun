@@ -20,10 +20,22 @@ interface Props {
 // Use devnet for testing, switch to mainnet-beta for production
 const NETWORK = WalletAdapterNetwork.Devnet;
 
-// Check if running on Android (MWA is Android-focused)
-const isAndroid = () => {
+const isMobileDevice = () => {
   if (typeof window === "undefined") return false;
-  return /Android/i.test(navigator.userAgent);
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+};
+
+const getAppIdentity = () => {
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "https://noizlabs.xyz";
+
+  return {
+    name: "NoizLabs",
+    uri: origin,
+    icon: `${origin}/icon.png`,
+  };
 };
 
 export const WalletProvider: FC<Props> = ({ children }) => {
@@ -32,50 +44,71 @@ export const WalletProvider: FC<Props> = ({ children }) => {
   const wallets = useMemo(() => {
     const walletAdapters = [];
 
-    // Add Mobile Wallet Adapter for Android devices (MWA flow)
-    // On iOS, Phantom/Solflare deeplinks work better than the MWA "transact" flow.
-    if (isAndroid()) {
+    // Mobile: use Solana Mobile Wallet Adapter (native wallet apps + return-to-dapp)
+    // Desktop: use browser extension adapters.
+    if (isMobileDevice()) {
       walletAdapters.push(
         new SolanaMobileWalletAdapter({
           addressSelector: {
             select: async (addresses) => addresses[0],
           },
-          appIdentity: {
-            name: "NoizLabs",
-            uri: window.location.origin,
-            icon: `${window.location.origin}/favicon.ico`,
-          },
+          appIdentity: getAppIdentity(),
           authorizationResultCache: {
-            get: async () => null,
-            set: async () => {},
-            clear: async () => {},
+            get: async () => {
+              try {
+                const raw = window.localStorage.getItem("mwa_authorization");
+                return raw ? JSON.parse(raw) : null;
+              } catch {
+                return null;
+              }
+            },
+            set: async (value) => {
+              try {
+                window.localStorage.setItem(
+                  "mwa_authorization",
+                  JSON.stringify(value)
+                );
+              } catch {
+                // ignore
+              }
+            },
+            clear: async () => {
+              try {
+                window.localStorage.removeItem("mwa_authorization");
+              } catch {
+                // ignore
+              }
+            },
           },
           cluster: NETWORK,
           onWalletNotFound: async () => {
-            // This will be called if no mobile wallet is found
-            // The default behavior will show install options
-            if (typeof window !== "undefined") {
-              // Try to detect and redirect to wallet app stores
-              const isAndroid = /Android/i.test(navigator.userAgent);
-              const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-              
-              if (isAndroid) {
-                window.open("https://play.google.com/store/apps/details?id=app.phantom", "_blank");
-              } else if (isIOS) {
-                window.open("https://apps.apple.com/app/phantom-solana-wallet/id1598432977", "_blank");
-              }
+            // Default MWA behavior shows install options; keep a gentle fallback.
+            if (typeof window === "undefined") return;
+
+            const ua = navigator.userAgent;
+            const isAndroid = /Android/i.test(ua);
+            const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+            if (isAndroid) {
+              window.open(
+                "https://play.google.com/store/apps/details?id=app.phantom",
+                "_blank"
+              );
+            } else if (isIOS) {
+              window.open(
+                "https://apps.apple.com/app/phantom-solana-wallet/id1598432977",
+                "_blank"
+              );
             }
           },
         })
       );
+
+      return walletAdapters;
     }
 
-    // Always add standard wallet adapters as fallback
-    walletAdapters.push(
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter()
-    );
-
+    // Desktop adapters
+    walletAdapters.push(new PhantomWalletAdapter(), new SolflareWalletAdapter());
     return walletAdapters;
   }, []);
 
