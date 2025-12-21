@@ -541,6 +541,13 @@ const TradePage = () => {
   const executeConfirmedTrade = async () => {
     if (!pendingTrade || !publicKey || !sendTransaction || !tokenInfo) return;
 
+    console.log("Starting trade execution:", {
+      tradeType: pendingTrade.type,
+      inputAmount: pendingTrade.inputAmount,
+      connectedWallet: publicKey.toString(),
+      mint: tokenInfo.mint,
+    });
+
     setTrading(true);
     try {
       const walletAddress = publicKey.toString();
@@ -548,6 +555,12 @@ const TradePage = () => {
       if (pendingTrade.type === "buy") {
         // BUY: User sends SOL to platform wallet, platform sends tokens to user
         const amountLamports = Math.floor(pendingTrade.inputAmount * LAMPORTS_PER_SOL);
+
+        console.log("Building BUY transaction:", {
+          fromPubkey: publicKey.toString(),
+          toPubkey: BONDING_CURVE_WALLET.toString(),
+          lamports: amountLamports,
+        });
 
         const transaction = new Transaction();
         transaction.add(
@@ -558,12 +571,16 @@ const TradePage = () => {
           })
         );
 
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = publicKey;
 
+        console.log("Transaction built, sending to wallet...");
+        console.log("Fee payer:", transaction.feePayer?.toString());
+        console.log("Instructions:", transaction.instructions.length);
+
         const signature = await sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature, "confirmed");
+        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
 
         // Edge function will transfer tokens from platform wallet to user
         const { data, error } = await supabase.functions.invoke("execute-trade", {
@@ -591,44 +608,70 @@ const TradePage = () => {
         const tokenAmountUnits = Math.floor(pendingTrade.inputAmount * 1e9);
         const mintPubkey = new PublicKey(activeMint);
         
-        // Platform wallet ATA to receive tokens
+        // Get token account addresses
         const userATA = await getAssociatedTokenAddress(mintPubkey, publicKey);
         const platformATA = await getAssociatedTokenAddress(mintPubkey, BONDING_CURVE_WALLET);
 
+        console.log("Building SELL transaction:", {
+          userWallet: publicKey.toString(),
+          userATA: userATA.toString(),
+          platformATA: platformATA.toString(),
+          tokenAmount: tokenAmountUnits,
+          mint: mintPubkey.toString(),
+        });
+
+        // Verify user has tokens before attempting transaction
+        try {
+          const userAccount = await getAccount(connection, userATA);
+          console.log("User token balance:", userAccount.amount.toString());
+          if (userAccount.amount < BigInt(tokenAmountUnits)) {
+            throw new Error("Insufficient token balance");
+          }
+        } catch (err: any) {
+          if (err.message === "Insufficient token balance") throw err;
+          console.error("User ATA check failed:", err);
+          throw new Error("You don't have any tokens to sell. Buy some first!");
+        }
+
         const transaction = new Transaction();
 
-        // Create platform ATA if it doesn't exist
+        // Check if platform ATA exists - if not, user pays to create it
         try {
           await getAccount(connection, platformATA);
+          console.log("Platform ATA exists");
         } catch {
+          console.log("Creating platform ATA...");
           transaction.add(
             createAssociatedTokenAccountInstruction(
-              publicKey,
-              platformATA,
-              BONDING_CURVE_WALLET,
-              mintPubkey
+              publicKey,           // payer - pays for account rent
+              platformATA,         // the ATA address
+              BONDING_CURVE_WALLET, // owner of the ATA
+              mintPubkey           // the token mint
             )
           );
         }
 
-        // Transfer tokens to platform wallet
+        // Transfer tokens from user to platform wallet
+        console.log("Adding transfer instruction with owner:", publicKey.toString());
         transaction.add(
           createTransferInstruction(
-            userATA,
-            platformATA,
-            publicKey,
-            BigInt(tokenAmountUnits),
-            [],
-            TOKEN_PROGRAM_ID
+            userATA,               // source - user's token account
+            platformATA,           // destination - platform's token account
+            publicKey,             // owner/authority - user signs to authorize transfer
+            BigInt(tokenAmountUnits)
           )
         );
 
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = publicKey;
 
+        console.log("Transaction built, sending to wallet...");
+        console.log("Fee payer:", transaction.feePayer?.toString());
+        console.log("Instructions:", transaction.instructions.length);
+
         const signature = await sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature, "confirmed");
+        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
 
         // Edge function will transfer SOL from platform wallet to user
         const { data, error } = await supabase.functions.invoke("execute-trade", {
@@ -659,7 +702,22 @@ const TradePage = () => {
 
     } catch (error: any) {
       console.error("Trade error:", error);
-      toast.error(error.message || "Transaction failed");
+      
+      // Parse error message for user-friendly display
+      let errorMessage = error.message || "Transaction failed";
+      
+      if (errorMessage.includes("Missing signature for public key")) {
+        // Extract the problematic public key from error
+        const keyMatch = errorMessage.match(/\[`?([A-Za-z0-9]+)`?\]/);
+        const problemKey = keyMatch ? keyMatch[1] : "unknown";
+        errorMessage = `Transaction requires a signature that couldn't be provided. This may be a configuration issue. (Key: ${problemKey.slice(0, 8)}...)`;
+      } else if (errorMessage.includes("insufficient funds")) {
+        errorMessage = "Insufficient SOL balance for this transaction";
+      } else if (errorMessage.includes("User rejected")) {
+        errorMessage = "Transaction was cancelled";
+      }
+      
+      toast.error(errorMessage);
     }
     setTrading(false);
   };
