@@ -123,6 +123,7 @@ export type Database = {
         Row: {
           audio_clip_id: string | null
           audio_url: string | null
+          cover_image_url: string | null
           created_at: string
           creator_wallet: string
           id: string
@@ -145,6 +146,7 @@ export type Database = {
         Insert: {
           audio_clip_id?: string | null
           audio_url?: string | null
+          cover_image_url?: string | null
           created_at?: string
           creator_wallet: string
           id?: string
@@ -167,6 +169,7 @@ export type Database = {
         Update: {
           audio_clip_id?: string | null
           audio_url?: string | null
+          cover_image_url?: string | null
           created_at?: string
           creator_wallet?: string
           id?: string

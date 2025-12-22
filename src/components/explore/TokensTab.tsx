@@ -41,7 +41,8 @@ const TokensTab = () => {
       const tokensWithImages = (data || []).map((token: any) => ({
         ...token,
         audio_url: token.audio_clips?.audio_url || token.audio_url,
-        cover_image_url: token.audio_clips?.cover_image_url || null,
+        // Prioritize token's own cover_image_url, fallback to audio_clips
+        cover_image_url: token.cover_image_url || token.audio_clips?.cover_image_url || null,
       }));
       
       setTokens(tokensWithImages);

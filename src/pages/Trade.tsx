@@ -355,10 +355,12 @@ const TradePage = () => {
         // This gives price in SOL per 1 token
         const price = tokenReserves > 0 ? solReserves / tokenReserves : 0;
         
-        // Fetch associated audio clip for cover image and audio
-        let imageUri = undefined;
+        // Get cover image and audio - prioritize token's own fields, fallback to audio_clips
+        let imageUri = (token as any).cover_image_url || undefined;
         let audioUrl = token.audio_url || "";
-        if (token.audio_clip_id) {
+        
+        // If no direct cover_image_url, try to fetch from audio_clips
+        if (!imageUri && token.audio_clip_id) {
           const { data: clip } = await supabase
             .from("audio_clips")
             .select("cover_image_url, audio_url")

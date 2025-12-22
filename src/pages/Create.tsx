@@ -294,6 +294,8 @@ const CreatePage = () => {
       
       // Get the audio URL from upload result or preloaded URL
       const finalAudioUrl = uploadResult.audioUrl || preloadedAudioUrl || null;
+      // Get the image URL from upload result or preloaded URL
+      const finalImageUrl = uploadResult.imageUrl || preloadedCoverImageUrl || null;
       
       try {
         await supabase.from("tokens").insert({
@@ -306,6 +308,7 @@ const CreatePage = () => {
           metadata_uri: metadataUri,
           audio_clip_id: preloadedClipId || null,
           audio_url: finalAudioUrl,
+          cover_image_url: finalImageUrl,
           sol_reserves: initialSolReserves,
           token_reserves: initialTokenReserves,
           tokens_sold: 0,
