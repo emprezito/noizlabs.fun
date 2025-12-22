@@ -13,6 +13,7 @@ interface LeaderboardUser {
   wallet_address: string;
   total_points: number;
   rank: number;
+  username: string | null;
 }
 
 interface TopClip {
@@ -157,7 +158,7 @@ const LeaderboardPage = () => {
     try {
       const { data, error } = await supabase
         .from("user_points")
-        .select("wallet_address, total_points")
+        .select("wallet_address, total_points, username")
         .order("total_points", { ascending: false })
         .limit(100);
 
@@ -167,6 +168,7 @@ const LeaderboardPage = () => {
         ...user,
         total_points: user.total_points || 0,
         rank: index + 1,
+        username: user.username || null,
       }));
 
       setLeaderboard(rankedData);
@@ -225,6 +227,10 @@ const LeaderboardPage = () => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
+  const getDisplayName = (user: LeaderboardUser) => {
+    return user.username || formatWallet(user.wallet_address);
+  };
+
   const getRankDisplay = (rank: number) => {
     if (rank === 1) return <Crown className="w-6 h-6 text-yellow-500" />;
     if (rank === 2) return <Medal className="w-6 h-6 text-gray-400" />;
@@ -264,7 +270,7 @@ const LeaderboardPage = () => {
                       <div>
                         <p className="font-bold text-foreground">Your Ranking</p>
                         <p className="text-sm text-muted-foreground">
-                          {formatWallet(userRank.wallet_address)}
+                          {getDisplayName(userRank)}
                         </p>
                       </div>
                     </div>
@@ -287,7 +293,7 @@ const LeaderboardPage = () => {
                       <Medal className="w-8 h-8 text-gray-400" />
                     </div>
                     <p className="font-bold text-foreground truncate">
-                      {formatWallet(leaderboard[1].wallet_address)}
+                      {getDisplayName(leaderboard[1])}
                     </p>
                     <p className="text-xl font-bold text-muted-foreground">
                       {leaderboard[1].total_points.toLocaleString()}
@@ -301,7 +307,7 @@ const LeaderboardPage = () => {
                       <Crown className="w-10 h-10 text-yellow-500" />
                     </div>
                     <p className="font-bold text-foreground truncate">
-                      {formatWallet(leaderboard[0].wallet_address)}
+                      {getDisplayName(leaderboard[0])}
                     </p>
                     <p className="text-2xl font-bold text-yellow-500">
                       {leaderboard[0].total_points.toLocaleString()}
@@ -315,7 +321,7 @@ const LeaderboardPage = () => {
                       <Medal className="w-8 h-8 text-amber-600" />
                     </div>
                     <p className="font-bold text-foreground truncate">
-                      {formatWallet(leaderboard[2].wallet_address)}
+                      {getDisplayName(leaderboard[2])}
                     </p>
                     <p className="text-xl font-bold text-muted-foreground">
                       {leaderboard[2].total_points.toLocaleString()}
@@ -371,7 +377,7 @@ const LeaderboardPage = () => {
                           {/* User Info */}
                           <div className="flex-1 min-w-0">
                             <p className={`font-semibold truncate ${isCurrentUser ? "text-primary" : "text-foreground"}`}>
-                              {formatWallet(user.wallet_address)}
+                              {getDisplayName(user)}
                               {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
                             </p>
                             <p className="text-xs text-muted-foreground">{badge.name}</p>
