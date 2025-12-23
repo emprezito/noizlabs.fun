@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Droplets, Loader2, Wallet, Shield, ChevronDown, Menu, X } from "lucide-react";
+import { Droplets, Loader2, Wallet, Shield, ChevronDown, Menu } from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -175,6 +176,8 @@ const Navbar = () => {
                 </span>
               </div>
             )}
+
+            <NotificationBell />
 
             <div className="hidden md:block">
               <WalletButton />
