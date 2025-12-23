@@ -8,6 +8,7 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from "https://esm.sh/@solana/web3.js@1.98.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,9 @@ const corsHeaders = {
 
 // Amount to send per request (0.5 SOL)
 const FAUCET_AMOUNT = 0.5 * LAMPORTS_PER_SOL;
+
+// Rate limit: 1 request per hour (in milliseconds)
+const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
 
 // Devnet RPC endpoint
 const DEVNET_RPC = "https://api.devnet.solana.com";
@@ -44,6 +48,42 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Invalid wallet address" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Initialize Supabase client for rate limiting
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check rate limit
+    const oneHourAgo = new Date(Date.now() - RATE_LIMIT_MS).toISOString();
+    const { data: recentRequests, error: rateError } = await supabase
+      .from("faucet_requests")
+      .select("requested_at")
+      .eq("wallet_address", walletAddress)
+      .gte("requested_at", oneHourAgo)
+      .order("requested_at", { ascending: false })
+      .limit(1);
+
+    if (rateError) {
+      console.error("Rate limit check error:", rateError);
+    }
+
+    if (recentRequests && recentRequests.length > 0) {
+      const lastRequest = new Date(recentRequests[0].requested_at);
+      const nextAllowed = new Date(lastRequest.getTime() + RATE_LIMIT_MS);
+      const minutesRemaining = Math.ceil((nextAllowed.getTime() - Date.now()) / 60000);
+      
+      console.log(`Rate limited: ${walletAddress}, next allowed in ${minutesRemaining} minutes`);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `Rate limited. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`,
+          nextAllowedAt: nextAllowed.toISOString(),
+          minutesRemaining
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -107,6 +147,19 @@ serve(async (req) => {
     const signature = await sendAndConfirmTransaction(connection, transaction, [faucetKeypair]);
 
     console.log(`Transfer successful: ${signature}`);
+
+    // Record the request for rate limiting
+    const { error: insertError } = await supabase
+      .from("faucet_requests")
+      .insert({
+        wallet_address: walletAddress,
+        amount_lamports: FAUCET_AMOUNT,
+        tx_signature: signature,
+      });
+
+    if (insertError) {
+      console.error("Failed to record faucet request:", insertError);
+    }
 
     return new Response(
       JSON.stringify({

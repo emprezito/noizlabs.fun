@@ -74,6 +74,63 @@ export type Database = {
         }
         Relationships: []
       }
+      faucet_requests: {
+        Row: {
+          amount_lamports: number
+          id: string
+          requested_at: string
+          tx_signature: string | null
+          wallet_address: string
+        }
+        Insert: {
+          amount_lamports: number
+          id?: string
+          requested_at?: string
+          tx_signature?: string | null
+          wallet_address: string
+        }
+        Update: {
+          amount_lamports?: number
+          id?: string
+          requested_at?: string
+          tx_signature?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean | null
+          title: string
+          token_mint: string | null
+          type: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean | null
+          title: string
+          token_mint?: string | null
+          type?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean | null
+          title?: string
+          token_mint?: string | null
+          type?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       quest_definitions: {
         Row: {
           created_at: string | null
