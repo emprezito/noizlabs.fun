@@ -114,18 +114,21 @@ const Portfolio = () => {
       if (tradesError) throw tradesError;
 
       // Calculate net positions and cost basis
+      // In trade_history: price_lamports = total SOL for the trade (not per-token price)
+      // For buy: price_lamports = SOL spent, amount = tokens received
+      // For sell: price_lamports = SOL received, amount = tokens sold
       const positionsMap = new Map<string, { amount: number; costBasis: number }>();
       
       trades?.forEach((trade) => {
         const current = positionsMap.get(trade.mint_address) || { amount: 0, costBasis: 0 };
-        const tokenAmount = Number(trade.amount);
-        const solAmount = (Number(trade.price_lamports) * tokenAmount) / 1e18;
+        const tokenAmount = Number(trade.amount) / 1e9; // Convert from raw to display (9 decimals)
+        const solAmount = Number(trade.price_lamports) / 1e9; // Convert lamports to SOL
 
         if (trade.trade_type === "buy") {
           current.amount += tokenAmount;
-          current.costBasis += solAmount;
+          current.costBasis += solAmount; // Total SOL spent on this buy
         } else {
-          // FIFO: reduce cost basis proportionally
+          // FIFO: reduce cost basis proportionally when selling
           const ratio = current.amount > 0 ? tokenAmount / current.amount : 0;
           current.amount -= tokenAmount;
           current.costBasis -= current.costBasis * ratio;
