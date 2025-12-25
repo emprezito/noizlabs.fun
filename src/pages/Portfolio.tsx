@@ -312,9 +312,9 @@ const Portfolio = () => {
                       </>
                     )}
                   </div>
-                  {solUsdPrice && solBalance && (
+                  {solUsdPrice && solBalance !== null && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      ≈ {formatUsd(solBalanceUsd)}
+                      ≈ ${solBalanceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   )}
                 </CardContent>
@@ -335,7 +335,7 @@ const Portfolio = () => {
                       <>
                         <p className="text-2xl font-bold">{totalValue.toFixed(4)} SOL</p>
                         {solUsdPrice && (
-                          <p className="text-sm text-muted-foreground">≈ {formatUsd(totalValueUsd)}</p>
+                          <p className="text-sm text-muted-foreground">≈ ${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         )}
                       </>
                     )}
