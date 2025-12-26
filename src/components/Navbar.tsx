@@ -141,7 +141,8 @@ const Navbar = () => {
         throw new Error(data.error);
       }
 
-      toast.success(`Received ${data.amount} SOL! (Devnet)`);
+      const receivedAmount = data?.amount ?? 0.5;
+      toast.success(`Received ${receivedAmount} SOL! (Devnet)`);
       setTimeout(() => refetchBalance(), 2000);
     } catch (error: any) {
       console.error("Faucet error:", error);
