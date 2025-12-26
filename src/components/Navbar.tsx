@@ -68,9 +68,25 @@ const Navbar = () => {
         body: { walletAddress: publicKey.toBase58() },
       });
 
-      if (error) throw new Error(error.message || "Faucet request failed");
+      // Handle rate limit response - check both data and error for rate limit info
+      if (data?.minutesRemaining || data?.error?.includes("Rate limited")) {
+        const minutes = data.minutesRemaining || 60;
+        toast.error(`Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before requesting again`);
+        return;
+      }
+
+      if (error) {
+        // Check if error contains rate limit info
+        const errorStr = JSON.stringify(error);
+        if (errorStr.includes("minutesRemaining") || errorStr.includes("Rate limited")) {
+          const match = errorStr.match(/"minutesRemaining":(\d+)/);
+          const minutes = match ? parseInt(match[1]) : 60;
+          toast.error(`Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before requesting again`);
+          return;
+        }
+        throw new Error(error.message || "Faucet request failed");
+      }
       
-      // Handle rate limit response with remaining time
       if (data?.error) {
         if (data.minutesRemaining) {
           toast.error(`Please wait ${data.minutesRemaining} minute${data.minutesRemaining > 1 ? 's' : ''} before requesting again`);
@@ -83,6 +99,11 @@ const Navbar = () => {
       setTimeout(() => refetchBalance(), 2000);
     } catch (error: any) {
       console.error("Faucet error:", error);
+      // Final fallback check for rate limit in error message
+      if (error.message?.includes("Rate limited") || error.message?.includes("429")) {
+        toast.error("Please wait before requesting again. Limit: 1 request per hour.");
+        return;
+      }
       toast.error(error.message || "Faucet request failed. Try again later.");
     } finally {
       setRequestingAirdrop(false);
