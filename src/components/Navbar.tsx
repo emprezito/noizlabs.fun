@@ -64,39 +64,56 @@ const Navbar = () => {
 
     setRequestingAirdrop(true);
     try {
-      const { data, error } = await supabase.functions.invoke("devnet-faucet", {
+      const { data, error, response } = await supabase.functions.invoke("devnet-faucet", {
         body: { walletAddress: publicKey.toBase58() },
       });
 
-      // Handle rate limit response - check both data and error for rate limit info
-      if (data?.minutesRemaining || data?.error?.includes("Rate limited")) {
-        const minutes = data.minutesRemaining || 60;
-        toast.error(`Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before requesting again`);
-        return;
-      }
-
+      // If the backend responded with an error status (e.g. 429), Supabase returns:
+      // - data: null
+      // - error: FunctionsHttpError
+      // - response: Response
       if (error) {
-        const msg = (error as any)?.message ? String((error as any).message) : String(error);
-        const match =
-          msg.match(/"minutesRemaining"\s*:\s*(\d+)/) ??
-          msg.match(/try again in (\d+) minute/i);
-        const minutes = match ? parseInt(match[1], 10) : null;
+        const status = (response as any)?.status;
 
-        if (msg.includes("429") || msg.toLowerCase().includes("rate limited")) {
-          toast.error(
-            minutes != null
-              ? `Please wait ${minutes} minute${minutes > 1 ? "s" : ""} before requesting again`
-              : "Please wait before requesting again. Limit: 1 request per hour."
-          );
+        // Handle 429 rate limit by reading the JSON body from the Response
+        if (status === 429 && response) {
+          let body: any = null;
+          try {
+            body = await (response as Response).clone().json();
+          } catch {
+            // ignore
+          }
+
+          const minutes = typeof body?.minutesRemaining === "number" ? body.minutesRemaining : null;
+          const nextAllowedAt = typeof body?.nextAllowedAt === "string" ? body.nextAllowedAt : null;
+
+          if (minutes != null) {
+            toast.error(
+              `Please wait ${minutes} minute${minutes > 1 ? "s" : ""} before requesting again`
+            );
+            return;
+          }
+
+          if (nextAllowedAt) {
+            const t = new Date(nextAllowedAt);
+            toast.error(`Please wait until ${t.toLocaleTimeString()} to request again`);
+            return;
+          }
+
+          toast.error("Rate limited. Please try again later.");
           return;
         }
 
+        const msg = (error as any)?.message ? String((error as any).message) : String(error);
         throw new Error(msg || "Faucet request failed");
       }
-      
+
+      // Backward-compatible handling (if the function ever returns 200 with an error payload)
       if (data?.error) {
         if (data.minutesRemaining) {
-          toast.error(`Please wait ${data.minutesRemaining} minute${data.minutesRemaining > 1 ? 's' : ''} before requesting again`);
+          toast.error(
+            `Please wait ${data.minutesRemaining} minute${data.minutesRemaining > 1 ? "s" : ""} before requesting again`
+          );
           return;
         }
         throw new Error(data.error);
