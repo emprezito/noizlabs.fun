@@ -22,7 +22,7 @@ const corsHeaders = {
 };
 
 // Bonding curve constants (pump.fun style)
-const PLATFORM_FEE_BPS = 100; // 1% platform fee
+const PLATFORM_FEE_BPS = 25; // 0.25% platform fee
 const BASIS_POINTS_DIVISOR = 10000;
 
 // Platform fee wallet - receives trading fees

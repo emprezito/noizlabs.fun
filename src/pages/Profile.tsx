@@ -224,7 +224,15 @@ const ProfilePage = () => {
       });
 
       if (error) throw new Error(error.message || "Faucet request failed");
-      if (data?.error) throw new Error(data.error);
+      
+      // Handle rate limit response with remaining time
+      if (data?.error) {
+        if (data.minutesRemaining) {
+          toast.error(`Please wait ${data.minutesRemaining} minute${data.minutesRemaining > 1 ? 's' : ''} before requesting again`);
+          return;
+        }
+        throw new Error(data.error);
+      }
 
       toast.success(`Received ${data.amount} SOL! (Devnet)`);
       setTimeout(() => refetchBalance(), 2000);
