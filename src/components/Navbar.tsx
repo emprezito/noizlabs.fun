@@ -76,15 +76,22 @@ const Navbar = () => {
       }
 
       if (error) {
-        // Check if error contains rate limit info
-        const errorStr = JSON.stringify(error);
-        if (errorStr.includes("minutesRemaining") || errorStr.includes("Rate limited")) {
-          const match = errorStr.match(/"minutesRemaining":(\d+)/);
-          const minutes = match ? parseInt(match[1]) : 60;
-          toast.error(`Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before requesting again`);
+        const msg = (error as any)?.message ? String((error as any).message) : String(error);
+        const match =
+          msg.match(/"minutesRemaining"\s*:\s*(\d+)/) ??
+          msg.match(/try again in (\d+) minute/i);
+        const minutes = match ? parseInt(match[1], 10) : null;
+
+        if (msg.includes("429") || msg.toLowerCase().includes("rate limited")) {
+          toast.error(
+            minutes != null
+              ? `Please wait ${minutes} minute${minutes > 1 ? "s" : ""} before requesting again`
+              : "Please wait before requesting again. Limit: 1 request per hour."
+          );
           return;
         }
-        throw new Error(error.message || "Faucet request failed");
+
+        throw new Error(msg || "Faucet request failed");
       }
       
       if (data?.error) {
