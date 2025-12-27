@@ -4,6 +4,7 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { BadgeLevel } from "@/lib/solana/metaplex";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { clearMobileWalletCache } from "@/components/WalletButton";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -11,11 +12,12 @@ import MobileTabBar from "@/components/MobileTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { 
   User, Trophy, Star, Zap, TrendingUp, Medal, Crown, 
   Copy, Users, ArrowUpRight, ArrowDownLeft, Clock,
-  Loader2, Wallet, Droplets, RefreshCw
+  Loader2, Wallet, Droplets, RefreshCw, Bell, BellOff, BellRing, Send
 } from "lucide-react";
 
 interface UserStats {
@@ -66,6 +68,14 @@ const ProfilePage = () => {
   const { publicKey, connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
   const { balance, loading: balanceLoading, refetch: refetchBalance } = useWalletBalance();
+  const { 
+    isSupported: pushSupported, 
+    isSubscribed: pushSubscribed, 
+    isLoading: pushLoading, 
+    permission: pushPermission,
+    subscribe: subscribePush, 
+    unsubscribe: unsubscribePush 
+  } = usePushNotifications();
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -76,6 +86,7 @@ const ProfilePage = () => {
   const [savingUsername, setSavingUsername] = useState(false);
   const [applyingReferral, setApplyingReferral] = useState(false);
   const [requestingAirdrop, setRequestingAirdrop] = useState(false);
+  const [sendingTestPush, setSendingTestPush] = useState(false);
 
   useEffect(() => {
     if (connected && publicKey) {
@@ -312,6 +323,35 @@ const ProfilePage = () => {
     }
   };
 
+  const sendTestPushNotification = async () => {
+    if (!publicKey || !pushSubscribed) return;
+    
+    setSendingTestPush(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-push-notification", {
+        body: {
+          walletAddress: publicKey.toBase58(),
+          title: "🔔 Test Notification",
+          body: "Push notifications are working! You'll receive price alerts here.",
+          url: "/portfolio",
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.success > 0) {
+        toast.success("Test notification sent! Check your device.");
+      } else {
+        toast.error("No active subscriptions found");
+      }
+    } catch (error: any) {
+      console.error("Test push error:", error);
+      toast.error("Failed to send test notification");
+    } finally {
+      setSendingTestPush(false);
+    }
+  };
+
   const applyReferralCode = async () => {
     if (!publicKey || !referralInput.trim() || userStats?.referred_by) return;
     
@@ -514,6 +554,86 @@ const ProfilePage = () => {
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Switch Wallet
                 </Button>
+              </div>
+
+              {/* Push Notifications Settings */}
+              <div className="bg-card rounded-xl border border-border p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Bell className="w-5 h-5 text-primary" />
+                  <h3 className="font-bold text-foreground">Push Notifications</h3>
+                </div>
+
+                {!pushSupported ? (
+                  <div className="text-sm text-muted-foreground">
+                    <p>Push notifications are not supported in your browser.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Enable Push Notifications</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Receive price alerts even when the app is closed
+                        </p>
+                      </div>
+                      <Switch
+                        checked={pushSubscribed}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            subscribePush();
+                          } else {
+                            unsubscribePush();
+                          }
+                        }}
+                        disabled={pushLoading}
+                      />
+                    </div>
+
+                    {/* Permission Status */}
+                    <div className="flex items-center gap-2 text-sm">
+                      {pushPermission === "granted" ? (
+                        <>
+                          <BellRing className="w-4 h-4 text-green-500" />
+                          <span className="text-green-500">Notifications allowed</span>
+                        </>
+                      ) : pushPermission === "denied" ? (
+                        <>
+                          <BellOff className="w-4 h-4 text-destructive" />
+                          <span className="text-destructive">Notifications blocked</span>
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Not yet requested</span>
+                        </>
+                      )}
+                    </div>
+
+                    {pushPermission === "denied" && (
+                      <p className="text-xs text-muted-foreground">
+                        To enable notifications, please allow them in your browser settings.
+                      </p>
+                    )}
+
+                    {/* Test Push Notification */}
+                    {pushSubscribed && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={sendTestPushNotification}
+                        disabled={sendingTestPush}
+                        className="w-full"
+                      >
+                        {sendingTestPush ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Send className="w-4 h-4 mr-2" />
+                        )}
+                        Send Test Notification
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Referral Program */}
