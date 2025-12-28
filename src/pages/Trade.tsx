@@ -817,17 +817,17 @@ const TradePage = () => {
                       <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <p className="text-muted-foreground">Price</p>
-                          <p className="font-bold text-primary">{tokenInfo.price.toFixed(8)} SOL</p>
-                          <p className="text-xs text-muted-foreground">{formatUsd(tokenInfo.price)}</p>
+                          <p className="font-bold text-primary text-lg">{formatUsd(tokenInfo.price)}</p>
+                          <p className="text-xs text-muted-foreground">{tokenInfo.price.toFixed(8)} SOL</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Liquidity</p>
-                          <p className="font-bold text-green-500">{tokenInfo.solReserves.toFixed(4)} SOL</p>
-                          <p className="text-xs text-muted-foreground">{formatUsd(tokenInfo.solReserves)}</p>
+                          <p className="font-bold text-green-500 text-lg">{formatUsd(tokenInfo.solReserves)}</p>
+                          <p className="text-xs text-muted-foreground">{tokenInfo.solReserves.toFixed(4)} SOL</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Market Cap</p>
-                          <p className="font-bold">{formatUsd(tokenInfo.solReserves * 2)}</p>
+                          <p className="font-bold text-lg">{formatUsd(tokenInfo.solReserves * 2)}</p>
                           {tokenInfo.volume24h && (
                             <p className="text-xs text-muted-foreground">Vol: ${tokenInfo.volume24h.toLocaleString()}</p>
                           )}
@@ -839,7 +839,7 @@ const TradePage = () => {
                           </p>
                           {userPnL && (
                             <p className={`text-xs font-medium ${userPnL.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
-                              {userPnL.pnl >= 0 ? "+" : ""}{userPnL.pnl.toFixed(4)} SOL ({userPnL.pnlPercent >= 0 ? "+" : ""}{userPnL.pnlPercent.toFixed(1)}%)
+                              {userPnL.pnl >= 0 ? "+" : ""}{formatUsd(userPnL.pnl)} ({userPnL.pnlPercent >= 0 ? "+" : ""}{userPnL.pnlPercent.toFixed(1)}%)
                             </p>
                           )}
                         </div>
@@ -851,8 +851,21 @@ const TradePage = () => {
                 <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
                   <h3 className="font-bold mb-4">Price Chart</h3>
                   <div className="h-80">
-                    <TradingViewChart data={candleData} height={300} />
+                    {/* DexScreener Chart Embed */}
+                    <iframe
+                      src={`https://dexscreener.com/solana/${tokenInfo.mint}?embed=1&theme=dark&trades=0&info=0`}
+                      className="w-full h-full rounded-lg border-0"
+                      title="DexScreener Chart"
+                      loading="lazy"
+                    />
                   </div>
+                  {/* Fallback to local chart if no DexScreener data */}
+                  {candleData.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs text-muted-foreground mb-2">Local Trade History</p>
+                      <TradingViewChart data={candleData} height={200} />
+                    </div>
+                  )}
                 </div>
 
                 {/* Trade History Section */}
@@ -877,7 +890,7 @@ const TradePage = () => {
                                 {(trade.amount / 1e9).toLocaleString()} {tokenInfo?.symbol || "tokens"}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                @ {(trade.price_lamports / 1e9).toFixed(8)} SOL
+                                @ {formatUsd(trade.price_lamports / 1e9)} ({(trade.price_lamports / 1e9).toFixed(8)} SOL)
                               </p>
                             </div>
                           </div>
