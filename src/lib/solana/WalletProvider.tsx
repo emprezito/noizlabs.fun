@@ -40,7 +40,7 @@ export const WalletProvider: FC<Props> = ({ children }) => {
         appIdentity: {
           name: "NoizLabs",
           uri: getAppUrl(),
-          icon: `${getAppUrl()}/icon.png`,
+          icon: "/icon.png",
         },
         addressSelector: createDefaultAddressSelector(),
         authorizationResultCache: createDefaultAuthorizationResultCache(),
@@ -57,7 +57,7 @@ export const WalletProvider: FC<Props> = ({ children }) => {
     <ConnectionProvider endpoint={endpoint}>
       <SolanaWalletProvider 
         wallets={wallets} 
-        autoConnect
+        autoConnect={false}
         onError={(error) => {
           console.error("Wallet error:", error);
         }}
