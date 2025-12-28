@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { Wallet, Copy, LogOut, ChevronDown } from "lucide-react";
+import { Wallet, Copy, LogOut, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -42,17 +42,46 @@ export const WalletButton = () => {
     toast.success("Wallet disconnected");
   };
 
+  // Show loading overlay when connecting (especially useful on mobile)
+  if (connecting) {
+    return (
+      <>
+        {/* Full-screen loading overlay for mobile */}
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9999] flex items-center justify-center md:hidden">
+          <div className="flex flex-col items-center gap-4 p-6 rounded-xl bg-card border border-border shadow-xl">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="font-semibold text-foreground">Connecting Wallet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Please confirm in your wallet app
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Desktop/inline button shows loading state */}
+        <Button
+          disabled
+          className="min-h-[48px] px-6 gap-2 relative z-10 cursor-wait"
+          size="lg"
+        >
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Connecting...</span>
+        </Button>
+      </>
+    );
+  }
+
   if (!publicKey) {
     return (
       <Button
         onClick={() => setVisible(true)}
-        disabled={connecting}
         className="min-h-[48px] px-6 gap-2 relative z-10 cursor-pointer select-none"
         size="lg"
         type="button"
       >
         <Wallet className="w-5 h-5 pointer-events-none" />
-        <span className="pointer-events-none">{connecting ? "Connecting..." : "Connect Wallet"}</span>
+        <span className="pointer-events-none">Connect Wallet</span>
       </Button>
     );
   }
