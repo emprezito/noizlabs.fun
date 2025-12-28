@@ -1,5 +1,12 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const HeroSection = () => {
   return (
@@ -46,9 +53,19 @@ const HeroSection = () => {
               <span className="text-xl font-bold text-primary">0.02 SOL</span>
               <span className="text-muted-foreground text-sm ml-2">Creation Fee</span>
             </div>
-            <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.5s" }}>
+            <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in flex items-center gap-1" style={{ animationDelay: "0.5s" }}>
               <span className="text-xl font-bold text-accent">1%</span>
               <span className="text-muted-foreground text-sm ml-2">Trading Fee</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-4 h-4 text-muted-foreground cursor-help ml-1" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-sm">0.4% Platform Fee + 0.6% Creator Royalty</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.6s" }}>
               <span className="text-xl font-bold text-foreground">Instant</span>

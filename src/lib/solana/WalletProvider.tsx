@@ -48,14 +48,20 @@ export const WalletProvider: FC<Props> = ({ children }) => {
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
       }),
       new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
+      new SolflareWalletAdapter({ network: NETWORK }),
     ],
     []
   );
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
+      <SolanaWalletProvider 
+        wallets={wallets} 
+        autoConnect
+        onError={(error) => {
+          console.error("Wallet error:", error);
+        }}
+      >
         <WalletModalProvider>{children}</WalletModalProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>
