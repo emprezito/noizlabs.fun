@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Droplets, Loader2, Wallet, Shield, ChevronDown, Menu } from "lucide-react";
+import { Droplets, Loader2, Wallet, Shield, ChevronDown, Menu, BarChart3 } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletButton from "./WalletButton";
@@ -188,17 +188,30 @@ const Navbar = () => {
               </Link>
             ))}
             {isAdmin && (
-              <Link
-                to="/admin"
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
-                  isActive("/admin")
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                Admin
-              </Link>
+              <>
+                <Link
+                  to="/admin"
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                    isActive("/admin")
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  Admin
+                </Link>
+                <Link
+                  to="/analytics"
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                    isActive("/analytics")
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  Analytics
+                </Link>
+              </>
             )}
           </div>
 
@@ -332,18 +345,32 @@ const Navbar = () => {
                       </Link>
                     ))}
                     {isAdmin && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                          isActive("/admin")
-                            ? "bg-primary/10 text-primary"
-                            : "text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <Shield className="w-4 h-4" />
-                        Admin
-                      </Link>
+                      <>
+                        <Link
+                          to="/admin"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                            isActive("/admin")
+                              ? "bg-primary/10 text-primary"
+                              : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          <Shield className="w-4 h-4" />
+                          Admin
+                        </Link>
+                        <Link
+                          to="/analytics"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                            isActive("/analytics")
+                              ? "bg-primary/10 text-primary"
+                              : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          Analytics
+                        </Link>
+                      </>
                     )}
                   </div>
                 </div>

@@ -32,6 +32,51 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_snapshots: {
+        Row: {
+          clips_uploaded: number | null
+          connected_wallets: number | null
+          created_at: string
+          daily_active_wallets: number | null
+          id: string
+          minted_tokens: number | null
+          remixed_tokens: number | null
+          revenue_lamports: number | null
+          snapshot_date: string
+          snapshot_hour: number | null
+          tokens_launched: number | null
+          total_volume_lamports: number | null
+        }
+        Insert: {
+          clips_uploaded?: number | null
+          connected_wallets?: number | null
+          created_at?: string
+          daily_active_wallets?: number | null
+          id?: string
+          minted_tokens?: number | null
+          remixed_tokens?: number | null
+          revenue_lamports?: number | null
+          snapshot_date: string
+          snapshot_hour?: number | null
+          tokens_launched?: number | null
+          total_volume_lamports?: number | null
+        }
+        Update: {
+          clips_uploaded?: number | null
+          connected_wallets?: number | null
+          created_at?: string
+          daily_active_wallets?: number | null
+          id?: string
+          minted_tokens?: number | null
+          remixed_tokens?: number | null
+          revenue_lamports?: number | null
+          snapshot_date?: string
+          snapshot_hour?: number | null
+          tokens_launched?: number | null
+          total_volume_lamports?: number | null
+        }
+        Relationships: []
+      }
       audio_clips: {
         Row: {
           audio_url: string
@@ -71,6 +116,27 @@ export type Database = {
           shares?: number | null
           title?: string
           wallet_address?: string | null
+        }
+        Relationships: []
+      }
+      connected_wallets: {
+        Row: {
+          first_connected_at: string
+          id: string
+          last_connected_at: string
+          wallet_address: string
+        }
+        Insert: {
+          first_connected_at?: string
+          id?: string
+          last_connected_at?: string
+          wallet_address: string
+        }
+        Update: {
+          first_connected_at?: string
+          id?: string
+          last_connected_at?: string
+          wallet_address?: string
         }
         Relationships: []
       }
