@@ -47,11 +47,12 @@ export const WalletButton = () => {
       <Button
         onClick={() => setVisible(true)}
         disabled={connecting}
-        className="min-h-[48px] px-6 gap-2"
+        className="min-h-[48px] px-6 gap-2 relative z-10 cursor-pointer select-none"
         size="lg"
+        type="button"
       >
-        <Wallet className="w-5 h-5" />
-        {connecting ? "Connecting..." : "Connect Wallet"}
+        <Wallet className="w-5 h-5 pointer-events-none" />
+        <span className="pointer-events-none">{connecting ? "Connecting..." : "Connect Wallet"}</span>
       </Button>
     );
   }
@@ -59,19 +60,24 @@ export const WalletButton = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="min-h-[48px] px-4 gap-2" size="lg">
+        <Button 
+          variant="outline" 
+          className="min-h-[48px] px-4 gap-2 relative z-10 cursor-pointer select-none" 
+          size="lg"
+          type="button"
+        >
           {wallet?.adapter.icon && (
             <img
               src={wallet.adapter.icon}
               alt={wallet.adapter.name}
-              className="w-5 h-5"
+              className="w-5 h-5 pointer-events-none"
             />
           )}
-          <span>{truncatedAddress}</span>
-          <ChevronDown className="w-4 h-4 opacity-50" />
+          <span className="pointer-events-none">{truncatedAddress}</span>
+          <ChevronDown className="w-4 h-4 opacity-50 pointer-events-none" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-48 z-50 bg-popover border border-border">
         <DropdownMenuItem onClick={handleCopyAddress} className="gap-2 cursor-pointer">
           <Copy className="w-4 h-4" />
           Copy Address

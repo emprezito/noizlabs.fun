@@ -94,31 +94,47 @@
 
 /* Solana Wallet Adapter Overrides */
 .wallet-adapter-button {
-  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto !text-sm hover:!bg-primary/90 !transition-colors;
+  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto !text-sm hover:!bg-primary/90 !transition-colors !cursor-pointer !pointer-events-auto;
 }
 
 .wallet-adapter-button-trigger {
-  @apply !bg-primary hover:!bg-primary/90;
+  @apply !bg-primary hover:!bg-primary/90 !cursor-pointer !pointer-events-auto;
+}
+
+.wallet-adapter-modal {
+  @apply !z-[9999];
 }
 
 .wallet-adapter-modal-wrapper {
-  @apply !bg-card;
+  @apply !bg-card !z-[9999];
+}
+
+.wallet-adapter-modal-overlay {
+  @apply !z-[9998];
 }
 
 .wallet-adapter-modal-title {
   @apply !text-foreground;
 }
 
+.wallet-adapter-modal-list {
+  @apply !pointer-events-auto;
+}
+
 .wallet-adapter-modal-list li {
-  @apply !bg-muted hover:!bg-muted/80;
+  @apply !bg-muted hover:!bg-muted/80 !cursor-pointer !pointer-events-auto;
+}
+
+.wallet-adapter-modal-list li button {
+  @apply !cursor-pointer !pointer-events-auto !w-full;
 }
 
 .wallet-adapter-modal-list-more {
-  @apply !text-primary;
+  @apply !text-primary !cursor-pointer !pointer-events-auto;
 }
 
 .wallet-button-wrapper .wallet-adapter-button {
-  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto;
+  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto !cursor-pointer !pointer-events-auto;
 }
 
 /* Safe area support for mobile devices with notches */
