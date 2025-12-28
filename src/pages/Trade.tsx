@@ -25,8 +25,8 @@ import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart } from "@/components/TradingViewChart";
 import { fetchTradeHistoryCandles, fetchDexScreenerData, fetchTradeHistory, CandleData, TradeHistoryItem } from "@/lib/chartData";
 
-// Bonding curve constants for price impact calculation (pump.fun style - 1% fee)
-const PLATFORM_FEE_BPS = 100;
+// Bonding curve constants for price impact calculation - 1% total fee
+const TOTAL_FEE_BPS = 100; // 1% total fee (0.4% platform + 0.6% creator)
 const BASIS_POINTS_DIVISOR = 10000;
 
 // Bonding curve wallet - holds tokens for buy/sell trades
@@ -113,8 +113,8 @@ const TradePage = () => {
     
     if (type === "buy") {
       const solAmount = amount * 1e9; // lamports
-      const platformFee = Math.floor(solAmount * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
-      const solAfterFee = solAmount - platformFee;
+      const totalFee = Math.floor(solAmount * TOTAL_FEE_BPS / BASIS_POINTS_DIVISOR);
+      const solAfterFee = solAmount - totalFee;
       const k = solReserves * tokenReserves;
       const newSolReserves = solReserves + solAfterFee;
       const newTokenReserves = Math.floor(k / newSolReserves);
@@ -127,7 +127,7 @@ const TradePage = () => {
       return {
         outputAmount: tokensOut,
         priceImpact,
-        platformFee: platformFee / 1e9,
+        platformFee: totalFee / 1e9,
       };
     } else {
       const tokenAmount = amount * 1e9; // smallest units
@@ -135,8 +135,8 @@ const TradePage = () => {
       const newTokenReserves = tokenReserves + tokenAmount;
       const newSolReserves = Math.floor(k / newTokenReserves);
       const solOutBeforeFee = solReserves - newSolReserves;
-      const platformFee = Math.floor(solOutBeforeFee * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
-      const solOut = (solOutBeforeFee - platformFee) / 1e9;
+      const totalFee = Math.floor(solOutBeforeFee * TOTAL_FEE_BPS / BASIS_POINTS_DIVISOR);
+      const solOut = (solOutBeforeFee - totalFee) / 1e9;
       
       const spotPrice = solReserves / tokenReserves;
       const executionPrice = tokenAmount > 0 ? solOutBeforeFee / tokenAmount : 0;
@@ -145,7 +145,7 @@ const TradePage = () => {
       return {
         outputAmount: solOut,
         priceImpact,
-        platformFee: platformFee / 1e9,
+        platformFee: totalFee / 1e9,
       };
     }
   }, [tokenInfo]);

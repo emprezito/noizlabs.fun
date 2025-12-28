@@ -140,6 +140,51 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_earnings: {
+        Row: {
+          amount_lamports: number
+          created_at: string
+          id: string
+          mint_address: string
+          token_id: string | null
+          trade_id: string | null
+          wallet_address: string
+        }
+        Insert: {
+          amount_lamports: number
+          created_at?: string
+          id?: string
+          mint_address: string
+          token_id?: string | null
+          trade_id?: string | null
+          wallet_address: string
+        }
+        Update: {
+          amount_lamports?: number
+          created_at?: string
+          id?: string
+          mint_address?: string
+          token_id?: string | null
+          trade_id?: string | null
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_earnings_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_earnings_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trade_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faucet_requests: {
         Row: {
           amount_lamports: number

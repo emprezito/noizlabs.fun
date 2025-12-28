@@ -22,7 +22,8 @@ import {
   Bell,
   BellOff,
   RefreshCw,
-  Loader2
+  Loader2,
+  Coins
 } from "lucide-react";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -42,6 +43,14 @@ interface TokenHolding {
   imageUrl?: string;
 }
 
+interface CreatorEarning {
+  mint_address: string;
+  token_name: string;
+  token_symbol: string;
+  total_earnings: number;
+  trade_count: number;
+}
+
 const Portfolio = () => {
   const navigate = useNavigate();
   const { connection } = useConnection();
@@ -51,6 +60,9 @@ const Portfolio = () => {
 
   const [holdings, setHoldings] = useState<TokenHolding[]>([]);
   const [loadingHoldings, setLoadingHoldings] = useState(false);
+  const [creatorEarnings, setCreatorEarnings] = useState<CreatorEarning[]>([]);
+  const [totalCreatorEarnings, setTotalCreatorEarnings] = useState(0);
+  const [loadingEarnings, setLoadingEarnings] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [loadingPrefs, setLoadingPrefs] = useState(false);
@@ -222,10 +234,79 @@ const Portfolio = () => {
     }
   }, [publicKey, connection]);
 
+  // Fetch creator earnings
+  const fetchCreatorEarnings = useCallback(async () => {
+    if (!publicKey) {
+      setCreatorEarnings([]);
+      setTotalCreatorEarnings(0);
+      return;
+    }
+
+    setLoadingEarnings(true);
+    const walletAddress = publicKey.toBase58();
+
+    try {
+      // Get all earnings for this wallet
+      const { data: earnings, error } = await supabase
+        .from("creator_earnings")
+        .select("mint_address, amount_lamports")
+        .eq("wallet_address", walletAddress);
+
+      if (error) throw error;
+
+      if (!earnings || earnings.length === 0) {
+        setCreatorEarnings([]);
+        setTotalCreatorEarnings(0);
+        setLoadingEarnings(false);
+        return;
+      }
+
+      // Group by mint address
+      const earningsMap = new Map<string, { total: number; count: number }>();
+      let total = 0;
+
+      earnings.forEach((e) => {
+        const current = earningsMap.get(e.mint_address) || { total: 0, count: 0 };
+        const amount = Number(e.amount_lamports) / 1e9;
+        current.total += amount;
+        current.count += 1;
+        total += amount;
+        earningsMap.set(e.mint_address, current);
+      });
+
+      // Fetch token details
+      const mintAddresses = Array.from(earningsMap.keys());
+      const { data: tokens } = await supabase
+        .from("tokens")
+        .select("mint_address, name, symbol")
+        .in("mint_address", mintAddresses);
+
+      const earningsList: CreatorEarning[] = mintAddresses.map((mint) => {
+        const earningData = earningsMap.get(mint)!;
+        const token = tokens?.find((t) => t.mint_address === mint);
+        return {
+          mint_address: mint,
+          token_name: token?.name || "Unknown",
+          token_symbol: token?.symbol || "???",
+          total_earnings: earningData.total,
+          trade_count: earningData.count,
+        };
+      });
+
+      setCreatorEarnings(earningsList.sort((a, b) => b.total_earnings - a.total_earnings));
+      setTotalCreatorEarnings(total);
+    } catch (error) {
+      console.error("Error fetching creator earnings:", error);
+    } finally {
+      setLoadingEarnings(false);
+    }
+  }, [publicKey]);
+
   useEffect(() => {
     fetchHoldings();
     fetchNotificationPrefs();
-  }, [fetchHoldings, fetchNotificationPrefs]);
+    fetchCreatorEarnings();
+  }, [fetchHoldings, fetchNotificationPrefs, fetchCreatorEarnings]);
 
   // Audio playback
   const toggleAudio = (mintAddress: string, audioUrl?: string) => {
@@ -282,11 +363,12 @@ const Portfolio = () => {
               size="sm"
               onClick={() => {
                 fetchHoldings();
+                fetchCreatorEarnings();
                 refetchBalance();
               }}
-              disabled={loadingHoldings}
+              disabled={loadingHoldings || loadingEarnings}
             >
-              {loadingHoldings ? (
+              {loadingHoldings || loadingEarnings ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <RefreshCw className="w-4 h-4" />
@@ -376,6 +458,56 @@ const Portfolio = () => {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Creator Earnings */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-primary" />
+                    Creator Earnings (0.6% from trades)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingEarnings ? (
+                    <Skeleton className="h-7 w-24" />
+                  ) : totalCreatorEarnings > 0 ? (
+                    <div>
+                      <div className="flex items-baseline gap-2 mb-4">
+                        <span className="text-2xl font-bold text-green-500">+{totalCreatorEarnings.toFixed(6)}</span>
+                        <span className="text-muted-foreground">SOL</span>
+                        {solUsdPrice && (
+                          <span className="text-sm text-muted-foreground">
+                            (≈ ${(totalCreatorEarnings * solUsdPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                          </span>
+                        )}
+                      </div>
+                      {creatorEarnings.length > 0 && (
+                        <div className="space-y-2">
+                          {creatorEarnings.map((earning) => (
+                            <div 
+                              key={earning.mint_address}
+                              className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                            >
+                              <div>
+                                <span className="font-medium">{earning.token_name}</span>
+                                <span className="text-xs text-muted-foreground ml-2">${earning.token_symbol}</span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-green-500 font-medium">+{earning.total_earnings.toFixed(6)} SOL</p>
+                                <p className="text-xs text-muted-foreground">{earning.trade_count} trades</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      Create tokens to earn 0.6% from every trade
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Notification Preferences */}
               <Card>
