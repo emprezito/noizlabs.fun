@@ -92,49 +92,120 @@
   }
 }
 
-/* Solana Wallet Adapter Overrides */
+/* Solana Wallet Adapter Overrides - Force clickability */
 .wallet-adapter-button {
-  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto !text-sm hover:!bg-primary/90 !transition-colors !cursor-pointer !pointer-events-auto;
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-weight: 500 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
+  height: auto !important;
+  font-size: 0.875rem !important;
+  transition: background-color 0.2s !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.wallet-adapter-button:hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
 }
 
 .wallet-adapter-button-trigger {
-  @apply !bg-primary hover:!bg-primary/90 !cursor-pointer !pointer-events-auto;
+  background-color: hsl(var(--primary)) !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.wallet-adapter-button-trigger:hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
 }
 
 .wallet-adapter-modal {
-  @apply !z-[9999];
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+}
+
+.wallet-adapter-modal-container {
+  pointer-events: auto !important;
 }
 
 .wallet-adapter-modal-wrapper {
-  @apply !bg-card !z-[9999];
+  background-color: hsl(var(--card)) !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
 }
 
 .wallet-adapter-modal-overlay {
-  @apply !z-[9998];
+  z-index: 99998 !important;
+  pointer-events: auto !important;
 }
 
 .wallet-adapter-modal-title {
-  @apply !text-foreground;
+  color: hsl(var(--foreground)) !important;
+}
+
+.wallet-adapter-modal-button-close {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  z-index: 10 !important;
 }
 
 .wallet-adapter-modal-list {
-  @apply !pointer-events-auto;
+  pointer-events: auto !important;
 }
 
+/* Critical: Make wallet list items fully clickable */
 .wallet-adapter-modal-list li {
-  @apply !bg-muted hover:!bg-muted/80 !cursor-pointer !pointer-events-auto;
+  background-color: hsl(var(--muted)) !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
-.wallet-adapter-modal-list li button {
-  @apply !cursor-pointer !pointer-events-auto !w-full;
+.wallet-adapter-modal-list li:hover {
+  background-color: hsl(var(--muted) / 0.8) !important;
+}
+
+/* Critical: Wallet buttons inside list must be clickable */
+.wallet-adapter-modal-list li button,
+.wallet-adapter-modal-list li .wallet-adapter-button,
+.wallet-adapter-modal-list .wallet-adapter-button {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  width: 100% !important;
+  position: relative !important;
+  z-index: 2 !important;
+  background-color: transparent !important;
+}
+
+.wallet-adapter-modal-list li button:hover,
+.wallet-adapter-modal-list li .wallet-adapter-button:hover {
+  background-color: hsl(var(--muted) / 0.6) !important;
 }
 
 .wallet-adapter-modal-list-more {
-  @apply !text-primary !cursor-pointer !pointer-events-auto;
+  color: hsl(var(--primary)) !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
 }
 
 .wallet-button-wrapper .wallet-adapter-button {
-  @apply !bg-primary !text-primary-foreground !font-medium !rounded-lg !px-4 !py-2 !h-auto !cursor-pointer !pointer-events-auto;
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-weight: 500 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
+  height: auto !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure modal content doesn't block clicks */
+.wallet-adapter-modal-wrapper * {
+  pointer-events: auto !important;
 }
 
 /* Safe area support for mobile devices with notches */
