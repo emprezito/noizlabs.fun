@@ -1,6 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Wallet, Copy, LogOut, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import CustomWalletModal from "./CustomWalletModal";
 
 export const clearMobileWalletCache = () => {
   try {
@@ -21,7 +21,7 @@ export const clearMobileWalletCache = () => {
 
 export const WalletButton = () => {
   const { publicKey, wallet, disconnect, connecting } = useWallet();
-  const { setVisible } = useWalletModal();
+  const [modalOpen, setModalOpen] = useState(false);
 
   const truncatedAddress = useMemo(() => {
     if (!publicKey) return null;
@@ -74,15 +74,18 @@ export const WalletButton = () => {
 
   if (!publicKey) {
     return (
-      <Button
-        onClick={() => setVisible(true)}
-        className="min-h-[48px] px-6 gap-2 relative z-10 cursor-pointer select-none"
-        size="lg"
-        type="button"
-      >
-        <Wallet className="w-5 h-5 pointer-events-none" />
-        <span className="pointer-events-none">Connect Wallet</span>
-      </Button>
+      <>
+        <Button
+          onClick={() => setModalOpen(true)}
+          className="min-h-[48px] px-6 gap-2 relative z-10 cursor-pointer select-none"
+          size="lg"
+          type="button"
+        >
+          <Wallet className="w-5 h-5 pointer-events-none" />
+          <span className="pointer-events-none">Connect Wallet</span>
+        </Button>
+        <CustomWalletModal open={modalOpen} onOpenChange={setModalOpen} />
+      </>
     );
   }
 
