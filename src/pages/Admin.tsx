@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Shield, ArrowLeft, Coins, Trophy, Loader2, Check, Calendar, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, ArrowLeft, Coins, Trophy, Loader2, Check, Calendar, Clock, Settings, ToggleLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +70,14 @@ interface TopClip {
   selected?: boolean;
 }
 
+interface FeatureFlag {
+  id: string;
+  feature_key: string;
+  display_name: string;
+  description: string | null;
+  is_enabled: boolean;
+}
+
 const ICON_OPTIONS = [
   "star", "headphones", "heart", "share-2", "upload", "coins", 
   "trending-up", "bar-chart", "line-chart", "zap", "trophy", 
@@ -92,6 +100,10 @@ const Admin = () => {
   const [mintingClips, setMintingClips] = useState(false);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
   const [weekInfo, setWeekInfo] = useState<{ isSunday: boolean; weekStart: Date; weekEnd: Date } | null>(null);
+  
+  // Feature flags state
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
+  const [loadingFlags, setLoadingFlags] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -169,8 +181,47 @@ const Admin = () => {
     if (isAdmin) {
       fetchQuests();
       fetchTopClips();
+      fetchFeatureFlags();
     }
   }, [isAdmin]);
+
+  // Fetch feature flags
+  const fetchFeatureFlags = async () => {
+    setLoadingFlags(true);
+    try {
+      const { data, error } = await supabase
+        .from("feature_flags")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setFeatureFlags((data || []) as FeatureFlag[]);
+    } catch (error) {
+      console.error("Error fetching feature flags:", error);
+    } finally {
+      setLoadingFlags(false);
+    }
+  };
+
+  // Toggle feature flag
+  const toggleFeatureFlag = async (flag: FeatureFlag) => {
+    try {
+      const { error } = await supabase
+        .from("feature_flags")
+        .update({ is_enabled: !flag.is_enabled, updated_at: new Date().toISOString() })
+        .eq("id", flag.id);
+
+      if (error) throw error;
+
+      setFeatureFlags(featureFlags.map(f => 
+        f.id === flag.id ? { ...f, is_enabled: !f.is_enabled } : f
+      ));
+      toast.success(`${flag.display_name} ${!flag.is_enabled ? "enabled" : "disabled"}`);
+    } catch (error) {
+      console.error("Error toggling feature flag:", error);
+      toast.error("Failed to update feature flag");
+    }
+  };
 
   // Fetch top clips for tokenization (Monday-Saturday engagement only)
   const fetchTopClips = async () => {
@@ -562,7 +613,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="quests" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="quests">
               <Trophy className="w-4 h-4 mr-2" />
               Quests
@@ -570,6 +621,10 @@ const Admin = () => {
             <TabsTrigger value="tokenize">
               <Coins className="w-4 h-4 mr-2" />
               Tokenize Clips
+            </TabsTrigger>
+            <TabsTrigger value="features">
+              <ToggleLeft className="w-4 h-4 mr-2" />
+              Feature Flags
             </TabsTrigger>
           </TabsList>
 
@@ -876,6 +931,53 @@ const Admin = () => {
                     {!weekInfo?.isSunday && (
                       <p className="text-sm text-center text-muted-foreground pt-2">
                         ⏰ Minting is only available on Sunday (snapshot day)
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Feature Flags Tab */}
+          <TabsContent value="features" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Feature Flags
+                </CardTitle>
+                <CardDescription>
+                  Enable or disable features across the platform
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingFlags ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {featureFlags.map((flag) => (
+                      <div
+                        key={flag.id}
+                        className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                      >
+                        <div className="space-y-1">
+                          <div className="font-medium">{flag.display_name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {flag.description || flag.feature_key}
+                          </div>
+                        </div>
+                        <Switch
+                          checked={flag.is_enabled}
+                          onCheckedChange={() => toggleFeatureFlag(flag)}
+                        />
+                      </div>
+                    ))}
+                    {featureFlags.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">
+                        No feature flags configured
                       </p>
                     )}
                   </div>

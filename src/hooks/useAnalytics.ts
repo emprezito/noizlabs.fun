@@ -12,6 +12,7 @@ interface AnalyticsData {
   totalVolume: number;
   mintedTokens: number;
   revenue: number;
+  totalCreatorFees: number;
 }
 
 interface TimeSeriesPoint {
@@ -37,6 +38,7 @@ export const useAnalytics = (timeRange: TimeRange) => {
     totalVolume: 0,
     mintedTokens: 0,
     revenue: 0,
+    totalCreatorFees: 0,
   });
   const [timeSeries, setTimeSeries] = useState<AnalyticsTimeSeries>({
     tokens: [],
@@ -73,6 +75,7 @@ export const useAnalytics = (timeRange: TimeRange) => {
           walletsResult,
           tradesResult,
           activeUsersResult,
+          creatorEarningsResult,
         ] = await Promise.all([
           // Tokens launched
           supabase
@@ -105,6 +108,11 @@ export const useAnalytics = (timeRange: TimeRange) => {
             .from("trade_history")
             .select("wallet_address")
             .gte("created_at", dateStr),
+          // Creator earnings
+          supabase
+            .from("creator_earnings")
+            .select("amount_lamports")
+            .gte("created_at", dateStr),
         ]);
 
         const tokens = tokensResult.data || [];
@@ -112,6 +120,7 @@ export const useAnalytics = (timeRange: TimeRange) => {
         const clips = clipsResult.data || [];
         const wallets = walletsResult.data || [];
         const trades = tradesResult.data || [];
+        const creatorEarnings = creatorEarningsResult.data || [];
         
         // Calculate unique active users
         const uniqueActiveUsers = new Set(
@@ -127,6 +136,12 @@ export const useAnalytics = (timeRange: TimeRange) => {
         // Platform fee is 1% of volume
         const revenue = Math.floor(totalVolume * 0.01);
 
+        // Calculate total creator fees
+        const totalCreatorFees = creatorEarnings.reduce(
+          (sum, earning) => sum + (earning.amount_lamports || 0),
+          0
+        );
+
         setData({
           dailyActiveUsers: uniqueActiveUsers.size,
           tokensLaunched: tokens.length,
@@ -136,6 +151,7 @@ export const useAnalytics = (timeRange: TimeRange) => {
           totalVolume,
           mintedTokens: tokens.length,
           revenue,
+          totalCreatorFees,
         });
 
         // Generate time series data

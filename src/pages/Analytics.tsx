@@ -11,7 +11,8 @@ import {
   Gem, 
   DollarSign,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Banknote
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -110,12 +111,20 @@ const Analytics = () => {
       bgColor: "bg-emerald-500/10",
     },
     {
-      title: "Revenue Generated",
+      title: "Platform Revenue",
       value: formatSOL(data.revenue),
       icon: DollarSign,
       description: "Platform fees (1%)",
       color: "text-amber-500",
       bgColor: "bg-amber-500/10",
+    },
+    {
+      title: "Creator Fees",
+      value: formatSOL(data.totalCreatorFees),
+      icon: Banknote,
+      description: "Total paid to creators",
+      color: "text-teal-500",
+      bgColor: "bg-teal-500/10",
     },
   ];
 

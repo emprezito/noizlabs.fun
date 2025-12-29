@@ -12,6 +12,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import Analytics from "./pages/Analytics";
+import UserAnalytics from "./pages/UserAnalytics";
 import NotFound from "./pages/NotFound";
 
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/my-analytics" element={<UserAnalytics />} />
           {/* Redirects for old routes */}
           <Route path="/tokens" element={<Navigate to="/explore?tab=tokens" replace />} />
           <Route path="/discover" element={<Navigate to="/explore?tab=clips" replace />} />

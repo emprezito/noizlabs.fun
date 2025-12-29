@@ -216,6 +216,7 @@ export const ensureUserTasks = async (walletAddress: string): Promise<void> => {
     const existingTypes = new Set((existingTasks || []).map(t => t.task_type));
     
     // Create missing tasks based on database definitions
+    // Use upsert with onConflict to handle race conditions
     const missingTasks = questDefinitions
       .filter(def => !existingTypes.has(def.task_type))
       .map(def => ({
@@ -229,8 +230,22 @@ export const ensureUserTasks = async (walletAddress: string): Promise<void> => {
       }));
 
     if (missingTasks.length > 0) {
-      await supabase.from("user_tasks").insert(missingTasks);
-      console.log(`Created ${missingTasks.length} missing tasks for ${walletAddress}`);
+      // Use upsert to prevent duplicates from race conditions
+      const { error } = await supabase
+        .from("user_tasks")
+        .upsert(missingTasks, { 
+          onConflict: "wallet_address,task_type",
+          ignoreDuplicates: true 
+        });
+      
+      if (error) {
+        // If it's a unique constraint violation, that's fine - task already exists
+        if (!error.message.includes("duplicate") && !error.message.includes("unique")) {
+          console.error("Error creating tasks:", error);
+        }
+      } else {
+        console.log(`Created ${missingTasks.length} missing tasks for ${walletAddress}`);
+      }
     }
 
     // Update existing tasks to be daily if they weren't
@@ -249,19 +264,19 @@ export const ensureUserTasks = async (walletAddress: string): Promise<void> => {
       console.log(`Updated ${weeklyTasks.length} tasks to daily reset`);
     }
 
-    // Ensure user points record exists
-    const { data: existingPoints } = await supabase
+    // Ensure user points record exists using upsert
+    const { error: pointsError } = await supabase
       .from("user_points")
-      .select("id")
-      .eq("wallet_address", walletAddress)
-      .maybeSingle();
-
-    if (!existingPoints) {
-      await supabase.from("user_points").insert({
+      .upsert({
         wallet_address: walletAddress,
         total_points: 0,
+      }, {
+        onConflict: "wallet_address",
+        ignoreDuplicates: true
       });
-      console.log(`Created user points record for ${walletAddress}`);
+
+    if (pointsError && !pointsError.message.includes("duplicate")) {
+      console.error("Error creating user points:", pointsError);
     }
   } catch (error) {
     console.error("Error ensuring user tasks:", error);
