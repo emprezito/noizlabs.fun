@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createHmac } from "node:crypto";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,12 @@ const corsHeaders = {
 // Keywords that must be present in the tweet (case-insensitive)
 const REQUIRED_KEYWORDS = ['noizlabs', 'noiz', '$noiz', '@noizlabs'];
 const POINTS_REWARD = 250;
+
+// Twitter API credentials
+const API_KEY = Deno.env.get("TWITTER_CONSUMER_KEY")?.trim();
+const API_SECRET = Deno.env.get("TWITTER_CONSUMER_SECRET")?.trim();
+const ACCESS_TOKEN = Deno.env.get("TWITTER_ACCESS_TOKEN")?.trim();
+const ACCESS_TOKEN_SECRET = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET")?.trim();
 
 interface TweetVerificationRequest {
   tweetUrl: string;
@@ -20,12 +27,10 @@ function extractTweetId(url: string): string | null {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
     
-    // Check if it's a Twitter/X URL
     if (!hostname.includes('twitter.com') && !hostname.includes('x.com')) {
       return null;
     }
     
-    // Extract tweet ID from path like /username/status/123456789
     const pathMatch = urlObj.pathname.match(/\/status\/(\d+)/);
     if (pathMatch) {
       return pathMatch[1];
@@ -41,6 +46,109 @@ function extractTweetId(url: string): string | null {
 function containsRequiredKeywords(text: string): boolean {
   const lowerText = text.toLowerCase();
   return REQUIRED_KEYWORDS.some(keyword => lowerText.includes(keyword.toLowerCase()));
+}
+
+// Generate OAuth 1.0a signature for Twitter API
+function generateOAuthSignature(
+  method: string,
+  url: string,
+  params: Record<string, string>,
+  consumerSecret: string,
+  tokenSecret: string
+): string {
+  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(
+    Object.entries(params)
+      .sort()
+      .map(([k, v]) => `${k}=${v}`)
+      .join("&")
+  )}`;
+  
+  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+  const hmacSha1 = createHmac("sha1", signingKey);
+  const signature = hmacSha1.update(signatureBaseString).digest("base64");
+
+  console.log("OAuth Signature generated successfully");
+  return signature;
+}
+
+// Generate OAuth header for Twitter API requests
+function generateOAuthHeader(method: string, url: string): string {
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: API_KEY!,
+    oauth_nonce: Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: ACCESS_TOKEN!,
+    oauth_version: "1.0",
+  };
+
+  const signature = generateOAuthSignature(
+    method,
+    url,
+    oauthParams,
+    API_SECRET!,
+    ACCESS_TOKEN_SECRET!
+  );
+
+  const signedOAuthParams = {
+    ...oauthParams,
+    oauth_signature: signature,
+  };
+
+  const entries = Object.entries(signedOAuthParams).sort((a, b) => a[0].localeCompare(b[0]));
+
+  return (
+    "OAuth " +
+    entries
+      .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
+      .join(", ")
+  );
+}
+
+// Fetch tweet using Twitter API v2
+async function fetchTweetFromAPI(tweetId: string): Promise<{ text: string; authorId: string } | null> {
+  const url = `https://api.x.com/2/tweets/${tweetId}?tweet.fields=text,author_id`;
+  const method = "GET";
+  
+  try {
+    const oauthHeader = generateOAuthHeader(method, url.split('?')[0]);
+    console.log("Fetching tweet from Twitter API:", tweetId);
+    
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        Authorization: oauthHeader,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    console.log("Twitter API response status:", response.status);
+    
+    if (!response.ok) {
+      console.error("Twitter API error:", responseText);
+      return null;
+    }
+
+    const data = JSON.parse(responseText);
+    
+    if (data.data) {
+      return {
+        text: data.data.text || '',
+        authorId: data.data.author_id || ''
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error fetching tweet from API:", error);
+    return null;
+  }
+}
+
+// Check if Twitter API credentials are configured
+function hasTwitterAPICredentials(): boolean {
+  return !!(API_KEY && API_SECRET && ACCESS_TOKEN && ACCESS_TOKEN_SECRET);
 }
 
 Deno.serve(async (req) => {
@@ -112,55 +220,68 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch tweet content using Twitter's public embed endpoint
-    // This doesn't require API keys and works for public tweets
-    const embedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(tweetUrl)}`;
-    
-    let tweetHtml = '';
     let tweetVerified = false;
-    
-    try {
-      const embedResponse = await fetch(embedUrl);
+    let verificationMethod = 'unknown';
+
+    // Try Twitter API first if credentials are available
+    if (hasTwitterAPICredentials()) {
+      console.log('Using Twitter API for verification');
+      const tweetData = await fetchTweetFromAPI(tweetId);
       
-      if (embedResponse.ok) {
-        const embedData = await embedResponse.json();
-        tweetHtml = embedData.html || '';
+      if (tweetData) {
+        console.log('Tweet content retrieved via API');
         
-        // Check if the tweet content contains required keywords
-        if (containsRequiredKeywords(tweetHtml)) {
+        if (containsRequiredKeywords(tweetData.text)) {
           tweetVerified = true;
-          console.log('Tweet verified with keywords found in content');
+          verificationMethod = 'twitter_api';
+          console.log('Tweet verified with keywords found via Twitter API');
         } else {
-          console.log('Tweet exists but missing required keywords');
+          console.log('Tweet exists but missing required keywords. Tweet text:', tweetData.text.substring(0, 100));
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Your tweet must mention NoizLabs, Noiz, $NOIZ, or @NoizLabs. Please update your tweet and try again.' 
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       } else {
-        console.log('Could not fetch tweet embed, status:', embedResponse.status);
+        console.log('Twitter API failed, falling back to oEmbed');
       }
-    } catch (fetchError) {
-      console.error('Error fetching tweet embed:', fetchError);
+    } else {
+      console.log('Twitter API credentials not configured, using fallback method');
     }
 
-    // If embed API failed or no keywords found, do a basic URL validation
-    // We'll trust that the tweet exists if it's a valid format
+    // Fallback to oEmbed if Twitter API didn't work
     if (!tweetVerified) {
-      // For now, we'll be lenient and accept any valid tweet URL format
-      // In production, you'd want a Twitter API key for proper verification
-      console.log('Falling back to basic URL validation');
+      const embedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(tweetUrl)}`;
       
-      // Do a HEAD request to check if the tweet exists
       try {
-        const tweetCheckUrl = `https://x.com/i/status/${tweetId}`;
-        const headResponse = await fetch(tweetCheckUrl, { method: 'HEAD', redirect: 'follow' });
+        const embedResponse = await fetch(embedUrl);
         
-        if (headResponse.ok || headResponse.status === 200 || headResponse.status === 302) {
-          // Tweet exists, we'll accept it but require keywords in the URL or trust the user
-          tweetVerified = true;
-          console.log('Tweet exists, accepting for verification');
+        if (embedResponse.ok) {
+          const embedData = await embedResponse.json();
+          const tweetHtml = embedData.html || '';
+          
+          if (containsRequiredKeywords(tweetHtml)) {
+            tweetVerified = true;
+            verificationMethod = 'oembed';
+            console.log('Tweet verified with keywords found via oEmbed');
+          } else {
+            console.log('Tweet exists but missing required keywords in oEmbed');
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: 'Your tweet must mention NoizLabs, Noiz, $NOIZ, or @NoizLabs. Please update your tweet and try again.' 
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          console.log('oEmbed request failed, status:', embedResponse.status);
         }
-      } catch (headError) {
-        console.log('HEAD request failed, accepting tweet based on valid URL format');
-        // Accept it anyway since the URL format is valid
-        tweetVerified = true;
+      } catch (fetchError) {
+        console.error('Error fetching tweet via oEmbed:', fetchError);
       }
     }
 
@@ -173,6 +294,8 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('Tweet verified successfully via:', verificationMethod);
 
     // Record the tweet verification
     await supabase
@@ -193,7 +316,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (userTask) {
-      // Update existing task
       await supabase
         .from('user_tasks')
         .update({ 
@@ -203,7 +325,6 @@ Deno.serve(async (req) => {
         })
         .eq('id', userTask.id);
     } else {
-      // Create new task
       await supabase
         .from('user_tasks')
         .insert({
@@ -247,7 +368,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: `Tweet verified! You earned ${POINTS_REWARD} points!`,
-        pointsAwarded: POINTS_REWARD
+        pointsAwarded: POINTS_REWARD,
+        verificationMethod
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
