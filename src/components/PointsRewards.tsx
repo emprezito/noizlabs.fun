@@ -3,13 +3,22 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { 
   Trophy, Star, Zap, TrendingUp, Music, Coins, RefreshCw, Clock, 
   Heart, Upload, Headphones, BarChart, LineChart, Gift, Flame, 
-  Rocket, Target, Award, Send, Twitter, ExternalLink
+  Rocket, Target, Award, Send, Twitter, ExternalLink, Link, Check
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface Task {
   id: string;
@@ -58,6 +67,7 @@ const ICON_MAP: Record<string, any> = {
   award: Award,
   twitter: Twitter,
   send: Send,
+  link: Link,
 };
 
 const PointsRewards = () => {
@@ -68,6 +78,9 @@ const PointsRewards = () => {
   const [loading, setLoading] = useState(true);
   const [timeUntilReset, setTimeUntilReset] = useState("");
   const [completingSocial, setCompletingSocial] = useState<string | null>(null);
+  const [tweetUrl, setTweetUrl] = useState("");
+  const [verifyingTweet, setVerifyingTweet] = useState(false);
+  const [tweetDialogOpen, setTweetDialogOpen] = useState(false);
 
   useEffect(() => {
     if (publicKey) {
@@ -208,6 +221,45 @@ const PointsRewards = () => {
     }, 1500);
   };
 
+  const handleVerifyTweet = async () => {
+    if (!publicKey || !tweetUrl.trim()) {
+      toast.error("Please enter a valid tweet URL");
+      return;
+    }
+
+    setVerifyingTweet(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-tweet', {
+        body: {
+          tweetUrl: tweetUrl.trim(),
+          walletAddress: publicKey.toString()
+        }
+      });
+
+      if (error) {
+        console.error('Tweet verification error:', error);
+        toast.error('Failed to verify tweet. Please try again.');
+        return;
+      }
+
+      if (data.success) {
+        toast.success(data.message || 'Tweet verified! Points awarded!');
+        setTweetUrl("");
+        setTweetDialogOpen(false);
+        // Refresh user data
+        fetchUserData();
+      } else {
+        toast.error(data.error || 'Could not verify the tweet.');
+      }
+    } catch (error) {
+      console.error('Error verifying tweet:', error);
+      toast.error('An error occurred while verifying the tweet.');
+    } finally {
+      setVerifyingTweet(false);
+    }
+  };
+
   const getQuestDefinition = (taskType: string): QuestDefinition | undefined => {
     return questDefinitions.find(q => q.task_type === taskType);
   };
@@ -285,6 +337,7 @@ const PointsRewards = () => {
             const Icon = info.icon;
             const progressPercent = Math.min((task.progress / task.target) * 100, 100);
             const isSocialQuest = !!info.socialLink;
+            const isTweetQuest = task.task_type === 'tweet_about_noizlabs';
             const questDef = getQuestDefinition(task.task_type);
 
             return (
@@ -310,6 +363,84 @@ const PointsRewards = () => {
                     <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full font-medium">
                       ✓ Claimed
                     </span>
+                  ) : isTweetQuest ? (
+                    <Dialog open={tweetDialogOpen} onOpenChange={setTweetDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs gap-1"
+                        >
+                          <Twitter className="w-3 h-3" />
+                          Verify Tweet
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <Twitter className="w-5 h-5 text-primary" />
+                            Tweet About NoizLabs
+                          </DialogTitle>
+                          <DialogDescription>
+                            Share your thoughts about NoizLabs on X/Twitter, then paste your tweet link below for verification.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="bg-muted/50 p-3 rounded-lg border border-border">
+                            <p className="text-sm text-muted-foreground mb-2">
+                              <strong>Step 1:</strong> Post a tweet mentioning NoizLabs
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full gap-2"
+                              onClick={() => {
+                                const tweetText = encodeURIComponent(
+                                  "Just discovered @NoizLabs - the future of audio tokens on Solana! 🎵🔥\n\n$NOIZ #NoizLabs #Solana #Web3 #AudioNFT"
+                                );
+                                window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
+                              }}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              Open Twitter to Post
+                            </Button>
+                          </div>
+                          
+                          <div className="bg-muted/50 p-3 rounded-lg border border-border">
+                            <p className="text-sm text-muted-foreground mb-2">
+                              <strong>Step 2:</strong> Paste your tweet link
+                            </p>
+                            <Input
+                              placeholder="https://x.com/yourname/status/..."
+                              value={tweetUrl}
+                              onChange={(e) => setTweetUrl(e.target.value)}
+                              className="mb-2"
+                            />
+                            <Button
+                              onClick={handleVerifyTweet}
+                              disabled={verifyingTweet || !tweetUrl.trim()}
+                              className="w-full gap-2"
+                            >
+                              {verifyingTweet ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                  Verifying...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-4 h-4" />
+                                  Verify & Claim 250 Points
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          
+                          <p className="text-xs text-muted-foreground text-center">
+                            Your tweet should mention NoizLabs, @NoizLabs, or $NOIZ
+                          </p>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   ) : isSocialQuest && questDef ? (
                     <Button
                       size="sm"
@@ -328,7 +459,7 @@ const PointsRewards = () => {
                   ) : null}
                 </div>
                 
-                {!isSocialQuest && (
+                {!isSocialQuest && !isTweetQuest && (
                   <div className="flex items-center gap-3">
                     <Progress value={progressPercent} className="flex-1 h-2" />
                     <span className="text-xs text-muted-foreground min-w-[60px] text-right">
@@ -340,6 +471,12 @@ const PointsRewards = () => {
                 {isSocialQuest && !task.completed && (
                   <p className="text-xs text-muted-foreground mt-2">
                     Click "Complete" to visit and earn points
+                  </p>
+                )}
+                
+                {isTweetQuest && !task.completed && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Tweet about NoizLabs and paste the link to earn 250 points!
                   </p>
                 )}
               </div>

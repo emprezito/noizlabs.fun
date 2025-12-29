@@ -475,6 +475,33 @@ export type Database = {
           },
         ]
       }
+      tweet_verifications: {
+        Row: {
+          created_at: string
+          id: string
+          tweet_id: string
+          tweet_url: string
+          verified: boolean | null
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tweet_id: string
+          tweet_url: string
+          verified?: boolean | null
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tweet_id?: string
+          tweet_url?: string
+          verified?: boolean | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       user_badges: {
         Row: {
           badge_level: string
