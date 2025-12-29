@@ -18,8 +18,8 @@ const corsHeaders = {
 // Amount to send per request (0.5 SOL)
 const FAUCET_AMOUNT = 0.5 * LAMPORTS_PER_SOL;
 
-// Rate limit: 1 request per hour (in milliseconds)
-const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+// Rate limit: 1 request per 6 hours (in milliseconds)
+const RATE_LIMIT_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // Devnet RPC endpoint
 const DEVNET_RPC = "https://api.devnet.solana.com";
