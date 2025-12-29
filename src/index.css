@@ -122,25 +122,32 @@
   background-color: hsl(var(--primary) / 0.9) !important;
 }
 
-.wallet-adapter-modal {
-  z-index: 99999 !important;
-  pointer-events: auto !important;
-}
+ .wallet-adapter-modal {
+   z-index: 99999 !important;
+   pointer-events: auto !important;
+ }
 
-.wallet-adapter-modal-container {
-  pointer-events: auto !important;
-}
+ /* Make sure the modal creates its own top-level stacking context */
+ .wallet-adapter-modal-container {
+   position: fixed !important;
+   inset: 0 !important;
+   z-index: 99999 !important;
+   pointer-events: auto !important;
+ }
 
-.wallet-adapter-modal-wrapper {
-  background-color: hsl(var(--card)) !important;
-  z-index: 99999 !important;
-  pointer-events: auto !important;
-}
+ .wallet-adapter-modal-wrapper {
+   background-color: hsl(var(--card)) !important;
+   position: relative !important;
+   z-index: 99999 !important;
+   pointer-events: auto !important;
+ }
 
-.wallet-adapter-modal-overlay {
-  z-index: 99998 !important;
-  pointer-events: auto !important;
-}
+ /* On mobile, the overlay can accidentally sit above the list and swallow taps.
+    We keep the close button and allow dismissal via the close icon. */
+ .wallet-adapter-modal-overlay {
+   z-index: 99998 !important;
+   pointer-events: none !important;
+ }
 
 .wallet-adapter-modal-title {
   color: hsl(var(--foreground)) !important;
@@ -179,6 +186,8 @@
   position: relative !important;
   z-index: 2 !important;
   background-color: transparent !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .wallet-adapter-modal-list li button:hover,
