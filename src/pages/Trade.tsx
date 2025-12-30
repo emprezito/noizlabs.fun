@@ -56,6 +56,7 @@ interface TokenInfo {
 const TradePage = () => {
   const [searchParams] = useSearchParams();
   const initialMint = searchParams.get("mint") || "";
+  const shouldOpenRemix = searchParams.get("remix") === "true";
   const { connection } = useConnection();
   const { publicKey, sendTransaction, connected } = useWallet();
   const { price: solUsdPrice, formatUsd } = useSolPrice();
@@ -406,6 +407,11 @@ const TradePage = () => {
           volume24h,
           liquidity,
         });
+        
+        // Auto-open remix modal if requested via URL param
+        if (shouldOpenRemix) {
+          setRemixModalOpen(true);
+        }
       } else {
         toast.error("Token not found in database");
         setTokenInfo(null);
