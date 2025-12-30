@@ -17,13 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Sparkles } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart } from "@/components/TradingViewChart";
 import { fetchTradeHistoryCandles, fetchDexScreenerData, fetchTradeHistory, CandleData, TradeHistoryItem } from "@/lib/chartData";
+import { RemixModal } from "@/components/RemixModal";
 
 // Bonding curve constants for price impact calculation - 1% total fee
 const TOTAL_FEE_BPS = 100; // 1% total fee (0.4% platform + 0.6% creator)
@@ -93,6 +94,10 @@ const TradePage = () => {
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [userPnL, setUserPnL] = useState<{ costBasis: number; currentValue: number; pnl: number; pnlPercent: number } | null>(null);
+  const [tokenDbId, setTokenDbId] = useState<string | null>(null);
+  
+  // Remix modal state
+  const [remixModalOpen, setRemixModalOpen] = useState(false);
   
   // Confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -385,6 +390,7 @@ const TradePage = () => {
           console.log("DexScreener data not available");
         }
         
+        setTokenDbId(token.id);
         setTokenInfo({
           name: token.name,
           symbol: token.symbol,
@@ -403,6 +409,7 @@ const TradePage = () => {
       } else {
         toast.error("Token not found in database");
         setTokenInfo(null);
+        setTokenDbId(null);
       }
       // Balance will be fetched by the fetchUserBalance effect
     } catch (error) {
@@ -813,6 +820,16 @@ const TradePage = () => {
                           <ExternalLink className="w-3 h-3" />
                           Explorer
                         </a>
+                        {/* AI Remix Button */}
+                        {tokenDbId && (
+                          <button
+                            onClick={() => setRemixModalOpen(true)}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            AI Remix
+                          </button>
+                        )}
                       </div>
                       <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
@@ -960,6 +977,17 @@ const TradePage = () => {
           priceImpact={pendingTrade.priceImpact}
           platformFee={pendingTrade.platformFee}
           currentPrice={tokenInfo.price}
+        />
+      )}
+
+      {/* AI Remix Modal */}
+      {tokenInfo && tokenDbId && (
+        <RemixModal
+          open={remixModalOpen}
+          onOpenChange={setRemixModalOpen}
+          tokenId={tokenDbId}
+          mintAddress={tokenInfo.mint}
+          tokenName={tokenInfo.name}
         />
       )}
       <MobileTabBar />

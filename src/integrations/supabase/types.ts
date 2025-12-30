@@ -374,6 +374,53 @@ export type Database = {
         }
         Relationships: []
       }
+      token_remixes: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_paid: boolean
+          mint_address: string
+          payment_tx_signature: string | null
+          remix_audio_url: string | null
+          remix_concept: string | null
+          token_id: string
+          variation_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_paid?: boolean
+          mint_address: string
+          payment_tx_signature?: string | null
+          remix_audio_url?: string | null
+          remix_concept?: string | null
+          token_id: string
+          variation_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_paid?: boolean
+          mint_address?: string
+          payment_tx_signature?: string | null
+          remix_audio_url?: string | null
+          remix_concept?: string | null
+          token_id?: string
+          variation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_remixes_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tokens: {
         Row: {
           audio_clip_id: string | null

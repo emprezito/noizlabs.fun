@@ -370,14 +370,9 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-popover">
                       {clip.mintedTokenId ? (
-                        <>
-                          <DropdownMenuItem onClick={() => navigate(`/trade?mint=${clip.mintAddress}`)}>
-                            <ArrowRightLeft className="w-3 h-3 mr-2" />Trade
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRemixClick(clip)}>
-                            <Sparkles className="w-3 h-3 mr-2" />Remix
-                          </DropdownMenuItem>
-                        </>
+                        <DropdownMenuItem onClick={() => navigate(`/trade?mint=${clip.mintAddress}`)}>
+                          <ArrowRightLeft className="w-3 h-3 mr-2" />Trade
+                        </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem onClick={() => handleMintClick(clip)}>
                           <Coins className="w-3 h-3 mr-2" />Mint Token
