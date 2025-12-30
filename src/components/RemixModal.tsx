@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,7 +16,10 @@ import {
   Loader2,
   Lock,
   Check,
-  AlertCircle
+  AlertCircle,
+  Play,
+  Pause,
+  Volume2
 } from "lucide-react";
 
 interface RemixModalProps {
@@ -35,6 +38,7 @@ interface RemixVariation {
   isFree: boolean;
   isCreated?: boolean;
   remixConcept?: string;
+  remixAudioUrl?: string | null;
 }
 
 // Platform fee wallet for remix payments
@@ -48,8 +52,10 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
   const [loading, setLoading] = useState(true);
   const [remixing, setRemixing] = useState<string | null>(null);
   const [selectedRemix, setSelectedRemix] = useState<RemixVariation | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const baseVariations: Omit<RemixVariation, 'isCreated' | 'remixConcept'>[] = [
+  const baseVariations: Omit<RemixVariation, 'isCreated' | 'remixConcept' | 'remixAudioUrl'>[] = [
     { type: "slow", name: "Slow", description: "Slowed down with dreamy vibes", icon: <Music className="w-5 h-5" />, isFree: true },
     { type: "reverb", name: "Reverb", description: "Heavy reverb, spacious atmosphere", icon: <Waves className="w-5 h-5" />, isFree: true },
     { type: "distorted", name: "Distorted", description: "Crunchy distortion, aggressive edge", icon: <Zap className="w-5 h-5" />, isFree: true },
@@ -61,6 +67,11 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
   useEffect(() => {
     if (open && tokenId) {
       fetchExistingRemixes();
+    }
+    // Cleanup audio on close
+    if (!open && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
     }
   }, [open, tokenId]);
 
@@ -78,6 +89,7 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
         ...v,
         isCreated: remixMap.has(v.type),
         remixConcept: remixMap.get(v.type)?.remix_concept,
+        remixAudioUrl: remixMap.get(v.type)?.remix_audio_url,
       }));
 
       setVariations(updatedVariations);
@@ -89,6 +101,23 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
     }
   };
 
+  const handlePlayPause = () => {
+    if (!selectedRemix?.remixAudioUrl) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio(selectedRemix.remixAudioUrl);
+      audioRef.current.onended = () => setIsPlaying(false);
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(console.error);
+      setIsPlaying(true);
+    }
+  };
+
   const handleCreateRemix = async (variation: RemixVariation) => {
     if (!connected || !publicKey) {
       toast.error("Please connect your wallet first");
@@ -96,6 +125,12 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
     }
 
     if (variation.isCreated) {
+      // Reset audio player when selecting a different remix
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+        setIsPlaying(false);
+      }
       setSelectedRemix(variation);
       return;
     }
@@ -162,7 +197,11 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
         throw new Error(data.error || "Failed to create remix");
       }
 
-      toast.success(`${variation.name} remix created!`);
+      const hasAudio = data.hasAudio || !!data.remix?.remix_audio_url;
+      toast.success(hasAudio 
+        ? `${variation.name} remix with audio created!` 
+        : `${variation.name} remix created!`
+      );
       
       // Refresh the list
       await fetchExistingRemixes();
@@ -172,6 +211,7 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
         ...variation,
         isCreated: true,
         remixConcept: data.remix?.remix_concept,
+        remixAudioUrl: data.remix?.remix_audio_url,
       });
 
     } catch (error) {
@@ -202,7 +242,14 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => setSelectedRemix(null)}
+              onClick={() => {
+                if (audioRef.current) {
+                  audioRef.current.pause();
+                  audioRef.current = null;
+                  setIsPlaying(false);
+                }
+                setSelectedRemix(null);
+              }}
               className="mb-2"
             >
               ← Back to variations
@@ -216,6 +263,36 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
                   <p className="text-sm text-muted-foreground">{selectedRemix.description}</p>
                 </div>
               </div>
+
+              {/* Audio Player */}
+              {selectedRemix.remixAudioUrl && (
+                <div className="mt-4 p-3 bg-background/50 rounded-md">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handlePlayPause}
+                      className="flex items-center gap-2"
+                    >
+                      {isPlaying ? (
+                        <>
+                          <Pause className="w-4 h-4" />
+                          Pause
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4" />
+                          Play Remix
+                        </>
+                      )}
+                    </Button>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Volume2 className="w-4 h-4" />
+                      <span>AI Generated Audio</span>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {selectedRemix.remixConcept && (
                 <div className="mt-4 p-3 bg-background/50 rounded-md">
@@ -226,12 +303,14 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
                 </div>
               )}
 
-              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-muted-foreground">
-                  Full audio generation coming soon! For now, enjoy the AI-generated remix concept.
-                </p>
-              </div>
+              {!selectedRemix.remixAudioUrl && (
+                <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-muted-foreground">
+                    Audio generation is currently disabled. Ask admin to enable "AI Audio Remix" feature.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -261,21 +340,31 @@ export const RemixModal = ({ open, onOpenChange, tokenId, mintAddress, tokenName
                         variation.icon
                       )}
                     </div>
-                    {variation.isCreated ? (
-                      <Badge variant="secondary" className="text-xs">
-                        <Check className="w-3 h-3 mr-1" />
-                        Created
-                      </Badge>
-                    ) : !variation.isFree ? (
-                      <Badge variant="outline" className="text-xs">
-                        <Lock className="w-3 h-3 mr-1" />
-                        0.01 SOL
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-500 border-green-500/20">
-                        Free
-                      </Badge>
-                    )}
+                    <div className="flex flex-col items-end gap-1">
+                      {variation.isCreated ? (
+                        <>
+                          <Badge variant="secondary" className="text-xs">
+                            <Check className="w-3 h-3 mr-1" />
+                            Created
+                          </Badge>
+                          {variation.remixAudioUrl && (
+                            <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500 border-green-500/20">
+                              <Volume2 className="w-3 h-3 mr-1" />
+                              Audio
+                            </Badge>
+                          )}
+                        </>
+                      ) : !variation.isFree ? (
+                        <Badge variant="outline" className="text-xs">
+                          <Lock className="w-3 h-3 mr-1" />
+                          0.01 SOL
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-500 border-green-500/20">
+                          Free
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <h3 className="font-medium text-sm">{variation.name}</h3>
                   <p className="text-xs text-muted-foreground mt-1">{variation.description}</p>
