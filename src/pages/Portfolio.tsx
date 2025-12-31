@@ -503,6 +503,12 @@ const Portfolio = () => {
   const totalValueUsd = solUsdPrice ? totalValue * solUsdPrice : 0;
   const solBalanceUsd = solUsdPrice && solBalance !== null ? solBalance * solUsdPrice : 0;
 
+  // Vesting summary calculations
+  const activeVesting = vestingSchedules.filter(s => !s.claimed);
+  const totalVestingTokens = activeVesting.reduce((sum, s) => sum + (s.token_amount - s.total_claimed), 0) / 1e9;
+  const totalClaimableTokens = activeVesting.reduce((sum, s) => sum + s.claimable, 0) / 1e9;
+  const hasClaimableTokens = totalClaimableTokens > 0;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -565,6 +571,40 @@ const Portfolio = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Vesting Summary Card */}
+              {activeVesting.length > 0 && (
+                <Card className={hasClaimableTokens ? "border-green-500/50 bg-green-500/5" : "border-primary/20 bg-primary/5"}>
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${hasClaimableTokens ? "bg-green-500/20" : "bg-primary/20"}`}>
+                          <Lock className={`w-5 h-5 ${hasClaimableTokens ? "text-green-500" : "text-primary"}`} />
+                        </div>
+                        <div>
+                          <p className="font-medium">Creator Token Vesting</p>
+                          <p className="text-sm text-muted-foreground">
+                            {activeVesting.length} active schedule{activeVesting.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {hasClaimableTokens ? (
+                          <>
+                            <p className="text-xl font-bold text-green-500">{totalClaimableTokens.toFixed(2)}</p>
+                            <p className="text-xs text-green-500">Claimable Now</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xl font-bold">{totalVestingTokens.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">Tokens Vesting</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Portfolio Summary */}
               <div className="grid grid-cols-2 gap-4">

@@ -119,6 +119,35 @@ export type Database = {
         }
         Relationships: []
       }
+      clip_likes: {
+        Row: {
+          audio_clip_id: string
+          created_at: string
+          id: string
+          wallet_address: string
+        }
+        Insert: {
+          audio_clip_id: string
+          created_at?: string
+          id?: string
+          wallet_address: string
+        }
+        Update: {
+          audio_clip_id?: string
+          created_at?: string
+          id?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clip_likes_audio_clip_id_fkey"
+            columns: ["audio_clip_id"]
+            isOneToOne: false
+            referencedRelation: "audio_clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connected_wallets: {
         Row: {
           first_connected_at: string
