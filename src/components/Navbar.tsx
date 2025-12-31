@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Droplets, Loader2, Wallet, Shield, ChevronDown, Menu, BarChart3 } from "lucide-react";
+import { Droplets, Loader2, Wallet, Shield, ChevronDown, Menu, BarChart3, LineChart } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletButton from "./WalletButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +40,8 @@ const Navbar = () => {
   const { price, loading } = useSolPrice();
   const { publicKey, connected } = useWallet();
   const { balance, loading: balanceLoading, refetch: refetchBalance } = useWalletBalance();
+  const { isEnabled } = useFeatureFlags();
+  const userAnalyticsEnabled = connected && isEnabled("user_analytics");
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -187,6 +190,19 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
+            {userAnalyticsEnabled && (
+              <Link
+                to="/my-analytics"
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                  isActive("/my-analytics")
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <LineChart className="w-3.5 h-3.5" />
+                My Stats
+              </Link>
+            )}
             {isAdmin && (
               <>
                 <Link
@@ -344,6 +360,20 @@ const Navbar = () => {
                         {item.name}
                       </Link>
                     ))}
+                    {userAnalyticsEnabled && (
+                      <Link
+                        to="/my-analytics"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                          isActive("/my-analytics")
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <LineChart className="w-4 h-4" />
+                        My Stats
+                      </Link>
+                    )}
                     {isAdmin && (
                       <>
                         <Link
