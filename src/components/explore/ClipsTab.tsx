@@ -128,6 +128,16 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
       const { data: tokensData } = await supabase
         .from("tokens").select("id, audio_clip_id, mint_address, is_remix").not("audio_clip_id", "is", null);
 
+      // Fetch user's likes if connected
+      let userLikedClipIds: Set<string> = new Set();
+      if (publicKey) {
+        const { data: likesData } = await supabase
+          .from("clip_likes")
+          .select("audio_clip_id")
+          .eq("wallet_address", publicKey.toString());
+        userLikedClipIds = new Set((likesData || []).map(l => l.audio_clip_id));
+      }
+
       const mintedClipsMap = new Map<string, { tokenId: string; mintAddress: string }>();
       (tokensData || []).forEach((token: any) => {
         if (token.audio_clip_id && !token.is_remix) {
@@ -141,7 +151,7 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
           id: clip.id, title: clip.title, creator: clip.creator, audioUrl: clip.audio_url,
           coverImageUrl: clip.cover_image_url || null, category: clip.category || "Other",
           likes: clip.likes || 0, shares: clip.shares || 0, plays: clip.plays || 0,
-          createdAt: clip.created_at, hasLiked: false,
+          createdAt: clip.created_at, hasLiked: userLikedClipIds.has(clip.id),
           mintedTokenId: mintedInfo?.tokenId || null, mintAddress: mintedInfo?.mintAddress || null,
         };
       });
@@ -206,17 +216,57 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
   };
 
   const handleLike = async (clipId: string) => {
+    if (!publicKey) {
+      toast.error("Connect your wallet to like clips");
+      return;
+    }
+    
     const clip = clips.find((c) => c.id === clipId);
     if (!clip) return;
-    const newLikes = clip.hasLiked ? clip.likes - 1 : clip.likes + 1;
-    setClips(clips.map((c) => c.id === clipId ? { ...c, likes: newLikes, hasLiked: !c.hasLiked } : c));
-    try {
-      await supabase.from("audio_clips").update({ likes: newLikes }).eq("id", clipId);
-      if (publicKey && !clip.hasLiked) {
-        await supabase.from("user_interactions").insert({ wallet_address: publicKey.toString(), audio_clip_id: clipId, interaction_type: "like" });
-        await updateTaskProgress(publicKey.toString(), "like_clips", 1);
+    
+    const walletAddress = publicKey.toString();
+    
+    if (clip.hasLiked) {
+      // Unlike - remove from clip_likes and decrement
+      const newLikes = Math.max(0, clip.likes - 1);
+      setClips(clips.map((c) => c.id === clipId ? { ...c, likes: newLikes, hasLiked: false } : c));
+      try {
+        await supabase.from("clip_likes").delete().eq("audio_clip_id", clipId).eq("wallet_address", walletAddress);
+        await supabase.from("audio_clips").update({ likes: newLikes }).eq("id", clipId);
+      } catch (error) { 
+        console.error("Error removing like:", error);
+        // Revert on error
+        setClips(clips.map((c) => c.id === clipId ? { ...c, likes: clip.likes, hasLiked: true } : c));
       }
-    } catch (error) { console.error("Error updating like:", error); }
+    } else {
+      // Like - add to clip_likes and increment
+      const newLikes = clip.likes + 1;
+      setClips(clips.map((c) => c.id === clipId ? { ...c, likes: newLikes, hasLiked: true } : c));
+      try {
+        const { error: likeError } = await supabase.from("clip_likes").insert({ 
+          audio_clip_id: clipId, 
+          wallet_address: walletAddress 
+        });
+        
+        if (likeError) {
+          // If duplicate key error, user already liked
+          if (likeError.code === '23505') {
+            toast.error("You've already liked this clip");
+            setClips(clips.map((c) => c.id === clipId ? { ...c, likes: clip.likes, hasLiked: true } : c));
+            return;
+          }
+          throw likeError;
+        }
+        
+        await supabase.from("audio_clips").update({ likes: newLikes }).eq("id", clipId);
+        await supabase.from("user_interactions").insert({ wallet_address: walletAddress, audio_clip_id: clipId, interaction_type: "like" });
+        await updateTaskProgress(walletAddress, "like_clips", 1);
+      } catch (error) { 
+        console.error("Error updating like:", error);
+        // Revert on error
+        setClips(clips.map((c) => c.id === clipId ? { ...c, likes: clip.likes, hasLiked: false } : c));
+      }
+    }
   };
 
   const handleShare = async (clipId: string) => {
