@@ -572,10 +572,18 @@ const Portfolio = () => {
                 </CardContent>
               </Card>
 
-              {/* Vesting Summary Card */}
-              {activeVesting.length > 0 && (
-                <Card className={hasClaimableTokens ? "border-green-500/50 bg-green-500/5" : "border-primary/20 bg-primary/5"}>
-                  <CardContent className="py-4">
+              {/* Vesting Summary Card - Always visible */}
+              <Card className={hasClaimableTokens ? "border-green-500/50 bg-green-500/5" : "border-primary/20 bg-primary/5"}>
+                <CardContent className="py-4">
+                  {loadingVesting ? (
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-32 mb-2" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                  ) : activeVesting.length > 0 ? (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full ${hasClaimableTokens ? "bg-green-500/20" : "bg-primary/20"}`}>
@@ -602,9 +610,21 @@ const Portfolio = () => {
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-muted">
+                        <Lock className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-muted-foreground">No Token Vesting</p>
+                        <p className="text-sm text-muted-foreground">
+                          Create a token to earn 5% vested allocation
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Portfolio Summary */}
               <div className="grid grid-cols-2 gap-4">
@@ -703,100 +723,104 @@ const Portfolio = () => {
                 </CardContent>
               </Card>
 
-              {/* Vesting Schedules */}
-              {vestingSchedules.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-primary" />
-                      Token Vesting (5% Creator Allocation)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {loadingVesting ? (
-                      <div className="space-y-3">
-                        <Skeleton className="h-20 w-full" />
-                        <Skeleton className="h-20 w-full" />
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {vestingSchedules.filter(s => !s.claimed).map((schedule) => (
-                          <div key={schedule.id} className="p-4 rounded-lg bg-muted/50 space-y-3">
-                            <div className="flex items-center gap-3">
-                              {schedule.cover_image_url ? (
-                                <img
-                                  src={schedule.cover_image_url}
-                                  alt={schedule.token_name}
-                                  className="w-12 h-12 rounded-lg object-cover"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                                  <Coins className="w-6 h-6 text-primary" />
-                                </div>
-                              )}
-                              <div className="flex-1">
-                                <h4 className="font-semibold">{schedule.token_name}</h4>
-                                <p className="text-xs text-muted-foreground">${schedule.token_symbol}</p>
+              {/* Vesting Schedules Details */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-primary" />
+                    Token Vesting Details (5% Creator Allocation)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingVesting ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-20 w-full" />
+                      <Skeleton className="h-20 w-full" />
+                    </div>
+                  ) : vestingSchedules.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Lock className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                      <p className="font-medium">No Vesting Schedules</p>
+                      <p className="text-sm mt-1">When you create a token, your 5% creator allocation will vest here over 21 days</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {vestingSchedules.filter(s => !s.claimed).map((schedule) => (
+                        <div key={schedule.id} className="p-4 rounded-lg bg-muted/50 space-y-3">
+                          <div className="flex items-center gap-3">
+                            {schedule.cover_image_url ? (
+                              <img
+                                src={schedule.cover_image_url}
+                                alt={schedule.token_name}
+                                className="w-12 h-12 rounded-lg object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <Coins className="w-6 h-6 text-primary" />
                               </div>
-                              <div className="text-right">
-                                <p className="text-sm font-medium">{schedule.percentVested.toFixed(1)}% vested</p>
-                                <p className="text-xs text-muted-foreground">{schedule.daysRemaining} days left</p>
-                              </div>
+                            )}
+                            <div className="flex-1">
+                              <h4 className="font-semibold">{schedule.token_name}</h4>
+                              <p className="text-xs text-muted-foreground">${schedule.token_symbol}</p>
                             </div>
-                            
-                            <Progress value={schedule.percentVested} className="h-2" />
-                            
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">
-                                Claimed: {formatTokenAmount(schedule.total_claimed)} / {formatTokenAmount(schedule.token_amount)}
-                              </span>
-                              <span className="text-green-500 font-medium">
-                                {formatTokenAmount(schedule.claimable)} claimable
-                              </span>
+                            <div className="text-right">
+                              <p className="text-sm font-medium">{schedule.percentVested.toFixed(1)}% vested</p>
+                              <p className="text-xs text-muted-foreground">{schedule.daysRemaining} days left</p>
                             </div>
-                            
-                            <Button
-                              onClick={() => handleClaimVested(schedule.id)}
-                              disabled={!schedule.canClaim || claiming === schedule.id}
-                              size="sm"
-                              className="w-full"
-                            >
-                              {claiming === schedule.id ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Claiming...
-                                </>
-                              ) : schedule.canClaim ? (
-                                <>Claim {formatTokenAmount(schedule.claimable)} Tokens</>
-                              ) : (
-                                <>
-                                  <Timer className="w-4 h-4 mr-2" />
-                                  {schedule.nextClaimIn > 0 
-                                    ? `Next claim in ${schedule.nextClaimIn}h`
-                                    : "Nothing to claim yet"}
-                                </>
-                              )}
-                            </Button>
                           </div>
-                        ))}
-                        
-                        {/* Completed vesting */}
-                        {vestingSchedules.filter(s => s.claimed).length > 0 && (
-                          <div className="pt-2 border-t">
-                            <p className="text-xs text-muted-foreground mb-2">Fully claimed</p>
-                            {vestingSchedules.filter(s => s.claimed).map((schedule) => (
-                              <div key={schedule.id} className="flex items-center justify-between py-2 text-sm opacity-60">
-                                <span>{schedule.token_name}</span>
-                                <span className="text-green-500">{formatTokenAmount(schedule.token_amount)} claimed</span>
-                              </div>
-                            ))}
+                          
+                          <Progress value={schedule.percentVested} className="h-2" />
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Claimed: {formatTokenAmount(schedule.total_claimed)} / {formatTokenAmount(schedule.token_amount)}
+                            </span>
+                            <span className="text-green-500 font-medium">
+                              {formatTokenAmount(schedule.claimable)} claimable
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                          
+                          <Button
+                            onClick={() => handleClaimVested(schedule.id)}
+                            disabled={!schedule.canClaim || claiming === schedule.id}
+                            size="sm"
+                            className="w-full"
+                          >
+                            {claiming === schedule.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Claiming...
+                              </>
+                            ) : schedule.canClaim ? (
+                              <>Claim {formatTokenAmount(schedule.claimable)} Tokens</>
+                            ) : (
+                              <>
+                                <Timer className="w-4 h-4 mr-2" />
+                                {schedule.nextClaimIn > 0 
+                                  ? `Next claim in ${schedule.nextClaimIn}h`
+                                  : "Nothing to claim yet"}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {/* Completed vesting */}
+                      {vestingSchedules.filter(s => s.claimed).length > 0 && (
+                        <div className="pt-2 border-t">
+                          <p className="text-xs text-muted-foreground mb-2">Fully claimed</p>
+                          {vestingSchedules.filter(s => s.claimed).map((schedule) => (
+                            <div key={schedule.id} className="flex items-center justify-between py-2 text-sm opacity-60">
+                              <span>{schedule.token_name}</span>
+                              <span className="text-green-500">{formatTokenAmount(schedule.token_amount)} claimed</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Notification Preferences */}
               <Card>
