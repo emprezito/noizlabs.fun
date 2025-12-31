@@ -20,6 +20,7 @@ interface SocialShareButtonProps {
   imageUrl?: string;
   variant?: "default" | "outline" | "ghost" | "secondary";
   size?: "default" | "sm" | "lg" | "icon";
+  clipId?: string;
 }
 
 export const SocialShareButton = ({
@@ -33,6 +34,7 @@ export const SocialShareButton = ({
   imageUrl,
   variant = "outline",
   size = "sm",
+  clipId,
 }: SocialShareButtonProps) => {
   const [copied, setCopied] = useState(false);
 

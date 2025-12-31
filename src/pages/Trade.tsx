@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Sparkles, Share2 } from "lucide-react";
 import { SocialShareButton } from "@/components/SocialShareButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { useDynamicMetaTags, getTokenOgImageUrl } from "@/hooks/useDynamicMetaTags";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
@@ -104,6 +105,16 @@ const TradePage = () => {
   
   // Remix modal state
   const [remixModalOpen, setRemixModalOpen] = useState(false);
+
+  // Dynamic meta tags for social sharing
+  useDynamicMetaTags({
+    title: tokenInfo ? `${tokenInfo.name} ($${tokenInfo.symbol})` : undefined,
+    description: tokenInfo 
+      ? `Trade ${tokenInfo.name} on NoizLabs - Price: ${tokenInfo.price.toFixed(8)} SOL | Market Cap: ${(tokenInfo.solReserves * 2).toFixed(4)} SOL`
+      : undefined,
+    image: activeMint ? getTokenOgImageUrl(activeMint) : undefined,
+    url: activeMint ? `https://noizlabs-io.vercel.app/trade?mint=${activeMint}` : undefined,
+  });
   
   // Confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);

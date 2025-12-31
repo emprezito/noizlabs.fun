@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.verify-tweet]
 verify_jwt = false
+
+[functions.og-image]
+verify_jwt = false
