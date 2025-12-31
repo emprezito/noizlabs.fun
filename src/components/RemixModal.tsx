@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -40,9 +41,17 @@ interface RemixVariation {
   description: string;
   icon: React.ReactNode;
   isFree: boolean;
+  speedFactor: number;
   isCreated?: boolean;
   remixConcept?: string;
   remixAudioUrl?: string | null;
+}
+
+interface RemixAudioData {
+  original: string;
+  effect: string;
+  speedFactor: number;
+  variationType: string;
 }
 
 // Platform fee wallet for remix payments
@@ -66,15 +75,19 @@ export const RemixModal = ({
   const [remixing, setRemixing] = useState<string | null>(null);
   const [selectedRemix, setSelectedRemix] = useState<RemixVariation | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [effectVolume, setEffectVolume] = useState(0.4);
+  
+  const originalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const effectAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const baseVariations: Omit<RemixVariation, 'isCreated' | 'remixConcept' | 'remixAudioUrl'>[] = [
-    { type: "slow", name: "Slow", description: "Slowed down with dreamy vibes", icon: <Music className="w-5 h-5" />, isFree: true },
-    { type: "reverb", name: "Reverb", description: "Heavy reverb, spacious atmosphere", icon: <Waves className="w-5 h-5" />, isFree: true },
-    { type: "distorted", name: "Distorted", description: "Crunchy distortion, aggressive edge", icon: <Zap className="w-5 h-5" />, isFree: true },
-    { type: "lofi", name: "Lo-Fi", description: "Lo-fi hip hop with vinyl crackle", icon: <Radio className="w-5 h-5" />, isFree: false },
-    { type: "vaporwave", name: "Vaporwave", description: "Aesthetic slowed vaporwave", icon: <Sparkles className="w-5 h-5" />, isFree: false },
-    { type: "nightcore", name: "Nightcore", description: "Sped up with high energy", icon: <FastForward className="w-5 h-5" />, isFree: false },
+    { type: "slow", name: "Slow", description: "Slowed down with dreamy vibes", icon: <Music className="w-5 h-5" />, isFree: true, speedFactor: 0.75 },
+    { type: "reverb", name: "Reverb", description: "Heavy reverb, spacious atmosphere", icon: <Waves className="w-5 h-5" />, isFree: true, speedFactor: 1.0 },
+    { type: "distorted", name: "Distorted", description: "Crunchy distortion, aggressive edge", icon: <Zap className="w-5 h-5" />, isFree: true, speedFactor: 1.0 },
+    { type: "lofi", name: "Lo-Fi", description: "Lo-fi hip hop with vinyl crackle", icon: <Radio className="w-5 h-5" />, isFree: false, speedFactor: 0.9 },
+    { type: "vaporwave", name: "Vaporwave", description: "Aesthetic slowed vaporwave", icon: <Sparkles className="w-5 h-5" />, isFree: false, speedFactor: 0.7 },
+    { type: "nightcore", name: "Nightcore", description: "Sped up with high energy", icon: <FastForward className="w-5 h-5" />, isFree: false, speedFactor: 1.3 },
   ];
 
   useEffect(() => {
@@ -83,11 +96,22 @@ export const RemixModal = ({
       setSelectedRemix(null);
     }
     // Cleanup audio on close
-    if (!open && audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
+    if (!open) {
+      stopAllAudio();
     }
   }, [open, tokenId]);
+
+  const stopAllAudio = useCallback(() => {
+    if (originalAudioRef.current) {
+      originalAudioRef.current.pause();
+      originalAudioRef.current = null;
+    }
+    if (effectAudioRef.current) {
+      effectAudioRef.current.pause();
+      effectAudioRef.current = null;
+    }
+    setIsPlaying(false);
+  }, []);
 
   const fetchExistingRemixes = async () => {
     setLoading(true);
@@ -115,22 +139,74 @@ export const RemixModal = ({
     }
   };
 
-  const handlePlayPause = () => {
-    if (!selectedRemix?.remixAudioUrl) return;
-
-    if (!audioRef.current) {
-      audioRef.current = new Audio(selectedRemix.remixAudioUrl);
-      audioRef.current.onended = () => setIsPlaying(false);
-    }
-
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play().catch(console.error);
-      setIsPlaying(true);
+  const parseRemixAudioData = (audioUrl: string): RemixAudioData | null => {
+    try {
+      // Check if it's the new JSON format with original + effect
+      if (audioUrl.startsWith('{')) {
+        return JSON.parse(audioUrl);
+      }
+      return null;
+    } catch {
+      return null;
     }
   };
+
+  const handlePlayPause = useCallback(async () => {
+    if (!selectedRemix?.remixAudioUrl) return;
+
+    if (isPlaying) {
+      stopAllAudio();
+      return;
+    }
+
+    try {
+      const remixData = parseRemixAudioData(selectedRemix.remixAudioUrl);
+      
+      if (remixData) {
+        // New format: Play original audio with speed adjustment + effect layer
+        originalAudioRef.current = new Audio(remixData.original);
+        effectAudioRef.current = new Audio(remixData.effect);
+        
+        // Apply speed adjustment to original audio
+        originalAudioRef.current.playbackRate = remixData.speedFactor;
+        
+        // Set volumes
+        originalAudioRef.current.volume = 0.8;
+        effectAudioRef.current.volume = effectVolume;
+        
+        // Sync playback
+        originalAudioRef.current.onended = () => {
+          stopAllAudio();
+        };
+        
+        // Play both simultaneously
+        await Promise.all([
+          originalAudioRef.current.play(),
+          effectAudioRef.current.play()
+        ]);
+        
+        setIsPlaying(true);
+      } else {
+        // Old format or fallback: Just play the audio URL
+        originalAudioRef.current = new Audio(selectedRemix.remixAudioUrl);
+        originalAudioRef.current.playbackRate = selectedRemix.speedFactor;
+        originalAudioRef.current.onended = () => setIsPlaying(false);
+        await originalAudioRef.current.play();
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error("Error playing remix:", error);
+      toast.error("Failed to play remix audio");
+      stopAllAudio();
+    }
+  }, [selectedRemix, effectVolume, stopAllAudio, isPlaying]);
+
+  // Update effect volume in real-time
+  useEffect(() => {
+    if (effectAudioRef.current && isPlaying) {
+      effectAudioRef.current.volume = effectVolume;
+    }
+  }, [effectVolume, isPlaying]);
 
   const handleSelectVariation = async (variation: RemixVariation) => {
     if (!connected || !publicKey) {
@@ -138,13 +214,11 @@ export const RemixModal = ({
       return;
     }
 
+    // Stop any playing audio
+    stopAllAudio();
+
     // If already created, show it
     if (variation.isCreated) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-        setIsPlaying(false);
-      }
       setSelectedRemix(variation);
       return;
     }
@@ -189,7 +263,7 @@ export const RemixModal = ({
         toast.success("Payment confirmed!");
       }
 
-      // Call the remix edge function
+      // Call the remix edge function with original audio URL
       toast.info("Generating remix with AI...");
       
       const response = await fetch(
@@ -207,6 +281,7 @@ export const RemixModal = ({
             variationType: variation.type,
             walletAddress: publicKey.toString(),
             paymentTxSignature,
+            originalAudioUrl, // Pass the original audio URL for processing
           }),
         }
       );
@@ -234,13 +309,6 @@ export const RemixModal = ({
         remixAudioUrl: data.remix?.remix_audio_url,
       };
       
-      // Reset audio player
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-        setIsPlaying(false);
-      }
-      
       setSelectedRemix(createdRemix);
 
     } catch (error) {
@@ -257,17 +325,27 @@ export const RemixModal = ({
       return;
     }
 
+    // Get the playable audio URL for minting
+    let audioUrlForMint = selectedRemix.remixAudioUrl;
+    const remixData = parseRemixAudioData(selectedRemix.remixAudioUrl);
+    if (remixData) {
+      // For the new format, we'll use the original with speed factor for minting
+      // In production, you'd want to actually process the audio server-side
+      audioUrlForMint = remixData.original;
+    }
+
     // Prepare data for the Create page with variation prefix
     const remixTitle = `${selectedRemix.name} - ${tokenName}`;
     
     const mintData = {
       title: remixTitle,
-      audioUrl: selectedRemix.remixAudioUrl,
+      audioUrl: audioUrlForMint,
       coverImageUrl: coverImageUrl || null,
       isRemix: true,
       originalTokenId: tokenId,
       originalMintAddress: mintAddress,
       variationType: selectedRemix.type,
+      speedFactor: selectedRemix.speedFactor,
     };
 
     // Store in localStorage for Create page to pick up
@@ -300,11 +378,7 @@ export const RemixModal = ({
               variant="ghost" 
               size="sm" 
               onClick={() => {
-                if (audioRef.current) {
-                  audioRef.current.pause();
-                  audioRef.current = null;
-                  setIsPlaying(false);
-                }
+                stopAllAudio();
                 setSelectedRemix(null);
               }}
               className="mb-2"
@@ -318,12 +392,15 @@ export const RemixModal = ({
                 <div>
                   <h3 className="font-semibold">{selectedRemix.name} - {tokenName}</h3>
                   <p className="text-sm text-muted-foreground">{selectedRemix.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Speed: {selectedRemix.speedFactor}x
+                  </p>
                 </div>
               </div>
 
               {/* Audio Player */}
               {selectedRemix.remixAudioUrl ? (
-                <div className="mt-4 p-3 bg-background/50 rounded-md">
+                <div className="mt-4 p-3 bg-background/50 rounded-md space-y-3">
                   <div className="flex items-center gap-3">
                     <Button
                       size="sm"
@@ -345,9 +422,24 @@ export const RemixModal = ({
                     </Button>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Volume2 className="w-4 h-4" />
-                      <span>AI Generated Audio</span>
+                      <span>AI Remixed Audio</span>
                     </div>
                   </div>
+                  
+                  {/* Effect Volume Slider */}
+                  {parseRemixAudioData(selectedRemix.remixAudioUrl) && (
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground">Effect Layer Volume</label>
+                      <Slider
+                        value={[effectVolume]}
+                        onValueChange={([v]) => setEffectVolume(v)}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md flex items-start gap-2">
@@ -388,7 +480,7 @@ export const RemixModal = ({
           // Show variation grid
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Select a remix style to automatically generate the audio with AI. You can then preview it and mint as a new token.
+              Select a remix style to automatically generate the audio with AI. The original audio will be processed with the selected effect.
             </p>
 
             <div className="grid grid-cols-2 gap-3">
@@ -439,6 +531,7 @@ export const RemixModal = ({
                   </div>
                   <h3 className="font-medium text-sm">{variation.name}</h3>
                   <p className="text-xs text-muted-foreground mt-1">{variation.description}</p>
+                  <p className="text-xs text-muted-foreground/70 mt-0.5">Speed: {variation.speedFactor}x</p>
                 </button>
               ))}
             </div>

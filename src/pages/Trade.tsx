@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Sparkles, Share2 } from "lucide-react";
+import { SocialShareButton } from "@/components/SocialShareButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { updateTradingVolume } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -869,6 +870,16 @@ const TradePage = () => {
                             Remix of: {tokenInfo.originalTokenName || "Original"}
                           </Link>
                         )}
+                        {/* Share Button */}
+                        <SocialShareButton
+                          title={tokenInfo.name}
+                          description={`${tokenInfo.symbol} - Trade this audio token on NoizLabs`}
+                          price={tokenInfo.price}
+                          marketCap={(tokenInfo.solReserves * 2) * (solUsdPrice || 0)}
+                          isToken={true}
+                          mintAddress={tokenInfo.mint}
+                          imageUrl={tokenInfo.imageUri}
+                        />
                       </div>
                       <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
