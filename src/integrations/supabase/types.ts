@@ -421,6 +421,45 @@ export type Database = {
           },
         ]
       }
+      token_vesting: {
+        Row: {
+          claim_signature: string | null
+          claimed: boolean | null
+          claimed_at: string | null
+          cliff_end: string
+          created_at: string
+          id: string
+          mint_address: string
+          token_amount: number
+          vesting_start: string
+          wallet_address: string
+        }
+        Insert: {
+          claim_signature?: string | null
+          claimed?: boolean | null
+          claimed_at?: string | null
+          cliff_end: string
+          created_at?: string
+          id?: string
+          mint_address: string
+          token_amount: number
+          vesting_start?: string
+          wallet_address: string
+        }
+        Update: {
+          claim_signature?: string | null
+          claimed?: boolean | null
+          claimed_at?: string | null
+          cliff_end?: string
+          created_at?: string
+          id?: string
+          mint_address?: string
+          token_amount?: number
+          vesting_start?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       tokens: {
         Row: {
           audio_clip_id: string | null

@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.og-image]
 verify_jwt = false
+
+[functions.claim-vested-tokens]
+verify_jwt = false

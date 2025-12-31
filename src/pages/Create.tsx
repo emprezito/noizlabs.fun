@@ -320,9 +320,29 @@ const CreatePage = () => {
           royalty_percentage: isRemix ? 10 : 0, // 10% royalty to original creator
         } as any);
         
+        // Create vesting record for creator's 5% allocation (21-day cliff)
+        const creatorAllocation = (BigInt(1_000_000_000) * BigInt(1e9) * BigInt(5)) / BigInt(100); // 5% with 9 decimals
+        const cliffEnd = new Date();
+        cliffEnd.setDate(cliffEnd.getDate() + 21); // 21 days cliff
+        
+        await supabase.from("token_vesting").insert({
+          mint_address: mintAddr,
+          wallet_address: walletAddress,
+          token_amount: creatorAllocation.toString(),
+          cliff_end: cliffEnd.toISOString(),
+        } as any);
+        
+        console.log("Created vesting record for creator:", {
+          mintAddress: mintAddr,
+          walletAddress,
+          tokenAmount: creatorAllocation.toString(),
+          cliffEnd: cliffEnd.toISOString(),
+        });
+        
         if (isRemix) {
           toast.success("Remix token created! Original creator earns 10% on trades.");
         }
+        toast.info("Your 5% creator allocation is vested for 21 days.");
       } catch (dbError) {
         console.error("Error saving token to database:", dbError);
       }
