@@ -8,6 +8,7 @@ import Create from "./pages/Create";
 import Explore from "./pages/Explore";
 import Trade from "./pages/Trade";
 import Portfolio from "./pages/Portfolio";
+import Vesting from "./pages/Vesting";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/explore" element={<Explore />} />
           <Route path="/trade" element={<Trade />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/vesting" element={<Vesting />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />

@@ -22,6 +22,49 @@ const corsHeaders = {
 const PLATFORM_WALLET = new PublicKey("FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc");
 const RPC_URL = "https://api.devnet.solana.com";
 
+// Calculate claimable amount based on linear vesting
+function calculateClaimableAmount(
+  vestingStart: Date,
+  totalAmount: number,
+  totalClaimed: number,
+  vestingDurationDays: number,
+  claimIntervalDays: number,
+  lastClaimAt: Date | null
+): { claimable: number; percentVested: number; canClaim: boolean; nextClaimIn: number } {
+  const now = new Date();
+  const startTime = vestingStart.getTime();
+  const nowTime = now.getTime();
+  const vestingDurationMs = vestingDurationDays * 24 * 60 * 60 * 1000;
+  const claimIntervalMs = claimIntervalDays * 24 * 60 * 60 * 1000;
+  
+  // Calculate time elapsed since vesting start
+  const elapsed = Math.max(0, nowTime - startTime);
+  
+  // Calculate percentage vested (0 to 100)
+  const percentVested = Math.min(100, (elapsed / vestingDurationMs) * 100);
+  
+  // Calculate total tokens that should be vested by now
+  const totalVestedNow = Math.floor((totalAmount * percentVested) / 100);
+  
+  // Claimable = total vested - already claimed
+  const claimable = Math.max(0, totalVestedNow - totalClaimed);
+  
+  // Check if enough time has passed since last claim (minimum 2 days)
+  let canClaim = claimable > 0;
+  let nextClaimIn = 0;
+  
+  if (lastClaimAt) {
+    const lastClaimTime = lastClaimAt.getTime();
+    const timeSinceLastClaim = nowTime - lastClaimTime;
+    if (timeSinceLastClaim < claimIntervalMs) {
+      canClaim = false;
+      nextClaimIn = Math.ceil((claimIntervalMs - timeSinceLastClaim) / (1000 * 60 * 60)); // hours
+    }
+  }
+  
+  return { claimable, percentVested, canClaim, nextClaimIn };
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -29,7 +72,7 @@ serve(async (req) => {
   }
 
   try {
-    const { vestingId, walletAddress } = await req.json();
+    const { vestingId, walletAddress, action } = await req.json();
 
     if (!vestingId || !walletAddress) {
       return new Response(
@@ -38,7 +81,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Claim vested tokens request:", { vestingId, walletAddress });
+    console.log("Claim vested tokens request:", { vestingId, walletAddress, action });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -68,25 +111,60 @@ serve(async (req) => {
       );
     }
 
-    // Check if already claimed
-    if (vesting.claimed) {
+    // Calculate claimable amount
+    const vestingStart = new Date(vesting.vesting_start);
+    const totalAmount = Number(vesting.token_amount);
+    const totalClaimed = Number(vesting.total_claimed || 0);
+    const vestingDurationDays = vesting.vesting_duration_days || 21;
+    const claimIntervalDays = vesting.claim_interval_days || 2;
+    const lastClaimAt = vesting.last_claim_at ? new Date(vesting.last_claim_at) : null;
+
+    const { claimable, percentVested, canClaim, nextClaimIn } = calculateClaimableAmount(
+      vestingStart,
+      totalAmount,
+      totalClaimed,
+      vestingDurationDays,
+      claimIntervalDays,
+      lastClaimAt
+    );
+
+    // If just checking status, return info
+    if (action === "status") {
       return new Response(
-        JSON.stringify({ error: "Tokens already claimed", claimedAt: vesting.claimed_at }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          vestingId: vesting.id,
+          mintAddress: vesting.mint_address,
+          totalAmount,
+          totalClaimed,
+          claimable,
+          percentVested,
+          canClaim,
+          nextClaimIn,
+          vestingStart: vesting.vesting_start,
+          vestingDurationDays,
+          claimIntervalDays,
+          lastClaimAt: vesting.last_claim_at,
+          fullyVested: percentVested >= 100,
+          fullyClaimed: totalClaimed >= totalAmount,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if cliff period has ended
-    const cliffEnd = new Date(vesting.cliff_end);
-    const now = new Date();
-    if (now < cliffEnd) {
-      const daysRemaining = Math.ceil((cliffEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    // Check if can claim
+    if (!canClaim) {
+      if (nextClaimIn > 0) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Too soon to claim", 
+            nextClaimIn,
+            message: `You can claim again in ${nextClaimIn} hours`
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
-        JSON.stringify({ 
-          error: "Cliff period not ended", 
-          cliffEnd: vesting.cliff_end,
-          daysRemaining 
-        }),
+        JSON.stringify({ error: "No tokens available to claim" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -115,7 +193,7 @@ serve(async (req) => {
 
     console.log("Transferring vested tokens:", {
       mint: vesting.mint_address,
-      amount: vesting.token_amount,
+      claimableAmount: claimable,
       from: platformATA.toString(),
       to: creatorATA.toString(),
     });
@@ -136,13 +214,13 @@ serve(async (req) => {
       );
     }
 
-    // Transfer vested tokens from platform wallet to creator
+    // Transfer claimable tokens from platform wallet to creator
     tx.add(
       createTransferInstruction(
         platformATA,
         creatorATA,
         platformKeypair.publicKey,
-        BigInt(vesting.token_amount),
+        BigInt(claimable),
         [],
         TOKEN_PROGRAM_ID
       )
@@ -159,13 +237,18 @@ serve(async (req) => {
 
     console.log("Vested tokens transferred:", signature);
 
-    // Update vesting record as claimed
+    // Update vesting record
+    const newTotalClaimed = totalClaimed + claimable;
+    const fullyClaimed = newTotalClaimed >= totalAmount;
+    
     const { error: updateError } = await supabase
       .from("token_vesting")
       .update({
-        claimed: true,
-        claimed_at: new Date().toISOString(),
+        total_claimed: newTotalClaimed,
+        claimed: fullyClaimed,
+        claimed_at: fullyClaimed ? new Date().toISOString() : null,
         claim_signature: signature,
+        last_claim_at: new Date().toISOString(),
       })
       .eq("id", vestingId);
 
@@ -178,8 +261,12 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         signature,
-        amount: vesting.token_amount,
-        message: "Vested tokens claimed successfully",
+        amountClaimed: claimable,
+        totalClaimed: newTotalClaimed,
+        remainingToVest: totalAmount - newTotalClaimed,
+        percentVested,
+        fullyClaimed,
+        message: `Successfully claimed ${(claimable / 1e9).toFixed(4)} tokens`,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

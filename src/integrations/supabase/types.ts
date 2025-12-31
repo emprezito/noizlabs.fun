@@ -423,38 +423,50 @@ export type Database = {
       }
       token_vesting: {
         Row: {
+          claim_interval_days: number | null
           claim_signature: string | null
           claimed: boolean | null
           claimed_at: string | null
           cliff_end: string
           created_at: string
           id: string
+          last_claim_at: string | null
           mint_address: string
           token_amount: number
+          total_claimed: number | null
+          vesting_duration_days: number | null
           vesting_start: string
           wallet_address: string
         }
         Insert: {
+          claim_interval_days?: number | null
           claim_signature?: string | null
           claimed?: boolean | null
           claimed_at?: string | null
           cliff_end: string
           created_at?: string
           id?: string
+          last_claim_at?: string | null
           mint_address: string
           token_amount: number
+          total_claimed?: number | null
+          vesting_duration_days?: number | null
           vesting_start?: string
           wallet_address: string
         }
         Update: {
+          claim_interval_days?: number | null
           claim_signature?: string | null
           claimed?: boolean | null
           claimed_at?: string | null
           cliff_end?: string
           created_at?: string
           id?: string
+          last_claim_at?: string | null
           mint_address?: string
           token_amount?: number
+          total_claimed?: number | null
+          vesting_duration_days?: number | null
           vesting_start?: string
           wallet_address?: string
         }

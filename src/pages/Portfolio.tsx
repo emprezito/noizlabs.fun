@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { 
   Wallet, 
@@ -23,7 +24,10 @@ import {
   BellOff,
   RefreshCw,
   Loader2,
-  Coins
+  Coins,
+  Lock,
+  Timer,
+  ArrowRight
 } from "lucide-react";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -51,6 +55,13 @@ interface CreatorEarning {
   trade_count: number;
 }
 
+interface VestingSummary {
+  totalVesting: number;
+  totalClaimable: number;
+  activeCount: number;
+  nextClaimDays: number | null;
+}
+
 const Portfolio = () => {
   const navigate = useNavigate();
   const { connection } = useConnection();
@@ -66,6 +77,8 @@ const Portfolio = () => {
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [loadingPrefs, setLoadingPrefs] = useState(false);
+  const [vestingSummary, setVestingSummary] = useState<VestingSummary | null>(null);
+  const [loadingVesting, setLoadingVesting] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
 
@@ -302,11 +315,75 @@ const Portfolio = () => {
     }
   }, [publicKey]);
 
+  // Fetch vesting summary
+  const fetchVestingSummary = useCallback(async () => {
+    if (!publicKey) {
+      setVestingSummary(null);
+      return;
+    }
+
+    setLoadingVesting(true);
+    const walletAddress = publicKey.toBase58();
+
+    try {
+      const { data: vestings, error } = await supabase
+        .from("token_vesting")
+        .select("*")
+        .eq("wallet_address", walletAddress)
+        .eq("claimed", false);
+
+      if (error) throw error;
+
+      if (!vestings || vestings.length === 0) {
+        setVestingSummary(null);
+        setLoadingVesting(false);
+        return;
+      }
+
+      const now = new Date();
+      let totalVesting = 0;
+      let totalClaimable = 0;
+      let nextClaimDays: number | null = null;
+
+      vestings.forEach((v) => {
+        const startTime = new Date(v.vesting_start).getTime();
+        const nowTime = now.getTime();
+        const vestingDurationMs = (v.vesting_duration_days || 21) * 24 * 60 * 60 * 1000;
+        
+        const elapsed = Math.max(0, nowTime - startTime);
+        const percentVested = Math.min(100, (elapsed / vestingDurationMs) * 100);
+        const totalVestedNow = Math.floor((v.token_amount * percentVested) / 100);
+        const claimable = Math.max(0, totalVestedNow - (v.total_claimed || 0));
+        
+        totalVesting += v.token_amount - (v.total_claimed || 0);
+        totalClaimable += claimable;
+
+        // Calculate days until fully vested
+        const daysRemaining = Math.max(0, Math.ceil((vestingDurationMs - elapsed) / (1000 * 60 * 60 * 24)));
+        if (nextClaimDays === null || daysRemaining < nextClaimDays) {
+          nextClaimDays = daysRemaining;
+        }
+      });
+
+      setVestingSummary({
+        totalVesting: totalVesting / 1e9,
+        totalClaimable: totalClaimable / 1e9,
+        activeCount: vestings.length,
+        nextClaimDays,
+      });
+    } catch (error) {
+      console.error("Error fetching vesting summary:", error);
+    } finally {
+      setLoadingVesting(false);
+    }
+  }, [publicKey]);
+
   useEffect(() => {
     fetchHoldings();
     fetchNotificationPrefs();
     fetchCreatorEarnings();
-  }, [fetchHoldings, fetchNotificationPrefs, fetchCreatorEarnings]);
+    fetchVestingSummary();
+  }, [fetchHoldings, fetchNotificationPrefs, fetchCreatorEarnings, fetchVestingSummary]);
 
   // Audio playback
   const toggleAudio = (mintAddress: string, audioUrl?: string) => {
@@ -508,6 +585,55 @@ const Portfolio = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Vesting Summary */}
+              {vestingSummary && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-primary" />
+                      Token Vesting
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingVesting ? (
+                      <Skeleton className="h-7 w-24" />
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-2xl font-bold">{vestingSummary.totalVesting.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">Tokens vesting</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-semibold text-green-500">
+                              {vestingSummary.totalClaimable.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Claimable now</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Timer className="w-4 h-4" />
+                          <span>
+                            {vestingSummary.activeCount} active schedule{vestingSummary.activeCount !== 1 ? 's' : ''}
+                            {vestingSummary.nextClaimDays !== null && vestingSummary.nextClaimDays > 0 && (
+                              <> · {vestingSummary.nextClaimDays} days remaining</>
+                            )}
+                          </span>
+                        </div>
+                        
+                        <Link to="/vesting">
+                          <Button variant="outline" size="sm" className="w-full">
+                            View & Claim Tokens
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Notification Preferences */}
               <Card>
