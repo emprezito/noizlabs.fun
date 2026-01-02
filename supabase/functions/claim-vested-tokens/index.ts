@@ -182,8 +182,24 @@ serve(async (req) => {
     // Initialize Solana connection
     const connection = new Connection(RPC_URL, "confirmed");
     
-    // Decode platform wallet keypair
-    const platformKeypair = Keypair.fromSecretKey(decodeBase58(platformWalletPrivateKey));
+    // Decode platform wallet keypair - handle both JSON array and base58 formats
+    let platformKeypair: Keypair;
+    try {
+      // Check if it's a JSON array format (starts with '[')
+      if (platformWalletPrivateKey.trim().startsWith('[')) {
+        const secretKeyArray = JSON.parse(platformWalletPrivateKey);
+        platformKeypair = Keypair.fromSecretKey(Uint8Array.from(secretKeyArray));
+      } else {
+        // Assume base58 format
+        platformKeypair = Keypair.fromSecretKey(decodeBase58(platformWalletPrivateKey));
+      }
+    } catch (keyError) {
+      console.error("Error parsing PLATFORM_WALLET_PRIVATE_KEY:", keyError);
+      return new Response(
+        JSON.stringify({ error: "Invalid platform wallet configuration" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
     // Get addresses
     const mintAddress = new PublicKey(vesting.mint_address);
