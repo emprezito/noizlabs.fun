@@ -325,27 +325,30 @@ export const RemixModal = ({
       return;
     }
 
-    // Get the playable audio URL for minting
-    let audioUrlForMint = selectedRemix.remixAudioUrl;
+    // Parse the remix audio data to get the full remix info
     const remixData = parseRemixAudioData(selectedRemix.remixAudioUrl);
-    if (remixData) {
-      // For the new format, we'll use the original with speed factor for minting
-      // In production, you'd want to actually process the audio server-side
-      audioUrlForMint = remixData.original;
-    }
-
+    
     // Prepare data for the Create page with variation prefix
     const remixTitle = `${selectedRemix.name} - ${tokenName}`;
     
     const mintData = {
       title: remixTitle,
-      audioUrl: audioUrlForMint,
+      // Pass the full remix audio data (JSON with original, effect, speedFactor)
+      // The Create page will use this to display the remixed audio
+      audioUrl: selectedRemix.remixAudioUrl,
       coverImageUrl: coverImageUrl || null,
       isRemix: true,
       originalTokenId: tokenId,
       originalMintAddress: mintAddress,
       variationType: selectedRemix.type,
       speedFactor: selectedRemix.speedFactor,
+      // Include parsed remix data for easier access
+      remixAudioData: remixData ? {
+        original: remixData.original,
+        effect: remixData.effect,
+        speedFactor: remixData.speedFactor,
+        variationType: remixData.variationType,
+      } : null,
     };
 
     // Store in localStorage for Create page to pick up
