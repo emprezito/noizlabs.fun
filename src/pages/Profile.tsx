@@ -59,12 +59,12 @@ interface Referral {
 }
 
 const BADGE_DEFINITIONS = [
-  { level: "newcomer", name: "Newcomer", minPoints: 0, icon: Star, color: "text-muted-foreground", bgColor: "bg-muted" },
-  { level: "explorer", name: "Explorer", minPoints: 500, icon: Zap, color: "text-blue-500", bgColor: "bg-blue-500/20" },
-  { level: "enthusiast", name: "Enthusiast", minPoints: 2000, icon: TrendingUp, color: "text-green-500", bgColor: "bg-green-500/20" },
-  { level: "champion", name: "Champion", minPoints: 5000, icon: Medal, color: "text-yellow-500", bgColor: "bg-yellow-500/20" },
-  { level: "legend", name: "Legend", minPoints: 10000, icon: Crown, color: "text-purple-500", bgColor: "bg-purple-500/20" },
-  { level: "elite", name: "Elite", minPoints: 25000, icon: Trophy, color: "text-orange-500", bgColor: "bg-orange-500/20" },
+  { level: "newcomer", name: "Newcomer", minPoints: 1000, icon: Star, color: "text-muted-foreground", bgColor: "bg-muted" },
+  { level: "explorer", name: "Explorer", minPoints: 5000, icon: Zap, color: "text-blue-500", bgColor: "bg-blue-500/20" },
+  { level: "enthusiast", name: "Enthusiast", minPoints: 15000, icon: TrendingUp, color: "text-green-500", bgColor: "bg-green-500/20" },
+  { level: "champion", name: "Champion", minPoints: 30000, icon: Medal, color: "text-yellow-500", bgColor: "bg-yellow-500/20" },
+  { level: "legend", name: "Legend", minPoints: 50000, icon: Crown, color: "text-purple-500", bgColor: "bg-purple-500/20" },
+  { level: "elite", name: "Elite", minPoints: 100000, icon: Trophy, color: "text-orange-500", bgColor: "bg-orange-500/20" },
 ];
 
 const ProfilePage = () => {

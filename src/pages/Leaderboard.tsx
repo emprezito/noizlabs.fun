@@ -45,12 +45,12 @@ interface MintedWinner {
 }
 
 const BADGES = [
-  { minPoints: 0, name: "Newcomer", icon: Star, color: "text-muted-foreground" },
-  { minPoints: 500, name: "Explorer", icon: Zap, color: "text-blue-500" },
-  { minPoints: 2000, name: "Enthusiast", icon: TrendingUp, color: "text-green-500" },
-  { minPoints: 5000, name: "Champion", icon: Medal, color: "text-yellow-500" },
-  { minPoints: 10000, name: "Legend", icon: Crown, color: "text-purple-500" },
-  { minPoints: 25000, name: "Elite", icon: Trophy, color: "text-orange-500" },
+  { minPoints: 1000, name: "Newcomer", icon: Star, color: "text-muted-foreground" },
+  { minPoints: 5000, name: "Explorer", icon: Zap, color: "text-blue-500" },
+  { minPoints: 15000, name: "Enthusiast", icon: TrendingUp, color: "text-green-500" },
+  { minPoints: 30000, name: "Champion", icon: Medal, color: "text-yellow-500" },
+  { minPoints: 50000, name: "Legend", icon: Crown, color: "text-purple-500" },
+  { minPoints: 100000, name: "Elite", icon: Trophy, color: "text-orange-500" },
 ];
 
 const getBadge = (points: number) => {
