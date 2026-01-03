@@ -355,7 +355,7 @@ const PointsRewards = () => {
                     <div>
                       <p className="font-medium text-foreground text-sm">{info.label}</p>
                       <p className="text-xs text-muted-foreground">
-                        Daily • +{task.points_reward} pts
+                        {task.reset_period === 'weekly' ? 'Weekly' : task.reset_period === 'monthly' ? 'Monthly' : task.reset_period === 'one_time' ? 'One-time' : 'Daily'} • +{task.points_reward} pts
                       </p>
                     </div>
                   </div>

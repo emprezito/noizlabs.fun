@@ -247,21 +247,17 @@ export const ensureUserTasks = async (walletAddress: string): Promise<void> => {
         console.log(`Created ${missingTasks.length} missing tasks for ${walletAddress}`);
       }
     }
-
-    // Update existing tasks to be daily if they weren't
-    const { data: weeklyTasks } = await supabase
-      .from("user_tasks")
-      .select("id")
-      .eq("wallet_address", walletAddress)
-      .eq("reset_period", "weekly");
-
-    if (weeklyTasks && weeklyTasks.length > 0) {
+    // Sync existing user tasks with updated quest definitions
+    for (const def of questDefinitions) {
       await supabase
         .from("user_tasks")
-        .update({ reset_period: "daily" })
+        .update({ 
+          target: def.target, 
+          points_reward: def.points_reward,
+          reset_period: def.reset_period 
+        })
         .eq("wallet_address", walletAddress)
-        .eq("reset_period", "weekly");
-      console.log(`Updated ${weeklyTasks.length} tasks to daily reset`);
+        .eq("task_type", def.task_type);
     }
 
     // Ensure user points record exists using upsert
