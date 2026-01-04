@@ -202,26 +202,26 @@ const CreatePage = () => {
 
     setLoading(true);
 
-    // Check if user has minted a token in the last 24 hours
+    // Check if user has minted a token in the last 48 hours (2 days)
     try {
       const walletAddress = publicKey.toBase58();
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
       
       const { data: recentTokens, error: checkError } = await supabase
         .from("tokens")
         .select("id, created_at")
         .eq("creator_wallet", walletAddress)
-        .gte("created_at", twentyFourHoursAgo)
+        .gte("created_at", fortyEightHoursAgo)
         .limit(1);
       
       if (checkError) {
         console.error("Error checking recent mints:", checkError);
       } else if (recentTokens && recentTokens.length > 0) {
         const lastMintTime = new Date(recentTokens[0].created_at);
-        const nextMintTime = new Date(lastMintTime.getTime() + 24 * 60 * 60 * 1000);
+        const nextMintTime = new Date(lastMintTime.getTime() + 48 * 60 * 60 * 1000);
         const hoursRemaining = Math.ceil((nextMintTime.getTime() - Date.now()) / (1000 * 60 * 60));
         
-        toast.error(`You can only mint 1 token per day. Try again in ${hoursRemaining} hours.`);
+        toast.error(`You can only mint 1 token every 2 days. Try again in ${hoursRemaining} hours.`);
         setLoading(false);
         return;
       }
