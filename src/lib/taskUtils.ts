@@ -216,7 +216,6 @@ export const ensureUserTasks = async (walletAddress: string): Promise<void> => {
     const existingTypes = new Set((existingTasks || []).map(t => t.task_type));
     
     // Create missing tasks based on database definitions
-    // Use upsert with onConflict to handle race conditions
     const missingTasks = questDefinitions
       .filter(def => !existingTypes.has(def.task_type))
       .map(def => ({
@@ -230,23 +229,19 @@ export const ensureUserTasks = async (walletAddress: string): Promise<void> => {
       }));
 
     if (missingTasks.length > 0) {
-      // Use upsert to prevent duplicates from race conditions
-      const { error } = await supabase
-        .from("user_tasks")
-        .upsert(missingTasks, { 
-          onConflict: "wallet_address,task_type",
-          ignoreDuplicates: true 
-        });
-      
-      if (error) {
-        // If it's a unique constraint violation, that's fine - task already exists
-        if (!error.message.includes("duplicate") && !error.message.includes("unique")) {
-          console.error("Error creating tasks:", error);
+      // Insert missing tasks one by one to avoid constraint issues
+      for (const task of missingTasks) {
+        const { error } = await supabase
+          .from("user_tasks")
+          .insert(task);
+        
+        if (error && !error.message.includes("duplicate") && !error.message.includes("unique")) {
+          console.error("Error creating task:", task.task_type, error);
         }
-      } else {
-        console.log(`Created ${missingTasks.length} missing tasks for ${walletAddress}`);
       }
+      console.log(`Created ${missingTasks.length} missing tasks for ${walletAddress}`);
     }
+
     // Sync existing user tasks with updated quest definitions
     for (const def of questDefinitions) {
       await supabase
@@ -260,21 +255,85 @@ export const ensureUserTasks = async (walletAddress: string): Promise<void> => {
         .eq("task_type", def.task_type);
     }
 
-    // Ensure user points record exists using upsert
-    const { error: pointsError } = await supabase
+    // Ensure user points record exists
+    const { data: existingPoints } = await supabase
       .from("user_points")
-      .upsert({
-        wallet_address: walletAddress,
-        total_points: 0,
-      }, {
-        onConflict: "wallet_address",
-        ignoreDuplicates: true
-      });
+      .select("id")
+      .eq("wallet_address", walletAddress)
+      .maybeSingle();
 
-    if (pointsError && !pointsError.message.includes("duplicate")) {
-      console.error("Error creating user points:", pointsError);
+    if (!existingPoints) {
+      await supabase
+        .from("user_points")
+        .insert({
+          wallet_address: walletAddress,
+          total_points: 0,
+        });
     }
+
+    // Update creator fees progress for weekly quest
+    await updateCreatorFeesProgress(walletAddress);
   } catch (error) {
     console.error("Error ensuring user tasks:", error);
+  }
+};
+
+/**
+ * Update creator fees progress from creator_earnings table
+ * Tracks weekly creator fees for the quest
+ */
+export const updateCreatorFeesProgress = async (walletAddress: string): Promise<void> => {
+  try {
+    // Get start of current week (Sunday at 00:00 UTC)
+    const now = new Date();
+    const dayOfWeek = now.getUTCDay();
+    const startOfWeek = new Date(now);
+    startOfWeek.setUTCDate(now.getUTCDate() - dayOfWeek);
+    startOfWeek.setUTCHours(0, 0, 0, 0);
+
+    // Get total creator earnings this week
+    const { data: earnings } = await supabase
+      .from("creator_earnings")
+      .select("amount_lamports")
+      .eq("wallet_address", walletAddress)
+      .gte("created_at", startOfWeek.toISOString());
+
+    const totalLamports = (earnings || []).reduce((sum, e) => sum + (e.amount_lamports || 0), 0);
+    const totalSol = totalLamports / 1_000_000_000; // Convert lamports to SOL
+
+    // Update the creator_fees_1sol task progress
+    const { data: task } = await supabase
+      .from("user_tasks")
+      .select("*")
+      .eq("wallet_address", walletAddress)
+      .eq("task_type", "creator_fees_1sol")
+      .maybeSingle();
+
+    if (task) {
+      // Progress is in SOL (target is 1 SOL)
+      const progressSol = Math.min(Math.floor(totalSol * 100) / 100, task.target); // Round to 2 decimals
+      const completed = totalSol >= task.target;
+
+      // Only update if progress changed or if just completed
+      if (task.progress !== progressSol || (completed && !task.completed)) {
+        await supabase
+          .from("user_tasks")
+          .update({ 
+            progress: Math.floor(totalSol * 1000), // Store as millionths of SOL for precision (1 SOL = 1000)
+            completed 
+          })
+          .eq("id", task.id);
+
+        // Auto-claim if just completed
+        if (completed && !task.completed) {
+          const taskDef = await getTaskDefinition("creator_fees_1sol");
+          if (taskDef) {
+            await autoClaimPoints(walletAddress, task.id, task.points_reward, taskDef.display_name);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error updating creator fees progress:", error);
   }
 };

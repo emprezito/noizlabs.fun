@@ -9,7 +9,7 @@ import {
   Trophy, Star, Zap, TrendingUp, Music, Coins, RefreshCw, Clock, 
   Heart, Upload, Headphones, BarChart, LineChart, Gift, Flame, 
   Rocket, Target, Award, Send, Twitter, ExternalLink, Link, Check,
-  Calendar, CalendarDays, Wallet
+  Calendar, CalendarDays, Wallet, Activity, Users, UserPlus, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
@@ -71,6 +71,10 @@ const ICON_MAP: Record<string, any> = {
   send: Send,
   link: Link,
   wallet: Wallet,
+  activity: Activity,
+  users: Users,
+  "user-plus": UserPlus,
+  "message-circle": MessageCircle,
 };
 
 const PointsRewards = () => {
@@ -290,10 +294,22 @@ const PointsRewards = () => {
   const renderTask = (task: Task) => {
     const info = getTaskInfo(task);
     const Icon = info.icon;
-    const progressPercent = Math.min((task.progress / task.target) * 100, 100);
     const isSocialQuest = !!info.socialLink;
     const isTweetQuest = task.task_type === 'tweet_about_noizlabs';
+    const isCreatorFeesQuest = task.task_type === 'creator_fees_1sol';
     const questDef = getQuestDefinition(task.task_type);
+    
+    // Handle special display for creator fees (stored as milli-SOL, target is 1 SOL = 1000)
+    let displayProgress = task.progress;
+    let displayTarget = task.target;
+    let progressPercent = Math.min((task.progress / task.target) * 100, 100);
+    
+    if (isCreatorFeesQuest) {
+      // Progress is in milli-SOL (1 SOL = 1000), display as SOL
+      displayProgress = task.progress / 1000;
+      displayTarget = task.target; // target is 1 SOL
+      progressPercent = Math.min((task.progress / 1000 / task.target) * 100, 100);
+    }
 
     return (
       <div
@@ -418,7 +434,10 @@ const PointsRewards = () => {
           <div className="flex items-center gap-3">
             <Progress value={progressPercent} className="flex-1 h-2" />
             <span className="text-xs text-muted-foreground min-w-[60px] text-right">
-              {task.progress.toLocaleString()}/{task.target.toLocaleString()}
+              {isCreatorFeesQuest 
+                ? `${displayProgress.toFixed(2)}/${displayTarget} SOL`
+                : `${task.progress.toLocaleString()}/${task.target.toLocaleString()}`
+              }
             </span>
           </div>
         )}
