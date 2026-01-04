@@ -9,7 +9,7 @@ import {
   Trophy, Star, Zap, TrendingUp, Music, Coins, RefreshCw, Clock, 
   Heart, Upload, Headphones, BarChart, LineChart, Gift, Flame, 
   Rocket, Target, Award, Send, Twitter, ExternalLink, Link, Check,
-  Calendar, CalendarDays
+  Calendar, CalendarDays, Wallet
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
@@ -70,6 +70,7 @@ const ICON_MAP: Record<string, any> = {
   twitter: Twitter,
   send: Send,
   link: Link,
+  wallet: Wallet,
 };
 
 const PointsRewards = () => {

@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Music, Image, Check, Loader2, AlertCircle, Shield, AlertTriangle, X, Play, Pause, Volume2 } from "lucide-react";
+import { Music, Image, Check, Loader2, AlertCircle, Shield, AlertTriangle, X, Play, Pause, Volume2, Clock } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { createTokenWithMetaplex, CreateTokenParams, PLATFORM_WALLET, TOTAL_SUPPLY } from "@/lib/solana/createToken";
 import { uploadTokenMetadata } from "@/lib/ipfsUpload";
@@ -56,6 +56,7 @@ const CreatePage = () => {
   } | null>(null);
   const [isRemixPlaying, setIsRemixPlaying] = useState(false);
   const [effectVolume, setEffectVolume] = useState(0.4);
+  const [mintCooldown, setMintCooldown] = useState<{ canMint: boolean; hoursRemaining: number; minutesRemaining: number } | null>(null);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -102,6 +103,54 @@ const CreatePage = () => {
       }
     }
   }, []);
+
+  // Check mint cooldown (2 days)
+  useEffect(() => {
+    const checkMintCooldown = async () => {
+      if (!publicKey) {
+        setMintCooldown(null);
+        return;
+      }
+
+      const walletAddress = publicKey.toBase58();
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+      const { data: recentTokens, error } = await supabase
+        .from("tokens")
+        .select("created_at")
+        .eq("creator_wallet", walletAddress)
+        .gte("created_at", fortyEightHoursAgo)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error("Error checking mint cooldown:", error);
+        setMintCooldown({ canMint: true, hoursRemaining: 0, minutesRemaining: 0 });
+        return;
+      }
+
+      if (recentTokens && recentTokens.length > 0) {
+        const lastMintTime = new Date(recentTokens[0].created_at);
+        const nextMintTime = new Date(lastMintTime.getTime() + 48 * 60 * 60 * 1000);
+        const remainingMs = nextMintTime.getTime() - Date.now();
+
+        if (remainingMs > 0) {
+          const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+          const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+          setMintCooldown({ canMint: false, hoursRemaining: hours, minutesRemaining: minutes });
+        } else {
+          setMintCooldown({ canMint: true, hoursRemaining: 0, minutesRemaining: 0 });
+        }
+      } else {
+        setMintCooldown({ canMint: true, hoursRemaining: 0, minutesRemaining: 0 });
+      }
+    };
+
+    checkMintCooldown();
+    // Update every minute
+    const interval = setInterval(checkMintCooldown, 60000);
+    return () => clearInterval(interval);
+  }, [publicKey]);
 
   // Stop remix audio playback
   const stopRemixAudio = () => {
@@ -202,32 +251,11 @@ const CreatePage = () => {
 
     setLoading(true);
 
-    // Check if user has minted a token in the last 48 hours (2 days)
-    try {
-      const walletAddress = publicKey.toBase58();
-      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-      
-      const { data: recentTokens, error: checkError } = await supabase
-        .from("tokens")
-        .select("id, created_at")
-        .eq("creator_wallet", walletAddress)
-        .gte("created_at", fortyEightHoursAgo)
-        .limit(1);
-      
-      if (checkError) {
-        console.error("Error checking recent mints:", checkError);
-      } else if (recentTokens && recentTokens.length > 0) {
-        const lastMintTime = new Date(recentTokens[0].created_at);
-        const nextMintTime = new Date(lastMintTime.getTime() + 48 * 60 * 60 * 1000);
-        const hoursRemaining = Math.ceil((nextMintTime.getTime() - Date.now()) / (1000 * 60 * 60));
-        
-        toast.error(`You can only mint 1 token every 2 days. Try again in ${hoursRemaining} hours.`);
-        setLoading(false);
-        return;
-      }
-    } catch (limitError) {
-      console.error("Error checking mint limit:", limitError);
-      // Continue anyway if check fails
+    // Check cooldown before proceeding
+    if (mintCooldown && !mintCooldown.canMint) {
+      toast.error(`Please wait for the cooldown to complete.`);
+      setLoading(false);
+      return;
     }
 
     setUploadingIPFS(true);
@@ -961,10 +989,28 @@ const CreatePage = () => {
                 </div>
               </div>
 
+              {/* Cooldown Timer */}
+              {mintCooldown && !mintCooldown.canMint && (
+                <div className="bg-accent/10 border border-accent/30 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-accent" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Minting Cooldown Active</p>
+                    <p className="text-sm text-muted-foreground">
+                      You can mint again in{" "}
+                      <span className="font-bold text-accent">
+                        {mintCooldown.hoursRemaining}h {mintCooldown.minutesRemaining}m
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Create Button */}
               <Button
                 onClick={handleMint}
-                disabled={loading || !name || !symbol || (!audioFile && !preloadedAudioUrl) || !connected}
+                disabled={loading || !name || !symbol || (!audioFile && !preloadedAudioUrl) || !connected || (mintCooldown && !mintCooldown.canMint)}
                 size="lg"
                 className="w-full"
               >
@@ -975,6 +1021,11 @@ const CreatePage = () => {
                   </>
                 ) : !connected ? (
                   "Connect Wallet First"
+                ) : mintCooldown && !mintCooldown.canMint ? (
+                  <>
+                    <Clock className="w-5 h-5 mr-2" />
+                    Wait {mintCooldown.hoursRemaining}h {mintCooldown.minutesRemaining}m
+                  </>
                 ) : (
                   "🚀 Create Token"
                 )}
