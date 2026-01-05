@@ -21,7 +21,7 @@ import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle,
 import { SocialShareButton } from "@/components/SocialShareButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useDynamicMetaTags, getTokenOgImageUrl } from "@/hooks/useDynamicMetaTags";
-import { updateTradingVolume } from "@/lib/taskUtils";
+import { updateTradingVolume, updateCreatorFeesProgress } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart } from "@/components/TradingViewChart";
@@ -743,6 +743,11 @@ const TradePage = () => {
         
         toast.success(`Sold for ${solReceived.toFixed(4)} SOL (${formatUsd(solReceived)})!`);
         setSellAmount("");
+      }
+
+      // Update creator fees progress for the token creator
+      if (tokenInfo?.creatorWallet) {
+        await updateCreatorFeesProgress(tokenInfo.creatorWallet);
       }
 
       loadTokenInfo();
