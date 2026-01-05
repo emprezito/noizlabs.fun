@@ -12,7 +12,7 @@ import {
   Calendar, CalendarDays, Wallet, Activity, Users, UserPlus, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
+import { updateTaskProgress, ensureUserTasks, updateCreatorFeesProgress, updateEngagementProgress } from "@/lib/taskUtils";
 import {
   Dialog,
   DialogContent,
@@ -159,7 +159,7 @@ const PointsRewards = () => {
     }
   };
 
-  // Subscribe to real-time updates for tasks and points
+  // Subscribe to real-time updates for tasks, points, and engagement/creator fees
   useEffect(() => {
     if (!publicKey) return;
 
@@ -191,6 +191,46 @@ const PointsRewards = () => {
         (payload) => {
           const updated = payload.new as any;
           setUserPoints({ total_points: updated.total_points || 0 });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'creator_earnings',
+          filter: `wallet_address=eq.${walletAddress}`
+        },
+        () => {
+          // Refresh creator fees quest when new earnings are recorded
+          updateCreatorFeesProgress(walletAddress);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clip_likes',
+        },
+        () => {
+          // Refresh engagement quest when likes change on any clip
+          updateEngagementProgress(walletAddress);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_interactions',
+        },
+        (payload) => {
+          const interaction = payload.new as any;
+          // If this is a share interaction, refresh engagement
+          if (interaction.interaction_type === 'share') {
+            updateEngagementProgress(walletAddress);
+          }
         }
       )
       .subscribe();

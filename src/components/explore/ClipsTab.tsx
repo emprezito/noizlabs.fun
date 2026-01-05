@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, MoreHorizontal, ArrowRightLeft, Sparkles, X } from "lucide-react";
 import ImageLightbox from "@/components/ImageLightbox";
-import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
+import { updateTaskProgress, ensureUserTasks, updateEngagementProgress } from "@/lib/taskUtils";
 
 interface AudioClip {
   id: string;
@@ -41,6 +41,7 @@ interface AudioClip {
   shares: number;
   plays: number;
   createdAt: string;
+  walletAddress: string | null;
   hasLiked?: boolean;
   mintedTokenId?: string | null;
   mintAddress?: string | null;
@@ -98,7 +99,7 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
             audioUrl: newClip.audio_url, coverImageUrl: newClip.cover_image_url || null,
             category: newClip.category || "Other", likes: newClip.likes || 0,
             shares: newClip.shares || 0, plays: newClip.plays || 0,
-            createdAt: newClip.created_at, hasLiked: false,
+            createdAt: newClip.created_at, walletAddress: newClip.wallet_address || null, hasLiked: false,
           };
           setClips(prev => [mappedClip, ...prev.filter(c => c.id !== newClip.id)]);
         } else if (payload.eventType === 'UPDATE') {
@@ -151,7 +152,8 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
           id: clip.id, title: clip.title, creator: clip.creator, audioUrl: clip.audio_url,
           coverImageUrl: clip.cover_image_url || null, category: clip.category || "Other",
           likes: clip.likes || 0, shares: clip.shares || 0, plays: clip.plays || 0,
-          createdAt: clip.created_at, hasLiked: userLikedClipIds.has(clip.id),
+          createdAt: clip.created_at, walletAddress: clip.wallet_address || null,
+          hasLiked: userLikedClipIds.has(clip.id),
           mintedTokenId: mintedInfo?.tokenId || null, mintAddress: mintedInfo?.mintAddress || null,
         };
       });
@@ -225,6 +227,7 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
     if (!clip) return;
     
     const walletAddress = publicKey.toString();
+    const clipOwnerWallet = clip.walletAddress;
     
     if (clip.hasLiked) {
       // Unlike - remove from clip_likes and decrement
@@ -233,6 +236,10 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
       try {
         await supabase.from("clip_likes").delete().eq("audio_clip_id", clipId).eq("wallet_address", walletAddress);
         await supabase.from("audio_clips").update({ likes: newLikes }).eq("id", clipId);
+        // Update clip owner's engagement progress (decrease)
+        if (clipOwnerWallet) {
+          await updateEngagementProgress(clipOwnerWallet);
+        }
       } catch (error) { 
         console.error("Error removing like:", error);
         // Revert on error
@@ -261,6 +268,11 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
         await supabase.from("audio_clips").update({ likes: newLikes }).eq("id", clipId);
         await supabase.from("user_interactions").insert({ wallet_address: walletAddress, audio_clip_id: clipId, interaction_type: "like" });
         await updateTaskProgress(walletAddress, "like_clips", 1);
+        
+        // Update clip owner's engagement progress
+        if (clipOwnerWallet) {
+          await updateEngagementProgress(clipOwnerWallet);
+        }
       } catch (error) { 
         console.error("Error updating like:", error);
         // Revert on error
@@ -281,6 +293,10 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
         if (publicKey) {
           await supabase.from("user_interactions").insert({ wallet_address: publicKey.toString(), audio_clip_id: clipId, interaction_type: "share" });
           await updateTaskProgress(publicKey.toString(), "share_clips", 1);
+        }
+        // Update clip owner's engagement progress
+        if (clip.walletAddress) {
+          await updateEngagementProgress(clip.walletAddress);
         }
       } catch (error) { console.error("Error updating share:", error); }
     }
