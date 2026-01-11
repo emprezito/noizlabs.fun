@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
-import Navbar from "@/components/Navbar";
+import { AppLayout } from "@/components/AppLayout";
 import Footer from "@/components/Footer";
-import MobileTabBar from "@/components/MobileTabBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -510,10 +509,8 @@ const Portfolio = () => {
   const hasClaimableTokens = totalClaimableTokens > 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      
-      <main className="container mx-auto px-4 pt-20 pb-24 md:pb-8">
+    <AppLayout>
+      <div className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -950,13 +947,9 @@ const Portfolio = () => {
             </>
           )}
         </div>
-      </main>
-
-      <MobileTabBar />
-      <div className="hidden md:block">
-        <Footer />
       </div>
-    </div>
+      <Footer />
+    </AppLayout>
   );
 };
 

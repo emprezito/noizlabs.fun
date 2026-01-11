@@ -7,9 +7,8 @@ import {
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import Navbar from "@/components/Navbar";
+import { AppLayout } from "@/components/AppLayout";
 import Footer from "@/components/Footer";
-import MobileTabBar from "@/components/MobileTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -507,13 +506,11 @@ const CreatePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Navbar />
-      <main className="pt-24 pb-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-4xl md:text-5xl font-bold text-primary">
+    <AppLayout>
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl md:text-5xl font-bold text-primary">
                 {isRemix ? "Create Remix Token" : "Create Your Audio Token"}
               </h1>
               {isRemix && (
@@ -1072,14 +1069,12 @@ const CreatePage = () => {
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
-      </main>
+      </div>
       <Footer />
-      <MobileTabBar />
-    </div>
+    </AppLayout>
   );
 };
 
