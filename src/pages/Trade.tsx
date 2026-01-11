@@ -9,9 +9,8 @@ import {
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import Navbar from "@/components/Navbar";
+import { AppLayout } from "@/components/AppLayout";
 import Footer from "@/components/Footer";
-import MobileTabBar from "@/components/MobileTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -781,36 +780,34 @@ const TradePage = () => {
   const estimatedSellSol = sellAmount && tokenInfo ? (parseFloat(sellAmount) * tokenInfo.price).toFixed(6) : "0";
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Navbar />
-      <main className="pt-24 pb-20 min-h-screen">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <Link to="/tokens" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6">
-            <ArrowLeft className="w-4 h-4" /> Back to Tokens
-          </Link>
+    <AppLayout>
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <Link to="/tokens" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6">
+          <ArrowLeft className="w-4 h-4" /> Back to Tokens
+        </Link>
 
-          {!connected && (
-            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive" />
-              <p>Connect your wallet to trade tokens.</p>
-            </div>
-          )}
-
-          <div className="bg-card rounded-xl border border-border p-6 mb-6">
-            <Label>Token Mint Address</Label>
-            <div className="flex gap-3 mt-2">
-              <Input placeholder="Enter mint address..." value={mintInput} onChange={(e) => setMintInput(e.target.value)} className="flex-1" />
-              <Button onClick={handleSearch}>Load Token</Button>
-            </div>
+        {!connected && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <p>Connect your wallet to trade tokens.</p>
           </div>
+        )}
 
-          {loading && <div className="bg-card rounded-xl p-12 text-center border border-border"><Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" /></div>}
+        <div className="bg-card rounded-xl border border-border p-6 mb-6">
+          <Label>Token Mint Address</Label>
+          <div className="flex gap-3 mt-2">
+            <Input placeholder="Enter mint address..." value={mintInput} onChange={(e) => setMintInput(e.target.value)} className="flex-1" />
+            <Button onClick={handleSearch}>Load Token</Button>
+          </div>
+        </div>
 
-          {!loading && tokenInfo && (
-            <div className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-card rounded-xl border border-border p-6">
-                  <div className="flex items-start gap-6">
+        {loading && <div className="bg-card rounded-xl p-12 text-center border border-border"><Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" /></div>}
+
+        {!loading && tokenInfo && (
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-card rounded-xl border border-border p-6">
+                <div className="flex items-start gap-6">
                     {/* Token Image with Play Button */}
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
                       {tokenInfo.imageUri ? (
@@ -1022,7 +1019,7 @@ const TradePage = () => {
             </div>
           )}
         </div>
-      </main>
+      </div>
       <Footer />
 
       {/* Trade Confirmation Dialog */}
@@ -1058,8 +1055,7 @@ const TradePage = () => {
           coverImageUrl={tokenInfo.imageUri}
         />
       )}
-      <MobileTabBar />
-    </div>
+    </AppLayout>
   );
 };
 

@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import Navbar from "@/components/Navbar";
+import { AppLayout } from "@/components/AppLayout";
 import Footer from "@/components/Footer";
-import MobileTabBar from "@/components/MobileTabBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -19,16 +18,14 @@ const ExplorePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navbar />
-      <main className="pt-16 pb-8">
-        <div className="container mx-auto px-4">
-          <div className="mb-4">
-            <h1 className="text-2xl font-bold text-foreground">Explore</h1>
-            <p className="text-muted-foreground text-sm">
-              Discover audio tokens and clips on NoizLabs
-            </p>
-          </div>
+    <AppLayout>
+      <div className="container mx-auto px-4 py-6">
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-foreground">Explore</h1>
+          <p className="text-muted-foreground text-sm">
+            Discover audio tokens and clips on NoizLabs
+          </p>
+        </div>
 
           <Tabs defaultValue={defaultTab} onValueChange={handleTabChange}>
             <div className="flex items-center justify-between mb-4">
@@ -54,12 +51,10 @@ const ExplorePage = () => {
                 setShowUploadModal={setShowUploadModal} 
               />
             </TabsContent>
-          </Tabs>
-        </div>
-      </main>
+        </Tabs>
+      </div>
       <Footer />
-      <MobileTabBar />
-    </div>
+    </AppLayout>
   );
 };
 

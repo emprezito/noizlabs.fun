@@ -8,9 +8,8 @@ import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { clearMobileWalletCache } from "@/components/WalletButton";
-import Navbar from "@/components/Navbar";
+import { AppLayout } from "@/components/AppLayout";
 import Footer from "@/components/Footer";
-import MobileTabBar from "@/components/MobileTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -425,50 +424,40 @@ const ProfilePage = () => {
 
   if (!connected) {
     return (
-      <div className="min-h-screen bg-background pb-16 md:pb-0">
-        <Navbar />
-        <main className="pt-24 pb-20 min-h-screen">
-          <div className="container mx-auto px-4">
-            <div className="max-w-md mx-auto text-center py-20">
-              <User className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
-              <h1 className="text-2xl font-bold text-foreground mb-4">Connect Wallet</h1>
-              <p className="text-muted-foreground">
-                Please connect your wallet to view your profile.
-              </p>
-            </div>
+      <AppLayout>
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-md mx-auto text-center py-20">
+            <User className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
+            <h1 className="text-2xl font-bold text-foreground mb-4">Connect Wallet</h1>
+            <p className="text-muted-foreground">
+              Please connect your wallet to view your profile.
+            </p>
           </div>
-        </main>
+        </div>
         <Footer />
-        <MobileTabBar />
-      </div>
+      </AppLayout>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pb-16 md:pb-0">
-        <Navbar />
-        <main className="pt-24 pb-20 min-h-screen">
-          <div className="container mx-auto px-4 text-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">Loading profile...</p>
-          </div>
-        </main>
+      <AppLayout>
+        <div className="container mx-auto px-4 py-6 text-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
         <Footer />
-        <MobileTabBar />
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Navbar />
-      <main className="pt-24 pb-20 min-h-screen">
-        <div className="container mx-auto px-4">
-          {/* Header */}
-          <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold text-foreground mb-2">
+    <AppLayout>
+      <div className="container mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">
                 My Profile
               </h1>
               <p className="text-muted-foreground">
@@ -840,12 +829,9 @@ const ProfilePage = () => {
               </div>
             </div>
           </div>
-        </div>
-      </main>
+      </div>
       <Footer />
-
-      <MobileTabBar />
-    </div>
+    </AppLayout>
   );
 };
 

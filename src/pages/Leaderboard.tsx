@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
-import Navbar from "@/components/Navbar";
+import { AppLayout } from "@/components/AppLayout";
 import Footer from "@/components/Footer";
-import MobileTabBar from "@/components/MobileTabBar";
 import PointsRewards from "@/components/PointsRewards";
 import { Button } from "@/components/ui/button";
 import { Trophy, Crown, Medal, Star, Users, Zap, TrendingUp, Music, Clock, Calendar, Play, Heart, Share2, Award, ExternalLink } from "lucide-react";
@@ -239,29 +238,27 @@ const LeaderboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Navbar />
-      <main className="pt-24 pb-20 min-h-screen">
-        <div className="container mx-auto px-4">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-3 mb-4">
-              <Trophy className="w-10 h-10 text-primary" />
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground">
-                Leaderboard
-              </h1>
-            </div>
-            <p className="text-muted-foreground text-lg">
-              Top earners in the NoizLabs community
-            </p>
+    <AppLayout>
+      <div className="container mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-3 mb-4">
+            <Trophy className="w-10 h-10 text-primary" />
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground">
+              Leaderboard
+            </h1>
           </div>
+          <p className="text-muted-foreground text-lg">
+            Top earners in the NoizLabs community
+          </p>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Leaderboard */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* User's Current Rank */}
-              {userRank && (
-                <div className="bg-primary/10 border border-primary/30 rounded-xl p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Leaderboard */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* User's Current Rank */}
+            {userRank && (
+              <div className="bg-primary/10 border border-primary/30 rounded-xl p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
@@ -510,10 +507,9 @@ const LeaderboardPage = () => {
             </div>
           </div>
         </div>
-      </main>
+      </div>
       <Footer />
-      <MobileTabBar />
-    </div>
+    </AppLayout>
   );
 };
 
