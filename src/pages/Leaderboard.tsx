@@ -259,252 +259,251 @@ const LeaderboardPage = () => {
             {/* User's Current Rank */}
             {userRank && (
               <div className="bg-primary/10 border border-primary/30 rounded-xl p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
-                        #{userRank.rank}
-                      </div>
-                      <div>
-                        <p className="font-bold text-foreground">Your Ranking</p>
-                        <p className="text-sm text-muted-foreground">
-                          {getDisplayName(userRank)}
-                        </p>
-                      </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
+                      #{userRank.rank}
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">
-                        {userRank.total_points.toLocaleString()}
+                    <div>
+                      <p className="font-bold text-foreground">Your Ranking</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getDisplayName(userRank)}
                       </p>
-                      <p className="text-sm text-muted-foreground">points</p>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">
+                      {userRank.total_points.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground">points</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Top 3 Podium */}
+            {leaderboard.length >= 3 && (
+              <div className="grid grid-cols-3 gap-4 mb-8">
+                {/* 2nd Place */}
+                <div className="bg-card rounded-xl border border-border p-4 text-center order-1">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gray-400/20 flex items-center justify-center mb-3">
+                    <Medal className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="font-bold text-foreground truncate">
+                    {getDisplayName(leaderboard[1])}
+                  </p>
+                  <p className="text-xl font-bold text-muted-foreground">
+                    {leaderboard[1].total_points.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">2nd Place</p>
+                </div>
+
+                {/* 1st Place */}
+                <div className="bg-gradient-to-b from-yellow-500/20 to-card rounded-xl border-2 border-yellow-500/50 p-4 text-center order-0 lg:order-1 transform lg:-translate-y-4">
+                  <div className="w-20 h-20 mx-auto rounded-full bg-yellow-500/20 flex items-center justify-center mb-3">
+                    <Crown className="w-10 h-10 text-yellow-500" />
+                  </div>
+                  <p className="font-bold text-foreground truncate">
+                    {getDisplayName(leaderboard[0])}
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-500">
+                    {leaderboard[0].total_points.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">🏆 1st Place</p>
+                </div>
+
+                {/* 3rd Place */}
+                <div className="bg-card rounded-xl border border-border p-4 text-center order-2">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-amber-600/20 flex items-center justify-center mb-3">
+                    <Medal className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <p className="font-bold text-foreground truncate">
+                    {getDisplayName(leaderboard[2])}
+                  </p>
+                  <p className="text-xl font-bold text-muted-foreground">
+                    {leaderboard[2].total_points.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">3rd Place</p>
+                </div>
+              </div>
+            )}
+
+            {/* Full Leaderboard */}
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="bg-muted p-4 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-muted-foreground" />
+                  <h3 className="font-bold text-foreground">All Rankings</h3>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="p-8 text-center">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-muted-foreground">Loading rankings...</p>
+                </div>
+              ) : leaderboard.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Trophy className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No rankings yet. Be the first!</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {leaderboard.map((user) => {
+                    const badge = getBadge(user.total_points);
+                    const BadgeIcon = badge.icon;
+                    const isCurrentUser = publicKey?.toString() === user.wallet_address;
+
+                    return (
+                      <div
+                        key={user.wallet_address}
+                        className={`p-4 flex items-center gap-4 transition-colors hover:bg-muted/50 ${
+                          isCurrentUser ? "bg-primary/5" : ""
+                        }`}
+                      >
+                        {/* Rank */}
+                        <div className="w-10 flex-shrink-0 flex justify-center">
+                          {getRankDisplay(user.rank)}
+                        </div>
+
+                        {/* Badge */}
+                        <div className={`w-8 flex-shrink-0 ${badge.color}`}>
+                          <BadgeIcon className="w-5 h-5" />
+                        </div>
+
+                        {/* User Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-semibold truncate ${isCurrentUser ? "text-primary" : "text-foreground"}`}>
+                            {getDisplayName(user)}
+                            {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{badge.name}</p>
+                        </div>
+
+                        {/* Points */}
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">
+                            {user.total_points.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">pts</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+            </div>
+          </div>
 
-              {/* Top 3 Podium */}
-              {leaderboard.length >= 3 && (
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                  {/* 2nd Place */}
-                  <div className="bg-card rounded-xl border border-border p-4 text-center order-1">
-                    <div className="w-16 h-16 mx-auto rounded-full bg-gray-400/20 flex items-center justify-center mb-3">
-                      <Medal className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <p className="font-bold text-foreground truncate">
-                      {getDisplayName(leaderboard[1])}
-                    </p>
-                    <p className="text-xl font-bold text-muted-foreground">
-                      {leaderboard[1].total_points.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">2nd Place</p>
-                  </div>
-
-                  {/* 1st Place */}
-                  <div className="bg-gradient-to-b from-yellow-500/20 to-card rounded-xl border-2 border-yellow-500/50 p-4 text-center order-0 lg:order-1 transform lg:-translate-y-4">
-                    <div className="w-20 h-20 mx-auto rounded-full bg-yellow-500/20 flex items-center justify-center mb-3">
-                      <Crown className="w-10 h-10 text-yellow-500" />
-                    </div>
-                    <p className="font-bold text-foreground truncate">
-                      {getDisplayName(leaderboard[0])}
-                    </p>
-                    <p className="text-2xl font-bold text-yellow-500">
-                      {leaderboard[0].total_points.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">🏆 1st Place</p>
-                  </div>
-
-                  {/* 3rd Place */}
-                  <div className="bg-card rounded-xl border border-border p-4 text-center order-2">
-                    <div className="w-16 h-16 mx-auto rounded-full bg-amber-600/20 flex items-center justify-center mb-3">
-                      <Medal className="w-8 h-8 text-amber-600" />
-                    </div>
-                    <p className="font-bold text-foreground truncate">
-                      {getDisplayName(leaderboard[2])}
-                    </p>
-                    <p className="text-xl font-bold text-muted-foreground">
-                      {leaderboard[2].total_points.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">3rd Place</p>
-                  </div>
+          {/* Sidebar - Weekly Clips & Rewards */}
+          <div className="space-y-6">
+            {/* Weekly Top Clips Countdown */}
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="bg-gradient-to-r from-primary/20 to-accent/20 p-4 border-b border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Music className="w-5 h-5 text-primary" />
+                  <h3 className="font-bold text-foreground">Weekly Top Clips</h3>
                 </div>
-              )}
-
-              {/* Full Leaderboard */}
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="bg-muted p-4 border-b border-border">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-5 h-5 text-muted-foreground" />
-                    <h3 className="font-bold text-foreground">All Rankings</h3>
-                  </div>
-                </div>
-
-                {loading ? (
-                  <div className="p-8 text-center">
-                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-muted-foreground">Loading rankings...</p>
-                  </div>
-                ) : leaderboard.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Trophy className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No rankings yet. Be the first!</p>
+                {countdown.isSunday ? (
+                  <div className="flex items-center gap-2 text-primary">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-sm font-semibold">📸 Snapshot Day!</span>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {leaderboard.map((user) => {
-                      const badge = getBadge(user.total_points);
-                      const BadgeIcon = badge.icon;
-                      const isCurrentUser = publicKey?.toString() === user.wallet_address;
-
-                      return (
-                        <div
-                          key={user.wallet_address}
-                          className={`p-4 flex items-center gap-4 transition-colors hover:bg-muted/50 ${
-                            isCurrentUser ? "bg-primary/5" : ""
-                          }`}
-                        >
-                          {/* Rank */}
-                          <div className="w-10 flex-shrink-0 flex justify-center">
-                            {getRankDisplay(user.rank)}
-                          </div>
-
-                          {/* Badge */}
-                          <div className={`w-8 flex-shrink-0 ${badge.color}`}>
-                            <BadgeIcon className="w-5 h-5" />
-                          </div>
-
-                          {/* User Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-semibold truncate ${isCurrentUser ? "text-primary" : "text-foreground"}`}>
-                              {getDisplayName(user)}
-                              {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{badge.name}</p>
-                          </div>
-
-                          {/* Points */}
-                          <div className="text-right">
-                            <p className="font-bold text-foreground">
-                              {user.total_points.toLocaleString()}
-                            </p>
-                            <p className="text-xs text-muted-foreground">pts</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm">Snapshot in:</span>
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Sidebar - Weekly Clips & Rewards */}
-            <div className="space-y-6">
-              {/* Weekly Top Clips Countdown */}
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="bg-gradient-to-r from-primary/20 to-accent/20 p-4 border-b border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Music className="w-5 h-5 text-primary" />
-                    <h3 className="font-bold text-foreground">Weekly Top Clips</h3>
+              
+              {!countdown.isSunday && (
+                <div className="p-4 bg-muted/50">
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="bg-background rounded-lg p-2">
+                      <p className="text-2xl font-bold text-primary">{countdown.days}</p>
+                      <p className="text-xs text-muted-foreground">Days</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-2">
+                      <p className="text-2xl font-bold text-primary">{countdown.hours}</p>
+                      <p className="text-xs text-muted-foreground">Hours</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-2">
+                      <p className="text-2xl font-bold text-primary">{countdown.minutes}</p>
+                      <p className="text-xs text-muted-foreground">Mins</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-2">
+                      <p className="text-2xl font-bold text-primary">{countdown.seconds}</p>
+                      <p className="text-xs text-muted-foreground">Secs</p>
+                    </div>
                   </div>
-                  {countdown.isSunday ? (
-                    <div className="flex items-center gap-2 text-primary">
-                      <Calendar className="w-4 h-4" />
-                      <span className="text-sm font-semibold">📸 Snapshot Day!</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="w-4 h-4" />
-                      <span className="text-sm">Snapshot in:</span>
-                    </div>
-                  )}
                 </div>
-                
-                {!countdown.isSunday && (
-                  <div className="p-4 bg-muted/50">
-                    <div className="grid grid-cols-4 gap-2 text-center">
-                      <div className="bg-background rounded-lg p-2">
-                        <p className="text-2xl font-bold text-primary">{countdown.days}</p>
-                        <p className="text-xs text-muted-foreground">Days</p>
-                      </div>
-                      <div className="bg-background rounded-lg p-2">
-                        <p className="text-2xl font-bold text-primary">{countdown.hours}</p>
-                        <p className="text-xs text-muted-foreground">Hours</p>
-                      </div>
-                      <div className="bg-background rounded-lg p-2">
-                        <p className="text-2xl font-bold text-primary">{countdown.minutes}</p>
-                        <p className="text-xs text-muted-foreground">Mins</p>
-                      </div>
-                      <div className="bg-background rounded-lg p-2">
-                        <p className="text-2xl font-bold text-primary">{countdown.seconds}</p>
-                        <p className="text-xs text-muted-foreground">Secs</p>
-                      </div>
-                    </div>
+              )}
+
+              <div className="p-4 space-y-3">
+                {loadingClips ? (
+                  <div className="flex justify-center py-4">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                   </div>
+                ) : topClips.length === 0 ? (
+                  <p className="text-center text-muted-foreground text-sm py-4">
+                    No clips uploaded this week yet
+                  </p>
+                ) : (
+                  topClips.map((clip, index) => (
+                    <div
+                      key={clip.id}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => navigate("/discover")}
+                    >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        index === 0 ? "bg-yellow-500 text-yellow-950" :
+                        index === 1 ? "bg-gray-400 text-gray-900" :
+                        index === 2 ? "bg-amber-600 text-amber-950" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {index + 1}
+                      </div>
+                      {clip.cover_image_url ? (
+                        <img
+                          src={clip.cover_image_url}
+                          alt={clip.title}
+                          className="w-10 h-10 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                          <Music className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate text-foreground">{clip.title}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-0.5">
+                            <Heart className="w-3 h-3" /> {clip.likes}
+                          </span>
+                          <span className="flex items-center gap-0.5">
+                            <Play className="w-3 h-3" /> {clip.plays}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-primary">{clip.total_engagement}</p>
+                    </div>
+                  ))
                 )}
-
-                <div className="p-4 space-y-3">
-                  {loadingClips ? (
-                    <div className="flex justify-center py-4">
-                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : topClips.length === 0 ? (
-                    <p className="text-center text-muted-foreground text-sm py-4">
-                      No clips uploaded this week yet
-                    </p>
-                  ) : (
-                    topClips.map((clip, index) => (
-                      <div
-                        key={clip.id}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => navigate("/discover")}
-                      >
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                          index === 0 ? "bg-yellow-500 text-yellow-950" :
-                          index === 1 ? "bg-gray-400 text-gray-900" :
-                          index === 2 ? "bg-amber-600 text-amber-950" :
-                          "bg-muted text-muted-foreground"
-                        }`}>
-                          {index + 1}
-                        </div>
-                        {clip.cover_image_url ? (
-                          <img
-                            src={clip.cover_image_url}
-                            alt={clip.title}
-                            className="w-10 h-10 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                            <Music className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate text-foreground">{clip.title}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-0.5">
-                              <Heart className="w-3 h-3" /> {clip.likes}
-                            </span>
-                            <span className="flex items-center gap-0.5">
-                              <Play className="w-3 h-3" /> {clip.plays}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-xs font-semibold text-primary">{clip.total_engagement}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="p-4 pt-0">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate("/discover")}
-                  >
-                    Upload & Compete
-                  </Button>
-                </div>
               </div>
 
-              <PointsRewards />
+              <div className="p-4 pt-0">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate("/discover")}
+                >
+                  Upload & Compete
+                </Button>
+              </div>
             </div>
+
+            <PointsRewards />
           </div>
         </div>
       </div>

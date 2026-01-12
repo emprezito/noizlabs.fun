@@ -808,217 +808,216 @@ const TradePage = () => {
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-card rounded-xl border border-border p-6">
                 <div className="flex items-start gap-6">
-                    {/* Token Image with Play Button */}
-                    <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
-                      {tokenInfo.imageUri ? (
-                        <img
-                          src={tokenInfo.imageUri}
-                          alt={tokenInfo.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
-                          <span className="text-3xl">🎵</span>
-                        </div>
+                  {/* Token Image with Play Button */}
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                    {tokenInfo.imageUri ? (
+                      <img
+                        src={tokenInfo.imageUri}
+                        alt={tokenInfo.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
+                        <span className="text-3xl">🎵</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={toggleAudio}
+                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                    >
+                      {playing ? <Pause className="w-8 h-8 text-white" /> : <Play className="w-8 h-8 text-white ml-1" />}
+                    </button>
+                    {playing && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Pause className="w-8 h-8 text-white animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h2 className="text-2xl font-bold">{tokenInfo.name}</h2>
+                      <span className="px-2 py-1 bg-primary/20 text-primary rounded-lg text-sm">${tokenInfo.symbol}</span>
+                      {tokenInfo.priceChange24h !== undefined && (
+                        <span className={`px-2 py-1 rounded-lg text-sm font-semibold ${
+                          tokenInfo.priceChange24h >= 0 
+                            ? "bg-green-500/20 text-green-500" 
+                            : "bg-red-500/20 text-red-500"
+                        }`}>
+                          {tokenInfo.priceChange24h >= 0 ? "+" : ""}{tokenInfo.priceChange24h.toFixed(2)}%
+                        </span>
                       )}
-                      <button
-                        onClick={toggleAudio}
-                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      {/* Live Indicator */}
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${
+                        isLive ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"
+                      }`}>
+                        {isLive ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                        {isLive ? "Live" : "Static"}
+                      </div>
+                      {/* Solana Explorer Link */}
+                      <a
+                        href={`https://explorer.solana.com/address/${tokenInfo.mint}?cluster=devnet`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
                       >
-                        {playing ? <Pause className="w-8 h-8 text-white" /> : <Play className="w-8 h-8 text-white ml-1" />}
-                      </button>
-                      {playing && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <Pause className="w-8 h-8 text-white animate-pulse" />
-                        </div>
+                        <ExternalLink className="w-3 h-3" />
+                        Explorer
+                      </a>
+                      {/* AI Remix Button */}
+                      {tokenDbId && (
+                        <button
+                          onClick={() => setRemixModalOpen(true)}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          AI Remix
+                        </button>
                       )}
+                      {/* Remix Badge with Link to Original */}
+                      {tokenInfo.isRemix && tokenInfo.originalMintAddress && (
+                        <Link
+                          to={`/trade?mint=${tokenInfo.originalMintAddress}`}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          Remix of: {tokenInfo.originalTokenName || "Original"}
+                        </Link>
+                      )}
+                      {/* Share Button */}
+                      <SocialShareButton
+                        title={tokenInfo.name}
+                        description={`${tokenInfo.symbol} - Trade this audio token on NoizLabs`}
+                        price={tokenInfo.price}
+                        marketCap={(tokenInfo.solReserves * 2) * (solUsdPrice || 0)}
+                        isToken={true}
+                        mintAddress={tokenInfo.mint}
+                        imageUrl={tokenInfo.imageUri}
+                      />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h2 className="text-2xl font-bold">{tokenInfo.name}</h2>
-                        <span className="px-2 py-1 bg-primary/20 text-primary rounded-lg text-sm">${tokenInfo.symbol}</span>
-                        {tokenInfo.priceChange24h !== undefined && (
-                          <span className={`px-2 py-1 rounded-lg text-sm font-semibold ${
-                            tokenInfo.priceChange24h >= 0 
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Price</p>
+                        <p className="font-bold text-primary text-lg">{formatUsd(tokenInfo.price)}</p>
+                        <p className="text-xs text-muted-foreground">{tokenInfo.price.toFixed(8)} SOL</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Liquidity</p>
+                        <p className="font-bold text-green-500 text-lg">{formatUsd(tokenInfo.solReserves)}</p>
+                        <p className="text-xs text-muted-foreground">{tokenInfo.solReserves.toFixed(4)} SOL</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Market Cap</p>
+                        <p className="font-bold text-lg">{formatUsd(tokenInfo.solReserves * 2)}</p>
+                        {tokenInfo.volume24h && (
+                          <p className="text-xs text-muted-foreground">Vol: ${tokenInfo.volume24h.toLocaleString()}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Your Balance</p>
+                        <p className="font-bold">
+                          {balanceLoading ? "..." : userBalance.toLocaleString()} {tokenInfo.symbol}
+                        </p>
+                        {userPnL && (
+                          <p className={`text-xs font-medium ${userPnL.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                            {userPnL.pnl >= 0 ? "+" : ""}{formatUsd(userPnL.pnl)} ({userPnL.pnlPercent >= 0 ? "+" : ""}{userPnL.pnlPercent.toFixed(1)}%)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
+                <h3 className="font-bold mb-4">Price Chart</h3>
+                <div className="h-80">
+                  {/* DexScreener Chart Embed */}
+                  <iframe
+                    src={`https://dexscreener.com/solana/${tokenInfo.mint}?embed=1&theme=dark&trades=0&info=0`}
+                    className="w-full h-full rounded-lg border-0"
+                    title="DexScreener Chart"
+                    loading="lazy"
+                  />
+                </div>
+                {/* Fallback to local chart if no DexScreener data */}
+                {candleData.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs text-muted-foreground mb-2">Local Trade History</p>
+                    <TradingViewChart data={candleData} height={200} />
+                  </div>
+                )}
+              </div>
+
+              {/* Trade History Section */}
+              <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
+                <h3 className="font-bold mb-4">Recent Trades</h3>
+                {tradeHistory.length === 0 ? (
+                  <p className="text-muted-foreground text-sm text-center py-4">No trades yet</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {tradeHistory.map((trade) => (
+                      <div key={trade.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`px-2 py-1 rounded text-xs font-bold ${
+                            trade.trade_type === "buy" 
                               ? "bg-green-500/20 text-green-500" 
                               : "bg-red-500/20 text-red-500"
                           }`}>
-                            {tokenInfo.priceChange24h >= 0 ? "+" : ""}{tokenInfo.priceChange24h.toFixed(2)}%
-                          </span>
-                        )}
-                        {/* Live Indicator */}
-                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${
-                          isLive ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"
-                        }`}>
-                          {isLive ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                          {isLive ? "Live" : "Static"}
-                        </div>
-                        {/* Solana Explorer Link */}
-                        <a
-                          href={`https://explorer.solana.com/address/${tokenInfo.mint}?cluster=devnet`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Explorer
-                        </a>
-                        {/* AI Remix Button */}
-                        {tokenDbId && (
-                          <button
-                            onClick={() => setRemixModalOpen(true)}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
-                          >
-                            <Sparkles className="w-3 h-3" />
-                            AI Remix
-                          </button>
-                        )}
-                        {/* Remix Badge with Link to Original */}
-                        {tokenInfo.isRemix && tokenInfo.originalMintAddress && (
-                          <Link
-                            to={`/trade?mint=${tokenInfo.originalMintAddress}`}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors"
-                          >
-                            <Sparkles className="w-3 h-3" />
-                            Remix of: {tokenInfo.originalTokenName || "Original"}
-                          </Link>
-                        )}
-                        {/* Share Button */}
-                        <SocialShareButton
-                          title={tokenInfo.name}
-                          description={`${tokenInfo.symbol} - Trade this audio token on NoizLabs`}
-                          price={tokenInfo.price}
-                          marketCap={(tokenInfo.solReserves * 2) * (solUsdPrice || 0)}
-                          isToken={true}
-                          mintAddress={tokenInfo.mint}
-                          imageUrl={tokenInfo.imageUri}
-                        />
-                      </div>
-                      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Price</p>
-                          <p className="font-bold text-primary text-lg">{formatUsd(tokenInfo.price)}</p>
-                          <p className="text-xs text-muted-foreground">{tokenInfo.price.toFixed(8)} SOL</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Liquidity</p>
-                          <p className="font-bold text-green-500 text-lg">{formatUsd(tokenInfo.solReserves)}</p>
-                          <p className="text-xs text-muted-foreground">{tokenInfo.solReserves.toFixed(4)} SOL</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Market Cap</p>
-                          <p className="font-bold text-lg">{formatUsd(tokenInfo.solReserves * 2)}</p>
-                          {tokenInfo.volume24h && (
-                            <p className="text-xs text-muted-foreground">Vol: ${tokenInfo.volume24h.toLocaleString()}</p>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Your Balance</p>
-                          <p className="font-bold">
-                            {balanceLoading ? "..." : userBalance.toLocaleString()} {tokenInfo.symbol}
-                          </p>
-                          {userPnL && (
-                            <p className={`text-xs font-medium ${userPnL.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
-                              {userPnL.pnl >= 0 ? "+" : ""}{formatUsd(userPnL.pnl)} ({userPnL.pnlPercent >= 0 ? "+" : ""}{userPnL.pnlPercent.toFixed(1)}%)
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
-                  <h3 className="font-bold mb-4">Price Chart</h3>
-                  <div className="h-80">
-                    {/* DexScreener Chart Embed */}
-                    <iframe
-                      src={`https://dexscreener.com/solana/${tokenInfo.mint}?embed=1&theme=dark&trades=0&info=0`}
-                      className="w-full h-full rounded-lg border-0"
-                      title="DexScreener Chart"
-                      loading="lazy"
-                    />
-                  </div>
-                  {/* Fallback to local chart if no DexScreener data */}
-                  {candleData.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs text-muted-foreground mb-2">Local Trade History</p>
-                      <TradingViewChart data={candleData} height={200} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Trade History Section */}
-                <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
-                  <h3 className="font-bold mb-4">Recent Trades</h3>
-                  {tradeHistory.length === 0 ? (
-                    <p className="text-muted-foreground text-sm text-center py-4">No trades yet</p>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {tradeHistory.map((trade) => (
-                        <div key={trade.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className={`px-2 py-1 rounded text-xs font-bold ${
-                              trade.trade_type === "buy" 
-                                ? "bg-green-500/20 text-green-500" 
-                                : "bg-red-500/20 text-red-500"
-                            }`}>
-                              {trade.trade_type.toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">
-                                {(trade.amount / 1e9).toLocaleString()} {tokenInfo?.symbol || "tokens"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                @ {formatUsd(trade.price_lamports / 1e9)} ({(trade.price_lamports / 1e9).toFixed(8)} SOL)
-                              </p>
-                            </div>
+                            {trade.trade_type.toUpperCase()}
                           </div>
-                          <div className="text-right">
+                          <div>
+                            <p className="font-medium text-sm">
+                              {(trade.amount / 1e9).toLocaleString()} {tokenInfo?.symbol || "tokens"}
+                            </p>
                             <p className="text-xs text-muted-foreground">
-                              {formatTimeAgo(new Date(trade.created_at).getTime())}
-                            </p>
-                            <p className="text-xs text-muted-foreground font-mono">
-                              {trade.wallet_address.slice(0, 4)}...{trade.wallet_address.slice(-4)}
+                              @ {formatUsd(trade.price_lamports / 1e9)} ({(trade.price_lamports / 1e9).toFixed(8)} SOL)
                             </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-card rounded-2xl shadow-noiz-lg p-6 sticky top-24 h-fit">
-                <Tabs defaultValue="buy">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="buy"><TrendingUp className="w-4 h-4 mr-2" />Buy</TabsTrigger>
-                    <TabsTrigger value="sell"><TrendingDown className="w-4 h-4 mr-2" />Sell</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="buy" className="space-y-4">
-                    <div><Label>Amount (SOL)</Label><Input type="number" placeholder="0.0" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} className="mt-2" /></div>
-                    <div className="flex gap-2">{["0.1", "0.5", "1", "5"].map((amt) => <Button key={amt} variant="outline" size="sm" onClick={() => setBuyAmount(amt)}>{amt}</Button>)}</div>
-                    <div className="p-3 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">You'll receive</p>
-                      <p className="font-bold">{parseInt(estimatedBuyTokens).toLocaleString()} {tokenInfo.symbol}</p>
-                      {buyAmount && <p className="text-xs text-muted-foreground">Cost: {buyAmount} SOL ({formatUsd(parseFloat(buyAmount) || 0)})</p>}
-                    </div>
-                    <Button onClick={initiateBuy} disabled={trading || !connected} className="w-full bg-noiz-green hover:bg-noiz-green/80">{trading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{trading ? "Processing..." : "Buy Tokens"}</Button>
-                  </TabsContent>
-                  <TabsContent value="sell" className="space-y-4">
-                    <div><Label>Amount (Tokens)</Label><Input type="number" placeholder="0" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} className="mt-2" /></div>
-                    <div className="p-3 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">You'll receive</p>
-                      <p className="font-bold">{estimatedSellSol} SOL</p>
-                      {sellAmount && <p className="text-xs text-muted-foreground">Value: {formatUsd(parseFloat(estimatedSellSol) || 0)}</p>}
-                    </div>
-                    <Button onClick={initiateSell} disabled={trading || !connected} className="w-full bg-noiz-pink hover:bg-noiz-pink/80">{trading ? "Processing..." : "Sell Tokens"}</Button>
-                  </TabsContent>
-                </Tabs>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">
+                            {formatTimeAgo(new Date(trade.created_at).getTime())}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {trade.wallet_address.slice(0, 4)}...{trade.wallet_address.slice(-4)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </div>
+
+            <div className="bg-card rounded-2xl shadow-noiz-lg p-6 sticky top-24 h-fit">
+              <Tabs defaultValue="buy">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="buy"><TrendingUp className="w-4 h-4 mr-2" />Buy</TabsTrigger>
+                  <TabsTrigger value="sell"><TrendingDown className="w-4 h-4 mr-2" />Sell</TabsTrigger>
+                </TabsList>
+                <TabsContent value="buy" className="space-y-4">
+                  <div><Label>Amount (SOL)</Label><Input type="number" placeholder="0.0" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} className="mt-2" /></div>
+                  <div className="flex gap-2">{["0.1", "0.5", "1", "5"].map((amt) => <Button key={amt} variant="outline" size="sm" onClick={() => setBuyAmount(amt)}>{amt}</Button>)}</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">You'll receive</p>
+                    <p className="font-bold">{parseInt(estimatedBuyTokens).toLocaleString()} {tokenInfo.symbol}</p>
+                    {buyAmount && <p className="text-xs text-muted-foreground">Cost: {buyAmount} SOL ({formatUsd(parseFloat(buyAmount) || 0)})</p>}
+                  </div>
+                  <Button onClick={initiateBuy} disabled={trading || !connected} className="w-full bg-noiz-green hover:bg-noiz-green/80">{trading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{trading ? "Processing..." : "Buy Tokens"}</Button>
+                </TabsContent>
+                <TabsContent value="sell" className="space-y-4">
+                  <div><Label>Amount (Tokens)</Label><Input type="number" placeholder="0" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} className="mt-2" /></div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">You'll receive</p>
+                    <p className="font-bold">{estimatedSellSol} SOL</p>
+                    {sellAmount && <p className="text-xs text-muted-foreground">Value: {formatUsd(parseFloat(estimatedSellSol) || 0)}</p>}
+                  </div>
+                  <Button onClick={initiateSell} disabled={trading || !connected} className="w-full bg-noiz-pink hover:bg-noiz-pink/80">{trading ? "Processing..." : "Sell Tokens"}</Button>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        )}
       </div>
       <Footer />
 
