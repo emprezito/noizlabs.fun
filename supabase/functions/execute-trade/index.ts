@@ -7,6 +7,7 @@ import {
   Transaction, 
   SystemProgram,
   sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL,
 } from "https://esm.sh/@solana/web3.js@1.98.4";
 import { 
   getAssociatedTokenAddress,
@@ -27,11 +28,17 @@ const PLATFORM_FEE_BPS = 40; // 0.4% to platform
 const CREATOR_FEE_BPS = 60; // 0.6% to token creator
 const BASIS_POINTS_DIVISOR = 10000;
 
+// Platform wallet that holds tokens for bonding curve
+const BONDING_CURVE_WALLET = new PublicKey("FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc");
+
 // Platform fee wallet - receives trading fees
 const PLATFORM_FEE_WALLET = new PublicKey("5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7");
 
-// Solana devnet RPC
-const SOLANA_RPC = "https://api.devnet.solana.com";
+// Solana devnet RPC - use multiple for fallback
+const SOLANA_RPC_ENDPOINTS = [
+  "https://api.devnet.solana.com",
+  "https://devnet.helius-rpc.com/?api-key=15c15e78-c0f9-4317-97e6-03510bd58a32",
+];
 
 interface TradeRequest {
   mintAddress: string;
@@ -180,12 +187,45 @@ serve(async (req) => {
 
     // Load platform wallet for token transfers
     const platformWallet = loadPlatformWallet();
-    const connection = new Connection(SOLANA_RPC, 'confirmed');
+    
+    // Try multiple RPC endpoints
+    let connection: Connection | null = null;
+    for (const endpoint of SOLANA_RPC_ENDPOINTS) {
+      try {
+        const testConn = new Connection(endpoint, 'confirmed');
+        await testConn.getLatestBlockhash();
+        connection = testConn;
+        console.log('Connected to RPC:', endpoint);
+        break;
+      } catch (e) {
+        console.log('RPC endpoint failed:', endpoint);
+      }
+    }
+    
+    if (!connection) {
+      throw new Error('All Solana RPC endpoints failed');
+    }
+    
     const mintPubkey = new PublicKey(mintAddress);
     const userPubkey = new PublicKey(walletAddress);
 
     console.log('Platform wallet public key:', platformWallet.publicKey.toString());
     console.log('Expected platform wallet: FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc');
+    
+    // Verify the user's transaction signature exists and is confirmed
+    try {
+      const txStatus = await connection.getSignatureStatus(signature);
+      if (!txStatus || !txStatus.value || txStatus.value.err) {
+        return new Response(
+          JSON.stringify({ error: 'Transaction not confirmed or failed. Please try again.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log('Transaction verified:', signature, 'confirmations:', txStatus.value.confirmations);
+    } catch (verifyError) {
+      console.error('Transaction verification failed:', verifyError);
+      // Continue anyway - the transaction might be too recent
+    }
 
     const solReserves = Number(token.sol_reserves);
     const tokenReserves = Number(token.token_reserves);
