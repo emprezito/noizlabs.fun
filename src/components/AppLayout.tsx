@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { TokenTicker } from "./TokenTicker";
 import MobileTabBar from "./MobileTabBar";
+import MobileHeader from "./MobileHeader";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -16,6 +17,9 @@ export function AppLayout({ children, showTicker = true }: AppLayoutProps) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen">
+        {/* Mobile Header with hamburger menu */}
+        <MobileHeader />
+        
         {/* Top Token Ticker */}
         {showTicker && <TokenTicker />}
 

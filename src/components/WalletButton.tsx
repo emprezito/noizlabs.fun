@@ -77,12 +77,13 @@ export const WalletButton = () => {
       <>
         <Button
           onClick={() => setModalOpen(true)}
-          className="min-h-[48px] px-6 gap-2 relative z-10 cursor-pointer select-none"
-          size="lg"
+          className="min-h-[40px] md:min-h-[48px] px-3 md:px-6 gap-2 relative z-10 cursor-pointer select-none text-sm md:text-base"
+          size="default"
           type="button"
         >
-          <Wallet className="w-5 h-5 pointer-events-none" />
-          <span className="pointer-events-none">Connect Wallet</span>
+          <Wallet className="w-4 h-4 md:w-5 md:h-5 pointer-events-none" />
+          <span className="pointer-events-none hidden sm:inline">Connect Wallet</span>
+          <span className="pointer-events-none sm:hidden">Connect</span>
         </Button>
         <CustomWalletModal open={modalOpen} onOpenChange={setModalOpen} />
       </>
@@ -94,19 +95,19 @@ export const WalletButton = () => {
       <DropdownMenuTrigger asChild>
         <Button 
           variant="outline" 
-          className="min-h-[48px] px-4 gap-2 relative z-10 cursor-pointer select-none" 
-          size="lg"
+          className="min-h-[40px] md:min-h-[48px] px-2 md:px-4 gap-1 md:gap-2 relative z-10 cursor-pointer select-none text-sm" 
+          size="default"
           type="button"
         >
           {wallet?.adapter.icon && (
             <img
               src={wallet.adapter.icon}
               alt={wallet.adapter.name}
-              className="w-5 h-5 pointer-events-none"
+              className="w-4 h-4 md:w-5 md:h-5 pointer-events-none"
             />
           )}
           <span className="pointer-events-none">{truncatedAddress}</span>
-          <ChevronDown className="w-4 h-4 opacity-50 pointer-events-none" />
+          <ChevronDown className="w-3 h-3 md:w-4 md:h-4 opacity-50 pointer-events-none" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 z-50 bg-popover border border-border">
