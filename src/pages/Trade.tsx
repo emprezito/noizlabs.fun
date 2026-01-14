@@ -917,11 +917,6 @@ const TradePage = () => {
                         <p className="font-bold">
                           {balanceLoading ? "..." : userBalance.toLocaleString()} {tokenInfo.symbol}
                         </p>
-                        {userPnL && (
-                          <p className={`text-xs font-medium ${userPnL.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
-                            {userPnL.pnl >= 0 ? "+" : ""}{formatUsd(userPnL.pnl)} ({userPnL.pnlPercent >= 0 ? "+" : ""}{userPnL.pnlPercent.toFixed(1)}%)
-                          </p>
-                        )}
                       </div>
                     </div>
                   </div>
