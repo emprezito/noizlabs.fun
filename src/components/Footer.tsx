@@ -25,10 +25,10 @@ const Footer = () => {
             <Link to="/trade" className="hover:text-foreground transition-colors">
               Trade
             </Link>
-            <a href="#" className="hover:text-foreground transition-colors">
+            <a href="https://x.com/noizlabs_io" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
               Twitter
             </a>
-            <a href="#" className="hover:text-foreground transition-colors">
+            <a href="https://discord.gg/4VCJ5Mh5" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
               Discord
             </a>
           </div>
