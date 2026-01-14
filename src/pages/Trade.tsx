@@ -926,21 +926,14 @@ const TradePage = () => {
               <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
                 <h3 className="font-bold mb-4">Price Chart</h3>
                 <div className="h-80">
-                  {/* DexScreener Chart Embed */}
-                  <iframe
-                    src={`https://dexscreener.com/solana/${tokenInfo.mint}?embed=1&theme=dark&trades=0&info=0`}
-                    className="w-full h-full rounded-lg border-0"
-                    title="DexScreener Chart"
-                    loading="lazy"
-                  />
+                  {candleData.length > 0 ? (
+                    <TradingViewChart data={candleData} height={300} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No trade data yet
+                    </div>
+                  )}
                 </div>
-                {/* Fallback to local chart if no DexScreener data */}
-                {candleData.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs text-muted-foreground mb-2">Local Trade History</p>
-                    <TradingViewChart data={candleData} height={200} />
-                  </div>
-                )}
               </div>
 
               {/* Trade History Section */}
