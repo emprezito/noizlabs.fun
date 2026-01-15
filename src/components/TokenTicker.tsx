@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,74 +17,118 @@ export function TokenTicker() {
   const [loading, setLoading] = useState(true);
   const { price: solPrice } = useSolPrice();
 
-  useEffect(() => {
-    const fetchTrendingTokens = async () => {
-      try {
-        // Fetch tokens with their reserves
-        const { data: tokensData, error: tokensError } = await supabase
-          .from("tokens")
-          .select("mint_address, name, symbol, sol_reserves, token_reserves, total_supply, total_volume")
-          .eq("is_active", true)
-          .order("total_volume", { ascending: false })
-          .limit(10);
+  const calculateTokenData = useCallback(async (tokensData: any[]) => {
+    if (!tokensData || tokensData.length === 0) return [];
+    
+    const trendingTokens: TrendingToken[] = await Promise.all(
+      tokensData.map(async (token) => {
+        const solReserves = Number(token.sol_reserves) || 0.001;
+        const tokenReserves = Number(token.token_reserves) || 1000000;
+        const currentPrice = solReserves / tokenReserves;
+        
+        // Calculate market cap in USD
+        const totalSupply = Number(token.total_supply) || 1000000000;
+        const marketCapSol = currentPrice * totalSupply;
+        const marketCapUsd = marketCapSol * (solPrice || 0);
 
-        if (tokensError) throw tokensError;
+        // Get the oldest trade from the last 24 hours for price comparison
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        
+        const { data: oldestTrade } = await supabase
+          .from("trade_history")
+          .select("price_lamports")
+          .eq("mint_address", token.mint_address)
+          .gte("created_at", oneDayAgo)
+          .order("created_at", { ascending: true })
+          .limit(1);
 
-        // For each token, calculate real price change from trade history
-        const trendingTokens: TrendingToken[] = await Promise.all(
-          (tokensData || []).map(async (token) => {
-            const solReserves = token.sol_reserves || 0.001;
-            const tokenReserves = token.token_reserves || 1000000;
-            const currentPrice = solReserves / tokenReserves;
-            
-            // Calculate market cap in USD
-            const totalSupply = token.total_supply || 1000000000;
-            const marketCapSol = currentPrice * totalSupply;
-            const marketCapUsd = marketCapSol * (solPrice || 0);
+        let priceChange = 0;
+        
+        if (oldestTrade && oldestTrade.length > 0) {
+          const oldPriceLamports = Number(oldestTrade[0].price_lamports);
+          const oldPrice = oldPriceLamports / 1e9;
+          const currentPriceSol = currentPrice;
+          
+          if (oldPrice > 0 && currentPriceSol > 0) {
+            priceChange = ((currentPriceSol - oldPrice) / oldPrice) * 100;
+            // Clamp to reasonable bounds
+            priceChange = Math.max(-99.99, Math.min(999.99, priceChange));
+          }
+        }
 
-            // Get trades from the last 24 hours to calculate real price change
-            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-            
-            const { data: trades } = await supabase
-              .from("trade_history")
-              .select("price_lamports, created_at")
-              .eq("mint_address", token.mint_address)
-              .gte("created_at", oneDayAgo)
-              .order("created_at", { ascending: true })
-              .limit(1);
+        return {
+          mint_address: token.mint_address,
+          name: token.name,
+          symbol: token.symbol,
+          marketCapUsd,
+          priceChange,
+        };
+      })
+    );
 
-            let priceChange = 0;
-            
-            if (trades && trades.length > 0) {
-              const oldPriceLamports = trades[0].price_lamports;
-              const oldPrice = oldPriceLamports / 1e9; // Convert lamports to SOL
-              if (oldPrice > 0) {
-                priceChange = ((currentPrice - oldPrice) / oldPrice) * 100;
-              }
-            }
-
-            return {
-              mint_address: token.mint_address,
-              name: token.name,
-              symbol: token.symbol,
-              marketCapUsd,
-              priceChange,
-            };
-          })
-        );
-
-        setTokens(trendingTokens);
-      } catch (error) {
-        console.error("Error fetching trending tokens:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTrendingTokens();
-    const interval = setInterval(fetchTrendingTokens, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
+    return trendingTokens;
   }, [solPrice]);
+
+  const fetchTrendingTokens = useCallback(async () => {
+    try {
+      const { data: tokensData, error: tokensError } = await supabase
+        .from("tokens")
+        .select("mint_address, name, symbol, sol_reserves, token_reserves, total_supply, total_volume")
+        .eq("is_active", true)
+        .order("total_volume", { ascending: false })
+        .limit(10);
+
+      if (tokensError) throw tokensError;
+
+      const trendingTokens = await calculateTokenData(tokensData || []);
+      setTokens(trendingTokens);
+    } catch (error) {
+      console.error("Error fetching trending tokens:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [calculateTokenData]);
+
+  useEffect(() => {
+    fetchTrendingTokens();
+
+    // Subscribe to real-time updates on tokens table
+    const channel = supabase
+      .channel('token-ticker-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tokens',
+        },
+        () => {
+          // Refetch when any token changes
+          fetchTrendingTokens();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'trade_history',
+        },
+        () => {
+          // Refetch when new trades happen
+          fetchTrendingTokens();
+        }
+      )
+      .subscribe();
+
+    // Also poll every 15 seconds as a fallback
+    const interval = setInterval(fetchTrendingTokens, 15000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [fetchTrendingTokens]);
 
   if (loading) {
     return (
@@ -113,12 +157,15 @@ export function TokenTicker() {
     }
   };
 
+  // Duplicate tokens for seamless loop
+  const displayTokens = [...tokens, ...tokens];
+
   return (
     <div className="h-10 bg-muted/30 border-b border-border overflow-hidden">
       <div className="flex items-center h-full animate-ticker">
-        {tokens.map((token) => (
+        {displayTokens.map((token, index) => (
           <Link
-            key={token.mint_address}
+            key={`${token.mint_address}-${index}`}
             to={`/trade?mint=${token.mint_address}`}
             className="flex items-center gap-2 px-4 py-2 hover:bg-muted/50 transition-colors whitespace-nowrap"
           >
@@ -142,7 +189,7 @@ export function TokenTicker() {
               ) : (
                 <Minus className="w-3 h-3 mr-0.5" />
               )}
-              {Math.abs(token.priceChange).toFixed(1)}%
+              {token.priceChange > 0 ? "+" : ""}{token.priceChange.toFixed(1)}%
             </span>
           </Link>
         ))}
