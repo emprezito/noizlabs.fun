@@ -40,6 +40,9 @@ export function TokenTicker() {
   }, [tokens]);
 
   // Get 24h ago price for a token (with caching)
+  // IMPORTANT: In trade_history, `price_lamports` is the TOTAL SOL (in lamports) paid/received,
+  // and `amount` is the TOTAL tokens (in smallest units) traded.
+  // So the trade price per token (SOL per token) is: price_lamports / amount.
   const get24hAgoPrice = useCallback(async (mintAddress: string): Promise<number | null> => {
     const cached = priceCache24h.get(mintAddress);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -47,21 +50,30 @@ export function TokenTicker() {
     }
 
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    
+
     const { data: oldestTrade } = await supabase
       .from("trade_history")
-      .select("price_lamports")
+      .select("price_lamports, amount")
       .eq("mint_address", mintAddress)
       .gte("created_at", oneDayAgo)
       .order("created_at", { ascending: true })
       .limit(1);
 
     if (oldestTrade && oldestTrade.length > 0) {
-      const price = Number(oldestTrade[0].price_lamports) / 1e9;
-      priceCache24h.set(mintAddress, { price, timestamp: Date.now() });
-      return price;
+      const trade = oldestTrade[0] as any;
+      const totalSolLamports = Number(trade.price_lamports);
+      const totalTokenUnits = Number(trade.amount);
+
+      // Price per token (SOL per token) expressed as SOL per 1 token
+      // Note: ratio is unit-consistent even though both are in smallest units.
+      const pricePerToken = totalTokenUnits > 0 ? totalSolLamports / totalTokenUnits : 0;
+
+      if (pricePerToken > 0) {
+        priceCache24h.set(mintAddress, { price: pricePerToken, timestamp: Date.now() });
+        return pricePerToken;
+      }
     }
-    
+
     return null;
   }, []);
 
