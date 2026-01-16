@@ -85,10 +85,12 @@ export function TokenTicker() {
   }, []);
 
   // Process raw token data into display format
+  // NOTE: token reserves are stored in smallest units (lamports / token units), so we normalize to
+  // display units (SOL + token) to match the Trade page calculations.
   const processToken = useCallback(async (token: TokenData): Promise<TrendingToken> => {
-    const solReserves = Number(token.sol_reserves) || 0.001;
-    const tokenReserves = Number(token.token_reserves) || 1000000;
-    const currentPrice = solReserves / tokenReserves;
+    const solReserves = (Number(token.sol_reserves) || 0) / 1e9; // lamports -> SOL
+    const tokenReserves = (Number(token.token_reserves) || 0) / 1e9; // smallest -> token units
+    const currentPrice = tokenReserves > 0 ? solReserves / tokenReserves : 0;
     const totalSupply = Number(token.total_supply) || 1000000000;
 
     const oldPrice = await get24hAgoPrice(token.mint_address);
@@ -141,17 +143,17 @@ export function TokenTicker() {
     const data = payload.new;
     if (!data) return;
 
-    const solReserves = Number(data.sol_reserves) || 0.001;
-    const tokenReserves = Number(data.token_reserves) || 1000000;
-    const currentPrice = solReserves / tokenReserves;
+    const solReserves = (Number(data.sol_reserves) || 0) / 1e9; // lamports -> SOL
+    const tokenReserves = (Number(data.token_reserves) || 0) / 1e9; // smallest -> token units
+    const currentPrice = tokenReserves > 0 ? solReserves / tokenReserves : 0;
     const totalSupply = Number(data.total_supply) || 1000000000;
 
-    setTokens(prev => {
-      const tokenIndex = prev.findIndex(t => t.mint_address === data.mint_address);
+    setTokens((prev) => {
+      const tokenIndex = prev.findIndex((t) => t.mint_address === data.mint_address);
       if (tokenIndex === -1) return prev;
 
       const existingToken = prev[tokenIndex];
-      
+
       // Recalculate price change using cached 24h price
       const cached = priceCache24h.get(data.mint_address);
       let priceChange = existingToken.priceChange;
@@ -247,10 +249,14 @@ export function TokenTicker() {
   }, [fetchTrendingTokens, updateTokenFromPayload, handleNewTrade]);
 
   // Calculate market cap in USD
-  const getMarketCapUsd = useCallback((token: TrendingToken): number => {
-    const marketCapSol = token.currentPrice * token.totalSupply;
-    return marketCapSol * (solPrice || 0);
-  }, [solPrice]);
+  // Must match the Trade page: market cap (SOL) = solReserves * 2
+  const getMarketCapUsd = useCallback(
+    (token: TrendingToken): number => {
+      const marketCapSol = token.solReserves * 2;
+      return marketCapSol * (solPrice || 0);
+    },
+    [solPrice]
+  );
 
   // Format market cap
   const formatMarketCap = (mcap: number) => {
@@ -284,7 +290,10 @@ export function TokenTicker() {
   const displayTokens = [...tokens, ...tokens];
 
   return (
-    <div className="h-10 bg-muted/30 border-b border-border overflow-hidden">
+    <div
+      className="h-10 w-full max-w-full bg-muted/30 border-b border-border overflow-hidden"
+      style={{ contain: "layout paint" }}
+    >
       <div className="flex items-center h-full animate-ticker whitespace-nowrap">
         {displayTokens.map((token, index) => {
           const marketCapUsd = getMarketCapUsd(token);
