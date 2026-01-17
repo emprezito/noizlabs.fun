@@ -3,6 +3,8 @@ import { AppSidebar } from "./AppSidebar";
 import { TokenTicker } from "./TokenTicker";
 import MobileTabBar from "./MobileTabBar";
 import MobileHeader from "./MobileHeader";
+import { useSidebarState } from "./SidebarContext";
+import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -10,13 +12,20 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, showTicker = true }: AppLayoutProps) {
+  const { collapsed } = useSidebarState();
+
   return (
-    <div className="flex min-h-screen w-full max-w-full overflow-x-hidden">
-      {/* Left Sidebar - Desktop only */}
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden">
+      {/* Left Sidebar - Desktop only (fixed position) */}
       <AppSidebar />
 
-      {/* Main Content Area */}
-      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-x-hidden">
+      {/* Main Content Area - offset by sidebar width on desktop */}
+      <div
+        className={cn(
+          "min-h-screen flex flex-col w-full transition-all duration-300",
+          collapsed ? "md:pl-16" : "md:pl-56"
+        )}
+      >
         {/* Mobile Header with hamburger menu */}
         <MobileHeader />
 
