@@ -24,6 +24,7 @@ import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useSidebarState } from "./SidebarContext";
 
 const navigation = [
   { name: "Explore", href: "/explore", icon: Compass },
@@ -35,7 +36,7 @@ const navigation = [
 ];
 
 export function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggleCollapsed } = useSidebarState();
   const [requestingAirdrop, setRequestingAirdrop] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
@@ -109,7 +110,7 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        "hidden md:flex flex-col h-screen bg-background border-r border-border transition-all duration-300 sticky top-0",
+        "hidden md:flex flex-col h-screen bg-background border-r border-border transition-all duration-300 fixed top-0 left-0 z-40",
         collapsed ? "w-16" : "w-56"
       )}
     >
@@ -229,7 +230,7 @@ export function AppSidebar() {
 
       {/* Collapse Toggle */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={toggleCollapsed}
         className="flex items-center justify-center h-10 border-t border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       >
         {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
