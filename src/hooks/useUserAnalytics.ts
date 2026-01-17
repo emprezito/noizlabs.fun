@@ -23,6 +23,8 @@ export interface TokenAnalytics {
   volume: number;
   creatorFees: number;
   tradesCount: number;
+  solReserves: number;
+  mintAddress: string;
 }
 
 export interface TrendData {
@@ -84,7 +86,7 @@ export const useUserAnalytics = (walletAddress: string | null) => {
           // Tokens created by user
           supabase
             .from("tokens")
-            .select("id, name, symbol, cover_image_url, total_volume, mint_address, created_at")
+            .select("id, name, symbol, cover_image_url, total_volume, mint_address, created_at, sol_reserves")
             .eq("creator_wallet", walletAddress)
             .order("created_at", { ascending: false }),
           
@@ -189,6 +191,8 @@ export const useUserAnalytics = (walletAddress: string | null) => {
             volume: token.total_volume || 0,
             creatorFees: tokenFees,
             tradesCount: 0,
+            solReserves: token.sol_reserves || 0,
+            mintAddress: token.mint_address,
           };
         });
 
