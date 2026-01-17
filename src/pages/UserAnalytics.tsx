@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Clock,
+  Award,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,8 @@ import Footer from "@/components/Footer";
 import MobileTabBar from "@/components/MobileTabBar";
 import { useUserAnalytics } from "@/hooks/useUserAnalytics";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { useSolPrice } from "@/hooks/useSolPrice";
+import { CreatorEarningsCard, TokenEarningsData } from "@/components/CreatorEarningsCard";
 import { format } from "date-fns";
 
 const formatSOL = (lamports: number): string => {
@@ -79,7 +82,9 @@ const UserAnalytics = () => {
   const walletAddress = publicKey?.toBase58() || null;
   const { data, loading } = useUserAnalytics(walletAddress);
   const { isEnabled, loading: flagsLoading } = useFeatureFlags();
+  const { price: solPrice } = useSolPrice();
   const [trendPeriod, setTrendPeriod] = useState<"weekly" | "monthly">("weekly");
+  const [selectedTokenForCard, setSelectedTokenForCard] = useState<string | null>(null);
 
   // Check if feature is enabled
   if (!flagsLoading && !isEnabled("user_analytics")) {
@@ -396,6 +401,95 @@ const UserAnalytics = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Creator Earnings Download Section */}
+            {data.tokens.length > 0 && data.totalCreatorFees > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Award className="h-5 w-5 text-green-500" />
+                    <div>
+                      <CardTitle className="text-lg">Download Earnings Certificate</CardTitle>
+                      <CardDescription>Select a token to generate your shareable earnings report</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Token Selector */}
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">Select a token:</p>
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                        {data.tokens.filter(t => t.creatorFees > 0).map((token) => (
+                          <button
+                            key={token.id}
+                            onClick={() => setSelectedTokenForCard(token.id)}
+                            className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                              selectedTokenForCard === token.id 
+                                ? 'border-primary bg-primary/10' 
+                                : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                            }`}
+                          >
+                            {token.coverImage ? (
+                              <img src={token.coverImage} alt={token.name} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Coins className="w-5 h-5 text-primary" />
+                              </div>
+                            )}
+                            <div className="flex-1 text-left min-w-0">
+                              <p className="font-medium truncate">{token.name}</p>
+                              <p className="text-xs text-muted-foreground">${token.symbol}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-green-500">
+                                {formatSOL(token.creatorFees)} SOL
+                              </p>
+                              <p className="text-xs text-muted-foreground">earned</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Earnings Card Preview */}
+                    <div>
+                      {selectedTokenForCard ? (
+                        (() => {
+                          const token = data.tokens.find(t => t.id === selectedTokenForCard);
+                          if (!token) return null;
+                          
+                          const tokenEarningsData: TokenEarningsData = {
+                            tokenName: token.name,
+                            tokenSymbol: token.symbol,
+                            currentMarketCap: (token.solReserves / 1e9) * 2, // Market cap = solReserves * 2 (in SOL)
+                            allTimeMarketCap: Math.max((token.solReserves / 1e9) * 2, token.volume / 1e9 * 0.1), // ATH estimate
+                            totalVolume: token.volume / 1e9,
+                            creatorFeesEarned: token.creatorFees / 1e9,
+                            walletAddress: walletAddress || "",
+                          };
+                          
+                          return (
+                            <CreatorEarningsCard 
+                              tokenData={tokenEarningsData} 
+                              solPrice={solPrice || 200} 
+                            />
+                          );
+                        })()
+                      ) : (
+                        <div className="h-full min-h-[300px] flex items-center justify-center border border-dashed border-border rounded-lg">
+                          <div className="text-center text-muted-foreground">
+                            <Award className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>Select a token to preview</p>
+                            <p className="text-sm">your earnings certificate</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
