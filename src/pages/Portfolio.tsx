@@ -18,7 +18,6 @@ import {
   TrendingDown, 
   Play, 
   Pause, 
-  ArrowRightLeft,
   Bell,
   BellOff,
   RefreshCw,
@@ -31,6 +30,7 @@ import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { supabase } from "@/integrations/supabase/client";
+import { TokenHoldingCard } from "@/components/portfolio/TokenHoldingCard";
 
 interface TokenHolding {
   mint_address: string;
@@ -43,6 +43,7 @@ interface TokenHolding {
   pnlPercent: number;
   audioUrl?: string;
   imageUrl?: string;
+  costBasis?: number;
 }
 
 interface CreatorEarning {
@@ -246,6 +247,7 @@ const Portfolio = () => {
           pnlPercent,
           audioUrl: token.audio_url,
           imageUrl,
+          costBasis,
         } as TokenHolding;
       }) || [];
 
@@ -872,73 +874,16 @@ const Portfolio = () => {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {holdings.map((holding) => (
-                        <div
+                        <TokenHoldingCard
                           key={holding.mint_address}
-                          className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          {/* Token Image */}
-                          <div className="relative">
-                            {holding.imageUrl ? (
-                              <img
-                                src={holding.imageUrl}
-                                alt={holding.name}
-                                className="w-12 h-12 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <span className="text-lg">🎵</span>
-                              </div>
-                            )}
-                            {/* Play button overlay */}
-                            <button
-                              onClick={() => toggleAudio(holding.mint_address, holding.audioUrl)}
-                              className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg opacity-0 hover:opacity-100 transition-opacity"
-                            >
-                              {playingAudio === holding.mint_address ? (
-                                <Pause className="w-5 h-5 text-white" />
-                              ) : (
-                                <Play className="w-5 h-5 text-white" />
-                              )}
-                            </button>
-                          </div>
-
-                          {/* Token Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium truncate">{holding.name}</span>
-                              <span className="text-xs text-muted-foreground">${holding.symbol}</span>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {holding.balance.toFixed(2)} tokens
-                            </div>
-                          </div>
-
-                          {/* Value & P&L */}
-                          <div className="text-right">
-                            <p className="font-medium">{holding.value.toFixed(4)} SOL</p>
-                            <div className={`text-sm flex items-center justify-end gap-1 ${
-                              holding.pnl >= 0 ? "text-green-500" : "text-red-500"
-                            }`}>
-                              {holding.pnl >= 0 ? (
-                                <TrendingUp className="w-3 h-3" />
-                              ) : (
-                                <TrendingDown className="w-3 h-3" />
-                              )}
-                              <span>{holding.pnl >= 0 ? "+" : ""}{holding.pnlPercent.toFixed(1)}%</span>
-                            </div>
-                          </div>
-
-                          {/* Trade Button */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/trade?mint=${holding.mint_address}`)}
-                          >
-                            <ArrowRightLeft className="w-4 h-4" />
-                          </Button>
-                        </div>
+                          holding={holding}
+                          walletAddress={publicKey?.toBase58() || ""}
+                          solUsdPrice={solUsdPrice}
+                          playingAudio={playingAudio}
+                          onToggleAudio={toggleAudio}
+                        />
                       ))}
                     </div>
                   )}
