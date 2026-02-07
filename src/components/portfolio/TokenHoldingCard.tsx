@@ -13,6 +13,7 @@ import {
   Flame
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { PortfolioPnLCard } from "./PortfolioPnLCard";
 
 interface TokenHoldingCardProps {
   holding: {
@@ -148,6 +149,9 @@ export const TokenHoldingCard = ({
   const currentValueUsd = solUsdPrice ? holding.value * solUsdPrice : null;
   const pnlUsd = solUsdPrice ? holding.pnl * solUsdPrice : null;
 
+  // Check if at ATH
+  const isAtAth = tradeInfo?.athPrice ? tradeInfo.athPrice <= holding.price : false;
+
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
@@ -272,12 +276,36 @@ export const TokenHoldingCard = ({
                 ATH: {formatPrice(tradeInfo.athPrice)} (+{tradeInfo.athPercent.toFixed(0)}%)
               </p>
             )}
-            {tradeInfo?.athPrice && tradeInfo.athPrice <= holding.price && (
+            {isAtAth && (
               <p className="text-xs text-green-500">
                 🔥 At ATH!
               </p>
             )}
           </div>
+        </div>
+
+        {/* Download Card Row */}
+        <div className="px-4 pb-3 flex justify-end border-t border-border/30">
+          <PortfolioPnLCard
+            data={{
+              tokenName: holding.name,
+              tokenSymbol: holding.symbol,
+              tokenImage: holding.imageUrl,
+              walletAddress,
+              balance: holding.balance,
+              currentPrice: holding.price,
+              currentValue: holding.value,
+              avgBuyPrice: tradeInfo?.avgBuyPrice || 0,
+              pnlPercent: holding.pnlPercent,
+              pnlUsd: pnlUsd || 0,
+              xMultiplier,
+              firstBuyDate: tradeInfo?.firstBuyDate || null,
+              athPrice: tradeInfo?.athPrice || holding.price,
+              athPercent: tradeInfo?.athPercent || 0,
+              isAtAth,
+            }}
+            solPrice={solUsdPrice || 0}
+          />
         </div>
       </CardContent>
     </Card>
