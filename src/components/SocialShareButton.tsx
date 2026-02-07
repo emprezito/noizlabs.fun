@@ -39,7 +39,7 @@ export const SocialShareButton = ({
   const [copied, setCopied] = useState(false);
 
   // Use custom domain for all shared links
-  const BASE_SHARE_URL = "https://noizlabs-io.vercel.app";
+  const BASE_SHARE_URL = "https://noizlabs.fun";
 
   const getShareUrl = () => {
     if (url) {
