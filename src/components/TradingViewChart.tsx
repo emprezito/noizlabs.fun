@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, UTCTimestamp, ColorType } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, UTCTimestamp, ColorType, LineStyle } from "lightweight-charts";
 
 interface TradingViewChartProps {
   data: Array<{
-    time: number; // Unix timestamp in seconds
+    time: number;
     open: number;
     high: number;
     low: number;
@@ -13,53 +13,59 @@ interface TradingViewChartProps {
   height?: number;
 }
 
-export function TradingViewChart({ data, height = 400 }: TradingViewChartProps) {
+export function TradingViewChart({ data, height = 500 }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
+  const [interval, setInterval] = useState("1H");
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Create chart with pump.fun/dexscreener dark theme
+    // DexScreener-style professional dark theme
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: "#0d0d0d" },
-        textColor: "#848e9c",
-        fontFamily: "'Inter', system-ui, sans-serif",
-        fontSize: 12,
+        background: { type: ColorType.Solid, color: "#0b0b0f" },
+        textColor: "#6b7280",
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11,
       },
       grid: {
-        vertLines: { color: "#1a1a2e", style: 1 },
-        horzLines: { color: "#1a1a2e", style: 1 },
+        vertLines: { color: "#16161e", style: LineStyle.Solid },
+        horzLines: { color: "#16161e", style: LineStyle.Solid },
       },
       crosshair: {
         mode: 1,
         vertLine: {
           width: 1,
-          color: "#758696",
-          style: 0,
-          labelBackgroundColor: "#1e222d",
+          color: "#4b5563",
+          style: LineStyle.Dashed,
+          labelBackgroundColor: "#1f2937",
         },
         horzLine: {
           width: 1,
-          color: "#758696",
-          style: 0,
-          labelBackgroundColor: "#1e222d",
+          color: "#4b5563",
+          style: LineStyle.Dashed,
+          labelBackgroundColor: "#1f2937",
         },
       },
       rightPriceScale: {
-        borderColor: "#1a1a2e",
+        borderVisible: false,
         scaleMargins: {
-          top: 0.1,
-          bottom: 0.25,
+          top: 0.05,
+          bottom: 0.2,
         },
-        textColor: "#848e9c",
+        textColor: "#6b7280",
+        entireTextOnly: true,
+      },
+      leftPriceScale: {
+        visible: false,
       },
       timeScale: {
-        borderColor: "#1a1a2e",
+        borderVisible: false,
         timeVisible: true,
         secondsVisible: false,
         tickMarkFormatter: (time: number) => {
@@ -68,30 +74,63 @@ export function TradingViewChart({ data, height = 400 }: TradingViewChartProps) 
           const mins = date.getMinutes().toString().padStart(2, '0');
           return `${hours}:${mins}`;
         },
+        rightOffset: 5,
+        barSpacing: 12,
+        minBarSpacing: 6,
+        fixLeftEdge: false,
+        fixRightEdge: false,
       },
-      handleScroll: { vertTouchDrag: false },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
+      },
       width: chartContainerRef.current.clientWidth,
       height: height,
     });
 
     chartRef.current = chart;
 
-    // Add candlestick series with pump.fun green/red colors
+    // DexScreener-style candlestick colors
     const candleSeries = chart.addCandlestickSeries({
-      upColor: "#00c076",
-      downColor: "#f6465d",
-      borderDownColor: "#f6465d",
-      borderUpColor: "#00c076",
-      wickDownColor: "#f6465d",
-      wickUpColor: "#00c076",
+      upColor: "#22c55e",
+      downColor: "#ef4444",
+      borderDownColor: "#ef4444",
+      borderUpColor: "#22c55e",
+      wickDownColor: "#ef4444",
+      wickUpColor: "#22c55e",
+      priceFormat: {
+        type: 'price',
+        precision: 9,
+        minMove: 0.000000001,
+      },
     });
     candleSeriesRef.current = candleSeries;
 
-    // Add volume series
+    // Line series (hidden by default)
+    const lineSeries = chart.addLineSeries({
+      color: "#8b5cf6",
+      lineWidth: 2,
+      priceFormat: {
+        type: 'price',
+        precision: 9,
+        minMove: 0.000000001,
+      },
+      visible: false,
+    });
+    lineSeriesRef.current = lineSeries;
+
+    // Volume with transparency
     const volumeSeries = chart.addHistogramSeries({
-      color: "#26a69a",
+      color: "#3b82f6",
       priceFormat: { type: "volume" },
-      priceScaleId: "",
+      priceScaleId: "volume",
     });
     volumeSeries.priceScale().applyOptions({
       scaleMargins: {
@@ -101,7 +140,6 @@ export function TradingViewChart({ data, height = 400 }: TradingViewChartProps) 
     });
     volumeSeriesRef.current = volumeSeries;
 
-    // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current) {
         chart.applyOptions({ width: chartContainerRef.current.clientWidth });
@@ -115,14 +153,25 @@ export function TradingViewChart({ data, height = 400 }: TradingViewChartProps) 
     };
   }, [height]);
 
+  // Toggle chart type
+  useEffect(() => {
+    if (!candleSeriesRef.current || !lineSeriesRef.current) return;
+    
+    if (chartType === "candle") {
+      candleSeriesRef.current.applyOptions({ visible: true });
+      lineSeriesRef.current.applyOptions({ visible: false });
+    } else {
+      candleSeriesRef.current.applyOptions({ visible: false });
+      lineSeriesRef.current.applyOptions({ visible: true });
+    }
+  }, [chartType]);
+
   // Update data when it changes
   useEffect(() => {
-    if (!candleSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
+    if (!candleSeriesRef.current || !lineSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
 
-    // Sort data by time ascending (required by lightweight-charts)
     const sortedData = [...data].sort((a, b) => a.time - b.time);
 
-    // Convert data format - time is already Unix timestamp in seconds
     const candleData: CandlestickData<Time>[] = sortedData.map((d) => ({
       time: d.time as UTCTimestamp,
       open: d.open,
@@ -131,58 +180,90 @@ export function TradingViewChart({ data, height = 400 }: TradingViewChartProps) 
       close: d.close,
     }));
 
+    const lineData = sortedData.map((d) => ({
+      time: d.time as UTCTimestamp,
+      value: d.close,
+    }));
+
     const volumeData = sortedData.map((d) => ({
       time: d.time as UTCTimestamp,
       value: d.volume || 0,
-      color: d.close >= d.open ? "rgba(0, 192, 118, 0.4)" : "rgba(246, 70, 93, 0.4)",
+      color: d.close >= d.open ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)",
     }));
 
     candleSeriesRef.current.setData(candleData);
+    lineSeriesRef.current.setData(lineData);
     volumeSeriesRef.current.setData(volumeData);
 
-    // Fit content
-    chartRef.current?.timeScale().fitContent();
+    // Don't auto-fit - let user control zoom
+    if (chartRef.current) {
+      chartRef.current.timeScale().scrollToRealTime();
+    }
   }, [data]);
 
+  const intervals = ["1m", "5m", "15m", "1H", "4H", "1D"];
+
   return (
-    <div className="relative rounded-lg overflow-hidden border border-border bg-[#0d0d0d]">
-      {/* Chart Type Toggle - pump.fun style */}
-      <div className="absolute top-3 left-3 z-10 flex gap-1 bg-[#1e222d] rounded-md p-1">
-        <button
-          onClick={() => setChartType("candle")}
-          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-            chartType === "candle" 
-              ? "bg-[#00c076] text-white" 
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Candles
-        </button>
-        <button
-          onClick={() => setChartType("line")}
-          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-            chartType === "line" 
-              ? "bg-[#00c076] text-white" 
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Line
-        </button>
-      </div>
-      
-      {/* Time interval buttons - dexscreener style */}
-      <div className="absolute top-3 right-3 z-10 flex gap-1 bg-[#1e222d] rounded-md p-1">
-        {["5m", "15m", "1H", "4H", "1D"].map((interval) => (
+    <div className="relative overflow-hidden bg-[#0b0b0f] border border-[#1f1f2e] rounded-lg">
+      {/* Top toolbar - DexScreener style */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[#1f1f2e] bg-[#0b0b0f]">
+        {/* Left side - Chart type */}
+        <div className="flex items-center gap-1">
           <button
-            key={interval}
-            className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-[#2a2e39] rounded transition-colors"
+            onClick={() => setChartType("candle")}
+            className={`px-2.5 py-1 text-[10px] font-medium rounded transition-all ${
+              chartType === "candle" 
+                ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30" 
+                : "text-[#6b7280] hover:text-white hover:bg-white/5"
+            }`}
           >
-            {interval}
+            Candles
           </button>
-        ))}
+          <button
+            onClick={() => setChartType("line")}
+            className={`px-2.5 py-1 text-[10px] font-medium rounded transition-all ${
+              chartType === "line" 
+                ? "bg-[#8b5cf6]/20 text-[#8b5cf6] border border-[#8b5cf6]/30" 
+                : "text-[#6b7280] hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Line
+          </button>
+        </div>
+
+        {/* Right side - Time intervals */}
+        <div className="flex items-center gap-0.5">
+          {intervals.map((int) => (
+            <button
+              key={int}
+              onClick={() => setInterval(int)}
+              className={`px-2 py-1 text-[10px] font-mono font-medium rounded transition-all ${
+                interval === int 
+                  ? "bg-white/10 text-white" 
+                  : "text-[#6b7280] hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {int}
+            </button>
+          ))}
+        </div>
       </div>
-      
+
+      {/* Chart container */}
       <div ref={chartContainerRef} className="w-full" />
+      
+      {/* Bottom info bar */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-t border-[#1f1f2e] bg-[#0b0b0f]/80 text-[9px] text-[#6b7280]">
+        <div className="flex items-center gap-3">
+          <span>O: <span className="text-white">{data[data.length - 1]?.open.toFixed(9) || '-'}</span></span>
+          <span>H: <span className="text-[#22c55e]">{data[data.length - 1]?.high.toFixed(9) || '-'}</span></span>
+          <span>L: <span className="text-[#ef4444]">{data[data.length - 1]?.low.toFixed(9) || '-'}</span></span>
+          <span>C: <span className="text-white">{data[data.length - 1]?.close.toFixed(9) || '-'}</span></span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Vol: <span className="text-white">{data[data.length - 1]?.volume?.toFixed(2) || '0'}</span></span>
+        </div>
+      </div>
     </div>
   );
 }
