@@ -70,13 +70,13 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     overflow-x: hidden;
-    /* Scale up entire platform by 100% */
-    font-size: 24px;
+    /* Scale up entire platform by ~50% */
+    font-size: 20px;
   }
 
   @media (max-width: 768px) {
     html {
-      font-size: 20px;
+      font-size: 18px;
     }
   }
 
