@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, UTCTimestamp, ColorType, LineStyle } from "lightweight-charts";
 
+// Map interval labels to minutes
+export const INTERVAL_MINUTES: Record<string, number> = {
+  "1m": 1,
+  "5m": 5,
+  "15m": 15,
+  "30m": 30,
+  "1H": 60,
+  "4H": 240,
+  "1D": 1440,
+};
+
 interface TradingViewChartProps {
   data: Array<{
     time: number;
@@ -11,16 +22,22 @@ interface TradingViewChartProps {
     volume?: number;
   }>;
   height?: number;
+  interval?: string;
+  onIntervalChange?: (interval: string) => void;
 }
 
-export function TradingViewChart({ data, height = 500 }: TradingViewChartProps) {
+export function TradingViewChart({ 
+  data, 
+  height = 500, 
+  interval = "1H",
+  onIntervalChange 
+}: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const lineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
-  const [interval, setInterval] = useState("1H");
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -201,7 +218,13 @@ export function TradingViewChart({ data, height = 500 }: TradingViewChartProps) 
     }
   }, [data]);
 
-  const intervals = ["1m", "5m", "15m", "1H", "4H", "1D"];
+  const intervals = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"];
+
+  const handleIntervalChange = (newInterval: string) => {
+    if (onIntervalChange) {
+      onIntervalChange(newInterval);
+    }
+  };
 
   return (
     <div className="relative overflow-hidden bg-[#0b0b0f] border border-[#1f1f2e] rounded-lg">
@@ -236,7 +259,7 @@ export function TradingViewChart({ data, height = 500 }: TradingViewChartProps) 
           {intervals.map((int) => (
             <button
               key={int}
-              onClick={() => setInterval(int)}
+              onClick={() => handleIntervalChange(int)}
               className={`px-2 py-1 text-[10px] font-mono font-medium rounded transition-all ${
                 interval === int 
                   ? "bg-white/10 text-white" 
