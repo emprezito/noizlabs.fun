@@ -23,7 +23,7 @@ import { useDynamicMetaTags, getTokenOgImageUrl } from "@/hooks/useDynamicMetaTa
 import { updateTradingVolume, updateCreatorFeesProgress } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
-import { TradingViewChart } from "@/components/TradingViewChart";
+import { TradingViewChart, INTERVAL_MINUTES } from "@/components/TradingViewChart";
 import { fetchTradeHistoryCandles, fetchDexScreenerData, fetchTradeHistory, CandleData, TradeHistoryItem } from "@/lib/chartData";
 import { RemixModal } from "@/components/RemixModal";
 
@@ -99,6 +99,7 @@ const TradePage = () => {
   const [candleData, setCandleData] = useState<CandleData[]>([]);
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
   const [isLive, setIsLive] = useState(false);
+  const [chartInterval, setChartInterval] = useState("1H");
   const [userPnL, setUserPnL] = useState<{ costBasis: number; currentValue: number; pnl: number; pnlPercent: number } | null>(null);
   const [tokenDbId, setTokenDbId] = useState<string | null>(null);
   
@@ -232,8 +233,9 @@ const TradePage = () => {
             tokenReserves,
           } : null);
 
-          // Update candle data with new price point
-          fetchTradeHistoryCandles(activeMint).then(setCandleData);
+          // Update candle data with new price point using current interval
+          const intervalMinutes = INTERVAL_MINUTES[chartInterval] || 60;
+          fetchTradeHistoryCandles(activeMint, intervalMinutes).then(setCandleData);
         }
       )
       .on(
@@ -259,26 +261,29 @@ const TradePage = () => {
     };
   }, [activeMint, tokenInfo?.mint]);
 
+  // Load candle data when mint or interval changes
   useEffect(() => {
     if (activeMint) {
       loadTokenInfo();
-      // Load candle data and trade history
-      fetchTradeHistoryCandles(activeMint).then(setCandleData);
+      // Load candle data with selected interval and trade history
+      const intervalMinutes = INTERVAL_MINUTES[chartInterval] || 60;
+      fetchTradeHistoryCandles(activeMint, intervalMinutes).then(setCandleData);
       fetchTradeHistory(activeMint).then(setTradeHistory);
     }
-  }, [activeMint]);
+  }, [activeMint, chartInterval]);
 
   // Auto-refresh chart data and trade history every second
   useEffect(() => {
     if (!activeMint) return;
 
+    const intervalMinutes = INTERVAL_MINUTES[chartInterval] || 60;
     const refreshInterval = setInterval(() => {
-      fetchTradeHistoryCandles(activeMint).then(setCandleData);
+      fetchTradeHistoryCandles(activeMint, intervalMinutes).then(setCandleData);
       fetchTradeHistory(activeMint).then(setTradeHistory);
     }, 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [activeMint]);
+  }, [activeMint, chartInterval]);
 
   // Calculate user's P&L based on trade history
   const calculateUserPnL = useCallback(async () => {
@@ -927,7 +932,12 @@ const TradePage = () => {
                 <h3 className="font-bold mb-4">Price Chart</h3>
                 <div className="h-80">
                   {candleData.length > 0 ? (
-                    <TradingViewChart data={candleData} height={300} />
+                    <TradingViewChart 
+                      data={candleData} 
+                      height={300} 
+                      interval={chartInterval}
+                      onIntervalChange={setChartInterval}
+                    />
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       No trade data yet
