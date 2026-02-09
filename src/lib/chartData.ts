@@ -100,27 +100,25 @@ export async function fetchTradeHistoryCandles(
       .order("created_at", { ascending: true });
 
     if (error || !trades || trades.length === 0) {
-      // Return empty array if no trades - don't show fake data
       return [];
     }
 
-    // Group trades by interval and create candles
+    const intervalMs = intervalMinutes * 60 * 1000;
     const candles: Map<number, CandleData> = new Map();
     
+    // First pass: create candles from actual trades
     for (const trade of trades) {
       const timestamp = new Date(trade.created_at);
-      // Round to interval
-      const intervalMs = intervalMinutes * 60 * 1000;
       const roundedTime = Math.floor(timestamp.getTime() / intervalMs) * intervalMs;
       const timeKey = Math.floor(roundedTime / 1000); // Unix timestamp in seconds
       
       // Calculate price per token from trade data
-      // price_lamports = total SOL paid/received, amount = tokens traded
       const solAmount = Number(trade.price_lamports); // in lamports
       const tokenAmount = Number(trade.amount); // in token smallest units
-      // Price = SOL per token (both in lamports/smallest units, ratio gives price)
       const price = tokenAmount > 0 ? solAmount / tokenAmount : 0;
       const volume = solAmount / 1e9; // Volume in SOL
+      
+      if (price <= 0) continue; // Skip invalid prices
       
       if (candles.has(timeKey)) {
         const candle = candles.get(timeKey)!;
@@ -129,10 +127,9 @@ export async function fetchTradeHistoryCandles(
         candle.close = price;
         candle.volume += volume;
       } else {
-        const prevCandle = Array.from(candles.values()).pop();
         candles.set(timeKey, {
           time: timeKey,
-          open: prevCandle?.close || price,
+          open: price,
           high: price,
           low: price,
           close: price,
@@ -141,12 +138,39 @@ export async function fetchTradeHistoryCandles(
       }
     }
 
-    let result = Array.from(candles.values());
-    
-    // CRITICAL: Sort by time ascending for lightweight-charts
-    result.sort((a, b) => a.time - b.time);
-    
-    return result;
+    if (candles.size === 0) return [];
+
+    // Get sorted time keys
+    const sortedKeys = Array.from(candles.keys()).sort((a, b) => a - b);
+    const firstTime = sortedKeys[0];
+    const lastTime = sortedKeys[sortedKeys.length - 1];
+    const intervalSeconds = intervalMinutes * 60;
+
+    // Second pass: fill gaps with flat candles (using previous close)
+    const filledCandles: CandleData[] = [];
+    let previousClose = candles.get(firstTime)!.open;
+
+    for (let t = firstTime; t <= lastTime; t += intervalSeconds) {
+      if (candles.has(t)) {
+        const candle = candles.get(t)!;
+        // Use previous close as open for continuity
+        candle.open = previousClose;
+        filledCandles.push(candle);
+        previousClose = candle.close;
+      } else {
+        // Create a flat candle (no trade in this period)
+        filledCandles.push({
+          time: t,
+          open: previousClose,
+          high: previousClose,
+          low: previousClose,
+          close: previousClose,
+          volume: 0,
+        });
+      }
+    }
+
+    return filledCandles;
   } catch (error) {
     console.error("Error fetching trade history:", error);
     return [];

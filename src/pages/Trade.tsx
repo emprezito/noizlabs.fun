@@ -24,7 +24,8 @@ import { updateTradingVolume, updateCreatorFeesProgress } from "@/lib/taskUtils"
 import { supabase } from "@/integrations/supabase/client";
 import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart, INTERVAL_MINUTES } from "@/components/TradingViewChart";
-import { fetchTradeHistoryCandles, fetchDexScreenerData, fetchTradeHistory, CandleData, TradeHistoryItem } from "@/lib/chartData";
+import { fetchDexScreenerData } from "@/lib/chartData";
+import { useChartData } from "@/hooks/useChartData";
 import { RemixModal } from "@/components/RemixModal";
 
 // Bonding curve constants for price impact calculation - 1% total fee
@@ -96,12 +97,18 @@ const TradePage = () => {
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [candleData, setCandleData] = useState<CandleData[]>([]);
-  const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
-  const [isLive, setIsLive] = useState(false);
   const [chartInterval, setChartInterval] = useState("1H");
   const [userPnL, setUserPnL] = useState<{ costBasis: number; currentValue: number; pnl: number; pnlPercent: number } | null>(null);
   const [tokenDbId, setTokenDbId] = useState<string | null>(null);
+
+  // Use React Query for chart data to prevent page refreshes
+  const { candleData, tradeHistory, isFetching: chartLoading } = useChartData({
+    mintAddress: activeMint,
+    intervalMinutes: INTERVAL_MINUTES[chartInterval] || 60,
+    enabled: !!activeMint,
+  });
+  
+  const [isLive, setIsLive] = useState(false);
   
   // Remix modal state
   const [remixModalOpen, setRemixModalOpen] = useState(false);
@@ -206,7 +213,7 @@ const TradePage = () => {
     fetchUserBalance();
   }, [fetchUserBalance]);
 
-  // Set up real-time subscription for token data and trade history from Supabase
+  // Set up real-time subscription for token price updates only
   useEffect(() => {
     if (!activeMint || !tokenInfo) return;
 
@@ -232,23 +239,7 @@ const TradePage = () => {
             solReserves,
             tokenReserves,
           } : null);
-
-          // Update candle data with new price point using current interval
-          const intervalMinutes = INTERVAL_MINUTES[chartInterval] || 60;
-          fetchTradeHistoryCandles(activeMint, intervalMinutes).then(setCandleData);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'trade_history',
-          filter: `mint_address=eq.${activeMint}`,
-        },
-        () => {
-          // Refresh trade history when new trades come in
-          fetchTradeHistory(activeMint).then(setTradeHistory);
+          // Chart data updates are handled by useChartData hook via React Query
         }
       )
       .subscribe((status) => {
@@ -261,29 +252,12 @@ const TradePage = () => {
     };
   }, [activeMint, tokenInfo?.mint]);
 
-  // Load candle data when mint or interval changes
+  // Load token info when mint changes
   useEffect(() => {
     if (activeMint) {
       loadTokenInfo();
-      // Load candle data with selected interval and trade history
-      const intervalMinutes = INTERVAL_MINUTES[chartInterval] || 60;
-      fetchTradeHistoryCandles(activeMint, intervalMinutes).then(setCandleData);
-      fetchTradeHistory(activeMint).then(setTradeHistory);
     }
-  }, [activeMint, chartInterval]);
-
-  // Auto-refresh chart data and trade history every second
-  useEffect(() => {
-    if (!activeMint) return;
-
-    const intervalMinutes = INTERVAL_MINUTES[chartInterval] || 60;
-    const refreshInterval = setInterval(() => {
-      fetchTradeHistoryCandles(activeMint, intervalMinutes).then(setCandleData);
-      fetchTradeHistory(activeMint).then(setTradeHistory);
-    }, 1000);
-
-    return () => clearInterval(refreshInterval);
-  }, [activeMint, chartInterval]);
+  }, [activeMint]);
 
   // Calculate user's P&L based on trade history
   const calculateUserPnL = useCallback(async () => {
