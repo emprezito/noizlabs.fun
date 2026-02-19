@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.claim-vested-tokens]
 verify_jwt = false
+
+[functions.execute-migration]
+verify_jwt = false
+
+[functions.check-migration-threshold]
+verify_jwt = false
