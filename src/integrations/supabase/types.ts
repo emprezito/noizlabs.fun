@@ -511,14 +511,19 @@ export type Database = {
           id: string
           initial_price: number
           is_active: boolean | null
+          is_graduated: boolean
           is_remix: boolean | null
           metadata_uri: string | null
+          migration_executed: boolean
+          migration_timestamp: string | null
           mint_address: string
           name: string
           original_token_id: string | null
+          raydium_pool_address: string | null
           royalty_percentage: number | null
           royalty_recipient: string | null
           sol_reserves: number | null
+          status: string
           symbol: string
           token_reserves: number | null
           tokens_sold: number | null
@@ -534,14 +539,19 @@ export type Database = {
           id?: string
           initial_price: number
           is_active?: boolean | null
+          is_graduated?: boolean
           is_remix?: boolean | null
           metadata_uri?: string | null
+          migration_executed?: boolean
+          migration_timestamp?: string | null
           mint_address: string
           name: string
           original_token_id?: string | null
+          raydium_pool_address?: string | null
           royalty_percentage?: number | null
           royalty_recipient?: string | null
           sol_reserves?: number | null
+          status?: string
           symbol: string
           token_reserves?: number | null
           tokens_sold?: number | null
@@ -557,14 +567,19 @@ export type Database = {
           id?: string
           initial_price?: number
           is_active?: boolean | null
+          is_graduated?: boolean
           is_remix?: boolean | null
           metadata_uri?: string | null
+          migration_executed?: boolean
+          migration_timestamp?: string | null
           mint_address?: string
           name?: string
           original_token_id?: string | null
+          raydium_pool_address?: string | null
           royalty_percentage?: number | null
           royalty_recipient?: string | null
           sol_reserves?: number | null
+          status?: string
           symbol?: string
           token_reserves?: number | null
           tokens_sold?: number | null

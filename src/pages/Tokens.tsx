@@ -4,7 +4,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Copy, Check, ExternalLink } from "lucide-react";
+import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Copy, Check, ExternalLink, Trophy } from "lucide-react";
+import { GraduationProgressBar } from "@/components/GraduationBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -24,6 +25,8 @@ interface TokenData {
   total_volume: number;
   created_at: string;
   is_active: boolean;
+  is_graduated?: boolean;
+  status?: string;
   audio_clip_id: string | null;
   cover_image_url?: string | null;
 }
@@ -220,7 +223,8 @@ const TokensPage = () => {
                 <div className="col-span-2 text-right">Price</div>
                 <div className="col-span-2 text-right">Market Cap</div>
                 <div className="col-span-2 text-right">Volume</div>
-                <div className="col-span-3 text-right">Actions</div>
+                <div className="col-span-2">🎓 Progress</div>
+                <div className="col-span-1 text-right">Actions</div>
               </div>
             </div>
           )}
@@ -262,12 +266,25 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
   // Calculate price from reserves (pump.fun style)
   const solReserves = (token.sol_reserves || 0) / 1e9;
   const tokenReserves = (token.token_reserves || 0) / 1e9;
+  const totalSupply = (token.total_supply || 0) / 1e9;
   const price = tokenReserves > 0 ? solReserves / tokenReserves : 0;
   
   // Market cap = price * circulating supply (tokens sold)
-  const tokensSold = (token.tokens_sold || 0) / 1e9;
   const marketCap = solReserves; // In bonding curve, liquidity = market cap
   const volume = (token.total_volume || 0) / 1e9;
+
+  // Graduation progress
+  const SOL_PRICE_APPROX = (() => {
+    try {
+      const cached = localStorage.getItem('noizlabs_sol_price');
+      if (cached) { const { price: p, timestamp } = JSON.parse(cached); if (Date.now() - timestamp < 60000) return p; }
+    } catch {}
+    return 150;
+  })();
+  const circulatingSupply = Math.max(0, totalSupply - tokenReserves);
+  const marketCapUsd = price * circulatingSupply * SOL_PRICE_APPROX;
+  const graduationProgressPercent = Math.min(100, (marketCapUsd / 50_000) * 100);
+  const isGraduated = token.is_graduated || false;
 
   const togglePlay = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -466,31 +483,29 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
           <p className="text-xs text-muted-foreground">{formatUsd(volume)}</p>
         </div>
 
+        {/* Graduation Progress */}
+        <div className="col-span-2 flex flex-col justify-center">
+          <GraduationProgressBar
+            progressPercent={graduationProgressPercent}
+            marketCapUsd={marketCapUsd}
+            isGraduated={isGraduated}
+          />
+        </div>
+
         {/* Actions */}
-        <div className="col-span-3 flex items-center justify-end gap-2">
+        <div className="col-span-1 flex items-center justify-end gap-1">
           <a
             href={`https://explorer.solana.com/address/${token.mint_address}?cluster=devnet`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+            className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
             title="View on Solana Explorer"
           >
-            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
           </a>
-          <button
-            onClick={copyMint}
-            className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-            title="Copy mint address"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-primary" />
-            ) : (
-              <Copy className="w-4 h-4 text-muted-foreground" />
-            )}
-          </button>
-          <Button size="sm" onClick={(e) => e.stopPropagation()}>
-            Trade
+          <Button size="sm" className="text-xs px-2 h-7" onClick={(e) => e.stopPropagation()}>
+            {isGraduated ? '🎓' : 'Trade'}
           </Button>
         </div>
       </div>

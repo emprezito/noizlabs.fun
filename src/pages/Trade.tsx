@@ -27,6 +27,8 @@ import { TradingViewChart, INTERVAL_MINUTES } from "@/components/TradingViewChar
 import { fetchDexScreenerData } from "@/lib/chartData";
 import { useChartData } from "@/hooks/useChartData";
 import { RemixModal } from "@/components/RemixModal";
+import { GraduationBanner } from "@/components/GraduationBanner";
+import { useGraduation } from "@/hooks/useGraduation";
 
 // Bonding curve constants for price impact calculation - 1% total fee
 const TOTAL_FEE_BPS = 100; // 1% total fee (0.4% platform + 0.6% creator)
@@ -109,6 +111,14 @@ const TradePage = () => {
   });
   
   const [isLive, setIsLive] = useState(false);
+  
+  // Graduation state
+  const { graduation, checkMigration } = useGraduation(
+    activeMint || null,
+    tokenInfo?.solReserves || 0,
+    tokenInfo?.tokenReserves || 0,
+    tokenInfo?.totalSupply || 0
+  );
   
   // Remix modal state
   const [remixModalOpen, setRemixModalOpen] = useState(false);
@@ -901,6 +911,14 @@ const TradePage = () => {
                   </div>
                 </div>
               </div>
+
+
+              {/* Graduation Progress Banner */}
+              <GraduationBanner
+                graduation={graduation}
+                tokenName={tokenInfo.name}
+                tokenSymbol={tokenInfo.symbol}
+              />
 
               <div className="bg-card rounded-2xl shadow-noiz-lg p-6">
                 <h3 className="font-bold mb-4">Price Chart</h3>
