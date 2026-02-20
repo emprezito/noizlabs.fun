@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import Analytics from "./pages/Analytics";
 import UserAnalytics from "./pages/UserAnalytics";
+import Graduated from "./pages/Graduated";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/graduated" element={<Graduated />} />
             <Route path="/my-analytics" element={<UserAnalytics />} />
             {/* Redirects for old routes */}
             <Route path="/tokens" element={<Navigate to="/explore?tab=tokens" replace />} />
