@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { AppSidebar } from "./AppSidebar";
+import { DesktopHeader } from "./DesktopHeader";
 import { TokenTicker } from "./TokenTicker";
 import MobileTabBar from "./MobileTabBar";
 import MobileHeader from "./MobileHeader";
@@ -26,6 +27,9 @@ export function AppLayout({ children, showTicker = true }: AppLayoutProps) {
           collapsed ? "md:pl-16" : "md:pl-56"
         )}
       >
+        {/* Desktop Header */}
+        <DesktopHeader />
+
         {/* Mobile Header with hamburger menu */}
         <MobileHeader />
 
