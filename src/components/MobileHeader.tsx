@@ -109,7 +109,7 @@ export function MobileHeader() {
   return (
     <div className="md:hidden">
       {/* Top bar with wallet info */}
-      <div className="flex items-center justify-between px-3 py-2 bg-background border-b border-border">
+      <div className="relative flex items-center justify-between px-3 py-2 bg-background border-b border-border">
         {/* Left: Hamburger + Logo */}
         <div className="flex items-center gap-2">
           <Sheet open={open} onOpenChange={setOpen}>
@@ -217,26 +217,25 @@ export function MobileHeader() {
             </SheetContent>
           </Sheet>
 
-          <Link to="/" className="flex items-center gap-1.5">
+          <Link to="/" className="flex items-center">
             <span className="text-xl">🎵</span>
-            <span className="font-bold text-primary">NoizLabs</span>
           </Link>
         </div>
 
-        {/* Right: Wallet info + Connect */}
+        {/* Center: Balance */}
+        {connected && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-xs">
+            <span className="font-medium text-foreground">
+              {balanceLoading ? "..." : `${balance?.toFixed(2) ?? "0"} SOL`}
+            </span>
+            <span className="text-muted-foreground">
+              {priceLoading ? "" : `$${solPrice?.toFixed(0)}`}
+            </span>
+          </div>
+        )}
+
+        {/* Right: Notifications + Connect */}
         <div className="flex items-center gap-2">
-          {connected && (
-            <div className="flex items-center gap-2 text-xs">
-              <div className="flex flex-col items-end">
-                <span className="font-medium text-foreground">
-                  {balanceLoading ? "..." : `${balance?.toFixed(2) ?? "0"} SOL`}
-                </span>
-                <span className="text-muted-foreground">
-                  {priceLoading ? "" : `$${solPrice?.toFixed(0)}`}
-                </span>
-              </div>
-            </div>
-          )}
           <NotificationBell />
           <WalletButton />
         </div>
