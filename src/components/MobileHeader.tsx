@@ -15,6 +15,7 @@ import {
   Droplets,
   Loader2,
   Wallet,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -32,6 +33,7 @@ const navigation = [
   { name: "Create", href: "/create", icon: PlusCircle },
   { name: "Portfolio", href: "/portfolio", icon: Briefcase },
   { name: "Trade", href: "/trade", icon: ArrowLeftRight },
+  { name: "Graduated", href: "/graduated", icon: GraduationCap },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
   { name: "Profile", href: "/profile", icon: User },
 ];

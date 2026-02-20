@@ -1,11 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { Compass, Plus, ArrowLeftRight, Briefcase, User } from "lucide-react";
+import { Compass, Plus, ArrowLeftRight, GraduationCap, User } from "lucide-react";
 
 const tabs = [
   { name: "Explore", href: "/explore", icon: Compass },
   { name: "Create", href: "/create", icon: Plus },
-  { name: "Portfolio", href: "/portfolio", icon: Briefcase },
   { name: "Trade", href: "/trade", icon: ArrowLeftRight },
+  { name: "Graduated", href: "/graduated", icon: GraduationCap },
   { name: "Profile", href: "/profile", icon: User },
 ];
 
