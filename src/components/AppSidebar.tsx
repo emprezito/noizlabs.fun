@@ -14,6 +14,7 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
 } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ const navigation = [
   { name: "Create", href: "/create", icon: PlusCircle },
   { name: "Portfolio", href: "/portfolio", icon: Briefcase },
   { name: "Trade", href: "/trade", icon: ArrowLeftRight },
+  { name: "Graduated", href: "/graduated", icon: GraduationCap },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
   { name: "Profile", href: "/profile", icon: User },
 ];

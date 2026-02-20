@@ -55,6 +55,19 @@ export default function Graduated() {
           </div>
         </div>
 
+        {/* Mainnet notice */}
+        <Card className="p-4 border-primary/20 bg-primary/5 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+            <GraduationCap className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">Mainnet Feature</p>
+            <p className="text-xs text-muted-foreground">
+              Raydium pool creation and live trading of graduated tokens will be available once the platform launches on mainnet. Currently on devnet, graduations are simulated.
+            </p>
+          </div>
+        </Card>
+
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
