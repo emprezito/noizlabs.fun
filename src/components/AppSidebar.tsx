@@ -9,20 +9,11 @@ import {
   User,
   Shield,
   BarChart3,
-  Droplets,
-  Loader2,
-  Wallet,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
 } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Button } from "@/components/ui/button";
-import WalletButton from "./WalletButton";
-import { NotificationBell } from "./NotificationBell";
-import { useSolPrice } from "@/hooks/useSolPrice";
-import { useWalletBalance } from "@/hooks/useWalletBalance";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useSidebarState } from "./SidebarContext";
@@ -39,12 +30,9 @@ const navigation = [
 
 export function AppSidebar() {
   const { collapsed, toggleCollapsed } = useSidebarState();
-  const [requestingAirdrop, setRequestingAirdrop] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
-  const { price, loading } = useSolPrice();
-  const { publicKey, connected } = useWallet();
-  const { balance, loading: balanceLoading, refetch: refetchBalance } = useWalletBalance();
+  const { publicKey } = useWallet();
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -61,48 +49,6 @@ export function AppSidebar() {
     };
     checkAdmin();
   }, [publicKey]);
-
-  const requestAirdrop = async () => {
-    if (!publicKey) {
-      toast.error("Please connect your wallet first");
-      return;
-    }
-
-    setRequestingAirdrop(true);
-    try {
-      const { data, error, response } = await supabase.functions.invoke("devnet-faucet", {
-        body: { walletAddress: publicKey.toBase58() },
-      });
-
-      if (data?.rateLimited) {
-        const minutes = typeof data.minutesRemaining === "number" ? data.minutesRemaining : null;
-        if (minutes != null) {
-          toast.error(`Please wait ${minutes} minute${minutes > 1 ? "s" : ""} before requesting again`);
-          return;
-        }
-        toast.error("Rate limited. Please try again later.");
-        return;
-      }
-
-      if (error) {
-        const status = (response as any)?.status;
-        if (status === 429) {
-          toast.error("Rate limited. Please try again later.");
-          return;
-        }
-        throw new Error("Faucet request failed");
-      }
-
-      const receivedAmount = data?.amount ?? 0.5;
-      toast.success(`Received ${receivedAmount} SOL! (Devnet)`);
-      setTimeout(() => refetchBalance(), 2000);
-    } catch (error: any) {
-      console.error("Faucet error:", error);
-      toast.error(error.message || "Faucet request failed. Try again later.");
-    } finally {
-      setRequestingAirdrop(false);
-    }
-  };
 
   const isActive = (href: string) => {
     if (href === "/") return location.pathname === "/";
@@ -177,58 +123,6 @@ export function AppSidebar() {
           </>
         )}
       </nav>
-
-      {/* Wallet Section */}
-      <div className="p-2 border-t border-border space-y-2">
-        {connected && !collapsed && (
-          <div className="px-3 py-2 bg-muted/50 rounded-lg space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Balance</span>
-              <span className="font-medium">
-                {balanceLoading ? "..." : `${balance?.toFixed(2) ?? "0"} SOL`}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">SOL Price</span>
-              <span className="font-medium">{loading ? "..." : `$${price?.toFixed(2)}`}</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={requestAirdrop}
-              disabled={requestingAirdrop}
-              className="w-full"
-            >
-              {requestingAirdrop ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-              ) : (
-                <Droplets className="w-3.5 h-3.5 mr-1.5" />
-              )}
-              Get Devnet SOL
-            </Button>
-          </div>
-        )}
-
-        {connected && collapsed && (
-          <div className="flex flex-col items-center gap-2">
-            <div className="text-xs font-medium text-center">
-              {balanceLoading ? "..." : `${balance?.toFixed(1) ?? "0"}`}
-            </div>
-          </div>
-        )}
-
-        <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "")}>
-          <NotificationBell />
-          <div className={cn(collapsed ? "hidden" : "flex-1")}>
-            <WalletButton />
-          </div>
-          {collapsed && (
-            <div className="flex justify-center">
-              <WalletButton />
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* Collapse Toggle */}
       <button
