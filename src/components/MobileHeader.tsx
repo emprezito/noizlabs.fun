@@ -108,8 +108,8 @@ export function MobileHeader() {
 
   return (
     <div className="md:hidden">
-      {/* Top bar with wallet info */}
-      <div className="relative flex items-center justify-between px-3 py-2 bg-background border-b border-border">
+      {/* Top bar – glassmorphism style matching desktop */}
+      <div className="relative flex items-center justify-between h-14 px-3 sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-xl">
         {/* Left: Hamburger + Logo */}
         <div className="flex items-center gap-2">
           <Sheet open={open} onOpenChange={setOpen}>
@@ -217,8 +217,18 @@ export function MobileHeader() {
             </SheetContent>
           </Sheet>
 
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex items-center gap-1.5">
             <span className="text-xl">🎵</span>
+            <span
+              className="text-sm font-bold tracking-tight"
+              style={{
+                background: "linear-gradient(135deg, hsl(252 76% 61%), hsl(250 80% 75%))",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              NoizLabs
+            </span>
           </Link>
         </div>
 
