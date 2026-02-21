@@ -125,7 +125,7 @@ export function MobileHeader() {
   return (
     <div className="md:hidden">
       <div className="flex items-center justify-between h-16 px-3 sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-xl">
-        {/* Left: Hamburger + Logo */}
+        {/* Left: Hamburger + Logo icon */}
         <div className="flex items-center gap-1.5">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -173,25 +173,13 @@ export function MobileHeader() {
             </SheetContent>
           </Sheet>
 
-          <Link to="/" className="flex items-center gap-1.5">
+          <Link to="/">
             <span className="text-xl">🎵</span>
-            <span
-              className="text-sm font-bold tracking-tight"
-              style={{
-                background: "linear-gradient(135deg, hsl(252 76% 61%), hsl(250 80% 75%))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              NoizLabs
-            </span>
           </Link>
         </div>
 
-        {/* Right: Notifications + Wallet */}
-        <div className="flex items-center gap-2">
-          <NotificationBell />
-
+        {/* Center: Wallet Module */}
+        <div className="flex items-center">
           {connecting && (
             <Button disabled size="sm" className="h-9 px-3 gap-1.5 cursor-wait">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -203,7 +191,7 @@ export function MobileHeader() {
             <>
               <Button onClick={() => setWalletModalOpen(true)} size="sm" className="h-9 px-3 gap-1.5">
                 <Wallet className="w-3.5 h-3.5" />
-                <span className="text-xs">Connect</span>
+                <span className="text-xs">Connect Wallet</span>
               </Button>
               <CustomWalletModal open={walletModalOpen} onOpenChange={setWalletModalOpen} />
             </>
@@ -219,7 +207,7 @@ export function MobileHeader() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                align="end"
+                align="center"
                 className="w-60 p-0 z-[60] bg-popover border border-border rounded-xl overflow-hidden"
               >
                 <div className="p-3 space-y-2">
@@ -274,6 +262,11 @@ export function MobileHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+        </div>
+
+        {/* Right: Notification Bell */}
+        <div className="flex items-center">
+          <NotificationBell />
         </div>
       </div>
     </div>
