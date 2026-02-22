@@ -178,8 +178,8 @@ export function MobileHeader() {
           </Link>
         </div>
 
-        {/* Center: Wallet Module */}
-        <div className="flex items-center">
+        {/* Right: Wallet + Notification */}
+        <div className="flex items-center gap-1.5">
           {connecting && (
             <Button disabled size="sm" className="h-9 px-3 gap-1.5 cursor-wait">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -198,74 +198,73 @@ export function MobileHeader() {
           )}
 
           {!connecting && connected && publicKey && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1.5 h-9 pl-1 pr-2 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer select-none">
-                  <WalletIdenticon address={publicKey.toBase58()} size={28} />
-                  <span className="text-xs font-medium text-foreground">{truncatedAddress}</span>
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="center"
-                className="w-60 p-0 z-[60] bg-popover border border-border rounded-xl overflow-hidden"
-              >
-                <div className="p-3 space-y-2">
-                  <div className="flex items-center gap-2.5">
-                    <WalletIdenticon address={publicKey.toBase58()} size={36} />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{truncatedAddress}</p>
-                      <button
-                        onClick={handleCopy}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                      >
-                        <Copy className="w-3 h-3" />
-                        Copy address
-                      </button>
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-1.5 h-9 pl-1 pr-2 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer select-none">
+                    <WalletIdenticon address={publicKey.toBase58()} size={28} />
+                    <span className="text-xs font-medium text-foreground">{truncatedAddress}</span>
+                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-60 p-0 z-[60] bg-popover border border-border rounded-xl overflow-hidden"
+                >
+                  <div className="p-3 space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <WalletIdenticon address={publicKey.toBase58()} size={36} />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{truncatedAddress}</p>
+                        <button
+                          onClick={handleCopy}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                        >
+                          <Copy className="w-3 h-3" />
+                          Copy address
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 p-2.5 rounded-lg bg-muted/40 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">SOL Balance</span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {balanceLoading ? "…" : `${balance?.toFixed(4) ?? "0"} SOL`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">USD Value</span>
+                        <span className="text-sm text-foreground">
+                          {balanceLoading || priceLoading ? "…" : `$${usdValue ?? "0.00"}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">SOL Price</span>
+                        <span className="text-sm text-foreground">
+                          {priceLoading ? "…" : `$${solPrice?.toFixed(2)}`}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-2 p-2.5 rounded-lg bg-muted/40 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">SOL Balance</span>
-                      <span className="text-sm font-semibold text-foreground">
-                        {balanceLoading ? "…" : `${balance?.toFixed(4) ?? "0"} SOL`}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">USD Value</span>
-                      <span className="text-sm text-foreground">
-                        {balanceLoading || priceLoading ? "…" : `$${usdValue ?? "0.00"}`}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">SOL Price</span>
-                      <span className="text-sm text-foreground">
-                        {priceLoading ? "…" : `$${solPrice?.toFixed(2)}`}
-                      </span>
-                    </div>
+                  <DropdownMenuSeparator className="m-0" />
+
+                  <div className="p-1.5">
+                    <DropdownMenuItem onClick={requestAirdrop} disabled={requestingAirdrop} className="gap-2 cursor-pointer rounded-lg text-sm">
+                      {requestingAirdrop ? <Loader2 className="w-4 h-4 animate-spin" /> : <Droplets className="w-4 h-4" />}
+                      Get Devnet SOL
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDisconnect} className="gap-2 cursor-pointer rounded-lg text-sm text-destructive focus:text-destructive">
+                      <LogOut className="w-4 h-4" />
+                      Disconnect
+                    </DropdownMenuItem>
                   </div>
-                </div>
-
-                <DropdownMenuSeparator className="m-0" />
-
-                <div className="p-1.5">
-                  <DropdownMenuItem onClick={requestAirdrop} disabled={requestingAirdrop} className="gap-2 cursor-pointer rounded-lg text-sm">
-                    {requestingAirdrop ? <Loader2 className="w-4 h-4 animate-spin" /> : <Droplets className="w-4 h-4" />}
-                    Get Devnet SOL
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDisconnect} className="gap-2 cursor-pointer rounded-lg text-sm text-destructive focus:text-destructive">
-                    <LogOut className="w-4 h-4" />
-                    Disconnect
-                  </DropdownMenuItem>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
-        </div>
 
-        {/* Right: Notification Bell */}
-        <div className="flex items-center">
           <NotificationBell />
         </div>
       </div>
