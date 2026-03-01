@@ -16,7 +16,50 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, wallet_address, quest_id, quest_data } = await req.json();
+    const body = await req.json();
+    const { action, wallet_address, quest_id, quest_data } = body;
+
+    // Validate required fields
+    if (!action || typeof action !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Invalid action" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!wallet_address || typeof wallet_address !== "string" || wallet_address.length < 20 || wallet_address.length > 50) {
+      return new Response(
+        JSON.stringify({ error: "Invalid wallet_address" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate quest_data for create/update
+    if ((action === "create" || action === "update") && quest_data) {
+      if (quest_data.display_name && (typeof quest_data.display_name !== "string" || quest_data.display_name.length > 200)) {
+        return new Response(
+          JSON.stringify({ error: "display_name too long (max 200)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (quest_data.description && (typeof quest_data.description !== "string" || quest_data.description.length > 1000)) {
+        return new Response(
+          JSON.stringify({ error: "description too long (max 1000)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (quest_data.target !== undefined && (typeof quest_data.target !== "number" || quest_data.target < 1 || quest_data.target > 1000000)) {
+        return new Response(
+          JSON.stringify({ error: "target must be between 1 and 1000000" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (quest_data.points_reward !== undefined && (typeof quest_data.points_reward !== "number" || quest_data.points_reward < 0 || quest_data.points_reward > 100000)) {
+        return new Response(
+          JSON.stringify({ error: "points_reward must be between 0 and 100000" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     // Verify admin wallet
     const { data: adminWallet } = await supabase

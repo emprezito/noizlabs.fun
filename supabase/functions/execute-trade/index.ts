@@ -151,14 +151,39 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { mintAddress, walletAddress, tradeType, amount, signature }: TradeRequest = await req.json();
+    const body = await req.json();
+    const { mintAddress, walletAddress, tradeType, amount, signature } = body as TradeRequest;
 
     console.log(`Processing ${tradeType} trade:`, { mintAddress, walletAddress, amount, signature });
 
     // Validate inputs
-    if (!mintAddress || !walletAddress || !tradeType || !amount || amount <= 0 || !signature) {
+    if (!mintAddress || typeof mintAddress !== 'string' || mintAddress.length < 32 || mintAddress.length > 50) {
       return new Response(
-        JSON.stringify({ error: 'Invalid trade parameters. Required: mintAddress, walletAddress, tradeType, amount, signature' }),
+        JSON.stringify({ error: 'Invalid mintAddress' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.length < 32 || walletAddress.length > 50) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid walletAddress' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (tradeType !== 'buy' && tradeType !== 'sell') {
+      return new Response(
+        JSON.stringify({ error: 'tradeType must be buy or sell' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (typeof amount !== 'number' || amount <= 0 || amount > 1e15 || !Number.isFinite(amount)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid amount' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!signature || typeof signature !== 'string' || signature.length < 64 || signature.length > 128) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid signature' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
