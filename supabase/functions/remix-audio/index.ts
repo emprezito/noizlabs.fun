@@ -80,20 +80,102 @@ serve(async (req) => {
       throw new Error(`Invalid variation type: ${variationType}. Valid types: ${Object.keys(REMIX_VARIATIONS).join(', ')}`);
     }
 
-    // Check if variation requires payment
-    if (!variation.isFree && !paymentTxSignature) {
-      return new Response(JSON.stringify({
-        error: "This variation requires payment of 0.01 SOL",
-        requiresPayment: true,
-        cost: 0.01,
-      }), {
-        status: 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Check if variation requires payment and validate on-chain
+    if (!variation.isFree) {
+      if (!paymentTxSignature) {
+        return new Response(JSON.stringify({
+          error: "This variation requires payment of 0.01 SOL",
+          requiresPayment: true,
+          cost: 0.01,
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Validate payment tx signature format
+      if (typeof paymentTxSignature !== 'string' || paymentTxSignature.length < 64 || paymentTxSignature.length > 128) {
+        return new Response(JSON.stringify({ error: "Invalid payment signature format" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if signature was already used (prevent replay)
+      const { data: existingUse } = await supabase
+        .from('token_remixes')
+        .select('id')
+        .eq('payment_tx_signature', paymentTxSignature)
+        .maybeSingle();
+
+      if (existingUse) {
+        return new Response(JSON.stringify({ error: "Payment signature already used" }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify payment on-chain
+      try {
+        const { Connection, PublicKey } = await import("https://esm.sh/@solana/web3.js@1.98.4");
+        const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+        const tx = await connection.getTransaction(paymentTxSignature, {
+          maxSupportedTransactionVersion: 0,
+        });
+
+        if (!tx || tx.meta?.err) {
+          return new Response(JSON.stringify({ error: "Payment transaction not found or failed" }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Verify transaction is recent (within 1 hour)
+        const txTimestamp = tx.blockTime ? tx.blockTime * 1000 : 0;
+        if (Date.now() - txTimestamp > 3600000) {
+          return new Response(JSON.stringify({ error: "Payment transaction too old" }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Verify payment amount (0.01 SOL = 10,000,000 lamports)
+        const REQUIRED_LAMPORTS = 10_000_000;
+        const PLATFORM_WALLET = "5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7";
+        const accountKeys = tx.transaction.message.staticAccountKeys ||
+                           tx.transaction.message.accountKeys;
+        const platformIndex = accountKeys.findIndex(
+          (key: any) => key.toBase58() === PLATFORM_WALLET
+        );
+
+        if (platformIndex === -1) {
+          return new Response(JSON.stringify({ error: "Payment not sent to platform wallet" }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const amountReceived = (tx.meta?.postBalances?.[platformIndex] ?? 0) -
+                               (tx.meta?.preBalances?.[platformIndex] ?? 0);
+        if (amountReceived < REQUIRED_LAMPORTS) {
+          return new Response(JSON.stringify({ error: "Insufficient payment amount" }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        console.log("Payment verified on-chain:", paymentTxSignature);
+      } catch (verifyError) {
+        console.error("Payment verification error:", verifyError);
+        return new Response(JSON.stringify({ error: "Could not verify payment on-chain" }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Check if AI audio remix feature is enabled
     const { data: featureFlag } = await supabase
