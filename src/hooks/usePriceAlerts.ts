@@ -155,13 +155,16 @@ async function createNotification(
   type: string,
   tokenMint: string
 ) {
-  // Save to database
-  const { error } = await supabase.from("notifications").insert({
-    wallet_address: walletAddress,
-    title,
-    message,
-    type,
-    token_mint: tokenMint,
+  // Save via edge function
+  const { error } = await supabase.functions.invoke("manage-user-data", {
+    body: {
+      action: "create_notification",
+      walletAddress: walletAddress,
+      title,
+      message,
+      type,
+      tokenMint: tokenMint,
+    },
   });
 
   if (error) {

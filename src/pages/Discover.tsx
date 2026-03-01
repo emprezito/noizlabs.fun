@@ -279,19 +279,20 @@ const DiscoverPage = () => {
       const coverImageUrl = imageFuncData.url;
       toast.success("Uploaded to IPFS!");
 
-      const { data, error } = await supabase.from("audio_clips").insert({
-        title: uploadTitle,
-        creator: creatorName,
-        audio_url: audioUrl,
-        cover_image_url: coverImageUrl,
-        category: uploadCategory,
-        wallet_address: walletAddress,
-        likes: 0,
-        shares: 0,
-        plays: 0,
-      }).select().single();
+      const { data: clipResult, error } = await supabase.functions.invoke("manage-user-data", {
+        body: {
+          action: "create_audio_clip",
+          walletAddress,
+          title: uploadTitle,
+          creator: creatorName,
+          audioUrl: audioUrl,
+          coverImageUrl: coverImageUrl,
+          category: uploadCategory,
+        },
+      });
 
       if (error) throw error;
+      const data = clipResult?.data;
 
       const newClip: AudioClip = {
         id: data.id,

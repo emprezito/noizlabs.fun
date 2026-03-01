@@ -109,14 +109,15 @@ export function usePushNotifications() {
 
       const subscriptionJson = subscription.toJSON();
       
-      // Save to database
-      const { error } = await supabase.from("push_subscriptions").upsert({
-        wallet_address: publicKey.toBase58(),
-        endpoint: subscription.endpoint,
-        p256dh: subscriptionJson.keys?.p256dh || "",
-        auth: subscriptionJson.keys?.auth || "",
-      }, {
-        onConflict: "wallet_address,endpoint"
+      // Save via edge function
+      const { error } = await supabase.functions.invoke("manage-user-data", {
+        body: {
+          action: "upsert_push_subscription",
+          walletAddress: publicKey.toBase58(),
+          endpoint: subscription.endpoint,
+          p256dh: subscriptionJson.keys?.p256dh || "",
+          auth: subscriptionJson.keys?.auth || "",
+        },
       });
 
       if (error) throw error;
@@ -145,12 +146,14 @@ export function usePushNotifications() {
       if (subscription) {
         await subscription.unsubscribe();
         
-        // Remove from database
-        await supabase
-          .from("push_subscriptions")
-          .delete()
-          .eq("wallet_address", publicKey.toBase58())
-          .eq("endpoint", subscription.endpoint);
+        // Remove via edge function
+        await supabase.functions.invoke("manage-user-data", {
+          body: {
+            action: "delete_push_subscription",
+            walletAddress: publicKey.toBase58(),
+            endpoint: subscription.endpoint,
+          },
+        });
       }
 
       setIsSubscribed(false);

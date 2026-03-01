@@ -82,10 +82,14 @@ export function NotificationBell() {
   }, [publicKey]);
 
   const markAsRead = async (id: string) => {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("id", id);
+    if (!publicKey) return;
+    const { error } = await supabase.functions.invoke("manage-user-data", {
+      body: {
+        action: "mark_notification_read",
+        walletAddress: publicKey.toBase58(),
+        notificationId: id,
+      },
+    });
 
     if (!error) {
       setNotifications((prev) =>
@@ -98,11 +102,12 @@ export function NotificationBell() {
   const markAllAsRead = async () => {
     if (!publicKey) return;
 
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("wallet_address", publicKey.toBase58())
-      .eq("read", false);
+    const { error } = await supabase.functions.invoke("manage-user-data", {
+      body: {
+        action: "mark_all_notifications_read",
+        walletAddress: publicKey.toBase58(),
+      },
+    });
 
     if (!error) {
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));

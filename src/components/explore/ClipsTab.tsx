@@ -198,10 +198,16 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
       const { data: imageFuncData, error: imageFuncError } = await supabase.functions.invoke('upload-to-ipfs', { body: imageFormData });
       if (imageFuncError || !imageFuncData?.success) throw new Error(imageFuncData?.error || 'Failed to upload image');
 
-      const { error } = await supabase.from("audio_clips").insert({
-        title: uploadTitle, creator: creatorName, audio_url: audioFuncData.url,
-        cover_image_url: imageFuncData.url, category: uploadCategory, wallet_address: walletAddress,
-        likes: 0, shares: 0, plays: 0,
+      const { data: clipResult, error } = await supabase.functions.invoke("manage-user-data", {
+        body: {
+          action: "create_audio_clip",
+          walletAddress,
+          title: uploadTitle,
+          creator: creatorName,
+          audioUrl: audioFuncData.url,
+          coverImageUrl: imageFuncData.url,
+          category: uploadCategory,
+        },
       });
       if (error) throw error;
 

@@ -394,22 +394,22 @@ const Admin = () => {
         const initialSolReserves = 25_000_000_000;
         const initialTokenReserves = 950_000_000_000_000_000;
         
-        await supabase.from("tokens").insert({
-          mint_address: mintAddr,
-          name: clip.title.slice(0, 32),
-          symbol: symbol.slice(0, 10),
-          creator_wallet: publicKey.toBase58(),
-          initial_price: 1,
-          total_supply: 1_000_000_000,
-          metadata_uri: metadataUri,
-          audio_clip_id: clip.id,
-          audio_url: clip.audio_url,
-          sol_reserves: initialSolReserves,
-          token_reserves: initialTokenReserves,
-          tokens_sold: 0,
-          total_volume: 0,
-          is_active: true,
-        } as any);
+        await supabase.functions.invoke("manage-user-data", {
+          body: {
+            action: "create_token_record",
+            tokenData: {
+              mintAddress: mintAddr,
+              name: clip.title.slice(0, 32),
+              symbol: symbol.slice(0, 10),
+              creatorWallet: publicKey.toBase58(),
+              metadataUri,
+              audioClipId: clip.id,
+              audioUrl: clip.audio_url,
+              solReserves: initialSolReserves,
+              tokenReserves: initialTokenReserves,
+            },
+          },
+        });
 
         toast.success(`Minted: ${clip.title}`);
         successCount++;

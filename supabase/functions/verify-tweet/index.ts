@@ -186,16 +186,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if this tweet has already been used for verification
+    // Check if THIS WALLET has already used this tweet (per-wallet, not global)
     const { data: existingVerification } = await supabase
       .from('tweet_verifications')
       .select('id')
       .eq('tweet_id', tweetId)
+      .eq('wallet_address', walletAddress)
       .maybeSingle();
 
     if (existingVerification) {
       return new Response(
-        JSON.stringify({ success: false, error: 'This tweet has already been used for verification.' }),
+        JSON.stringify({ success: false, error: 'You have already verified this tweet.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
