@@ -379,23 +379,24 @@ const ProfilePage = () => {
         return;
       }
 
-      // Apply referral
-      await supabase
-        .from("user_points")
-        .update({ referred_by: referralInput.trim().toUpperCase() })
-        .eq("wallet_address", publicKey.toString());
+      // Apply referral via server-side edge function
+      const { data: result, error: applyError } = await supabase.functions.invoke("update-points", {
+        body: {
+          action: "apply_referral",
+          walletAddress: publicKey.toString(),
+          referralCode: referralInput.trim().toUpperCase(),
+        },
+      });
 
-      // Bonus points to user who applied the code
-      const currentPoints = userStats?.total_points || 0;
-      await supabase
-        .from("user_points")
-        .update({ total_points: currentPoints + 100 })
-        .eq("wallet_address", publicKey.toString());
+      if (applyError || result?.error) {
+        toast.error(result?.error || "Failed to apply referral code");
+        return;
+      }
 
       setUserStats((prev) => prev ? { 
         ...prev, 
         referred_by: referralInput.trim().toUpperCase(),
-        total_points: (prev.total_points || 0) + 100
+        total_points: result.newTotal
       } : null);
       toast.success("Referral code applied! You earned 100 bonus points!");
       setReferralInput("");

@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Play, Pause, Heart, Share2, Coins, Plus, Upload, Loader2, MoreHorizontal, ArrowRightLeft, Sparkles, X } from "lucide-react";
 import ImageLightbox from "@/components/ImageLightbox";
-import { updateTaskProgress, ensureUserTasks, updateEngagementProgress } from "@/lib/taskUtils";
+import { updateTaskProgress, ensureUserTasks } from "@/lib/taskUtils";
 
 interface AudioClip {
   id: string;
@@ -227,55 +227,38 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
     if (!clip) return;
     
     const walletAddress = publicKey.toString();
-    const clipOwnerWallet = clip.walletAddress;
     
     if (clip.hasLiked) {
-      // Unlike - remove from clip_likes and decrement
+      // Optimistic unlike
       const newLikes = Math.max(0, clip.likes - 1);
       setClips(clips.map((c) => c.id === clipId ? { ...c, likes: newLikes, hasLiked: false } : c));
       try {
-        await supabase.from("clip_likes").delete().eq("audio_clip_id", clipId).eq("wallet_address", walletAddress);
-        await supabase.from("audio_clips").update({ likes: newLikes }).eq("id", clipId);
-        // Update clip owner's engagement progress (decrease)
-        if (clipOwnerWallet) {
-          await updateEngagementProgress(clipOwnerWallet);
-        }
+        const { data, error } = await supabase.functions.invoke("update-engagement", {
+          body: { action: "unlike", clipId, walletAddress },
+        });
+        if (error) throw error;
+        setClips(prev => prev.map((c) => c.id === clipId ? { ...c, likes: data.likes } : c));
       } catch (error) { 
         console.error("Error removing like:", error);
-        // Revert on error
         setClips(clips.map((c) => c.id === clipId ? { ...c, likes: clip.likes, hasLiked: true } : c));
       }
     } else {
-      // Like - add to clip_likes and increment
+      // Optimistic like
       const newLikes = clip.likes + 1;
       setClips(clips.map((c) => c.id === clipId ? { ...c, likes: newLikes, hasLiked: true } : c));
       try {
-        const { error: likeError } = await supabase.from("clip_likes").insert({ 
-          audio_clip_id: clipId, 
-          wallet_address: walletAddress 
+        const { data, error } = await supabase.functions.invoke("update-engagement", {
+          body: { action: "like", clipId, walletAddress },
         });
-        
-        if (likeError) {
-          // If duplicate key error, user already liked
-          if (likeError.code === '23505') {
-            toast.error("You've already liked this clip");
-            setClips(clips.map((c) => c.id === clipId ? { ...c, likes: clip.likes, hasLiked: true } : c));
-            return;
-          }
-          throw likeError;
+        if (error) throw error;
+        if (data?.alreadyLiked) {
+          toast.error("You've already liked this clip");
+          setClips(clips.map((c) => c.id === clipId ? { ...c, likes: clip.likes, hasLiked: true } : c));
+          return;
         }
-        
-        await supabase.from("audio_clips").update({ likes: newLikes }).eq("id", clipId);
-        await supabase.from("user_interactions").insert({ wallet_address: walletAddress, audio_clip_id: clipId, interaction_type: "like" });
-        await updateTaskProgress(walletAddress, "like_clips", 1);
-        
-        // Update clip owner's engagement progress
-        if (clipOwnerWallet) {
-          await updateEngagementProgress(clipOwnerWallet);
-        }
+        setClips(prev => prev.map((c) => c.id === clipId ? { ...c, likes: data.likes } : c));
       } catch (error) { 
         console.error("Error updating like:", error);
-        // Revert on error
         setClips(clips.map((c) => c.id === clipId ? { ...c, likes: clip.likes, hasLiked: false } : c));
       }
     }
@@ -289,14 +272,11 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
       const newShares = clip.shares + 1;
       setClips(clips.map((c) => (c.id === clipId ? { ...c, shares: newShares } : c)));
       try {
-        await supabase.from("audio_clips").update({ shares: newShares }).eq("id", clipId);
-        if (publicKey) {
-          await supabase.from("user_interactions").insert({ wallet_address: publicKey.toString(), audio_clip_id: clipId, interaction_type: "share" });
-          await updateTaskProgress(publicKey.toString(), "share_clips", 1);
-        }
-        // Update clip owner's engagement progress
-        if (clip.walletAddress) {
-          await updateEngagementProgress(clip.walletAddress);
+        const { data } = await supabase.functions.invoke("update-engagement", {
+          body: { action: "share", clipId, walletAddress: publicKey?.toString() || "" },
+        });
+        if (data) {
+          setClips(prev => prev.map((c) => c.id === clipId ? { ...c, shares: data.shares } : c));
         }
       } catch (error) { console.error("Error updating share:", error); }
     }
@@ -320,12 +300,11 @@ const ClipsTab = ({ showUploadModal, setShowUploadModal }: ClipsTabProps) => {
 
       const newPlays = clip.plays + 1;
       setClips(clips.map((c) => (c.id === clipId ? { ...c, plays: newPlays } : c)));
-      await supabase.from("audio_clips").update({ plays: newPlays }).eq("id", clipId);
-
-      if (publicKey) {
-        await supabase.from("user_interactions").insert({ wallet_address: publicKey.toString(), audio_clip_id: clipId, interaction_type: "play" });
-        await updateTaskProgress(publicKey.toString(), "listen_clips", 1);
-      }
+      
+      // Update server-side
+      await supabase.functions.invoke("update-engagement", {
+        body: { action: "play", clipId, walletAddress: publicKey?.toString() || "" },
+      });
     } catch (error) {
       console.error("Error playing audio:", error);
       toast.error("Failed to play audio");
