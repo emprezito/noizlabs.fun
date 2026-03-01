@@ -116,13 +116,13 @@ const Portfolio = () => {
     const walletAddress = publicKey.toBase58();
     const newValue = !notificationsEnabled;
 
-    const { error } = await supabase
-      .from("notification_preferences")
-      .upsert({
-        wallet_address: walletAddress,
-        price_alerts_enabled: newValue,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "wallet_address" });
+    const { error } = await supabase.functions.invoke("manage-user-data", {
+      body: {
+        action: "upsert_notification_prefs",
+        walletAddress: walletAddress,
+        priceAlertsEnabled: newValue,
+      },
+    });
 
     if (error) {
       toast.error("Failed to update notification preferences");

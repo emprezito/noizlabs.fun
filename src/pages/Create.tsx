@@ -436,46 +436,38 @@ const CreatePage = () => {
       const finalImageUrl = uploadResult.imageUrl || preloadedCoverImageUrl || null;
       
       try {
-        await supabase.from("tokens").insert({
-          mint_address: mintAddr,
-          name: name.slice(0, 32),
-          symbol: symbol.slice(0, 10),
-          creator_wallet: walletAddress,
-          initial_price: 1, // Starting price is very low
-          total_supply: 1_000_000_000,
-          metadata_uri: metadataUri,
-          audio_clip_id: preloadedClipId || null,
-          audio_url: finalAudioUrl,
-          cover_image_url: finalImageUrl,
-          sol_reserves: initialSolReserves,
-          token_reserves: initialTokenReserves,
-          tokens_sold: 0,
-          total_volume: 0,
-          is_active: true,
-          is_remix: isRemix,
-          original_token_id: isRemix ? originalTokenId : null,
-          royalty_recipient: royaltyRecipient,
-          royalty_percentage: isRemix ? 10 : 0, // 10% royalty to original creator
-        } as any);
-        
-        // Create vesting record for creator's 5% allocation (21-day cliff)
-        const creatorAllocation = (BigInt(1_000_000_000) * BigInt(1e9) * BigInt(5)) / BigInt(100); // 5% with 9 decimals
+        const creatorAllocation = (BigInt(1_000_000_000) * BigInt(1e9) * BigInt(5)) / BigInt(100);
         const cliffEnd = new Date();
-        cliffEnd.setDate(cliffEnd.getDate() + 21); // 21 days cliff
-        
-        await supabase.from("token_vesting").insert({
-          mint_address: mintAddr,
-          wallet_address: walletAddress,
-          token_amount: creatorAllocation.toString(),
-          cliff_end: cliffEnd.toISOString(),
-        } as any);
-        
-        console.log("Created vesting record for creator:", {
-          mintAddress: mintAddr,
-          walletAddress,
-          tokenAmount: creatorAllocation.toString(),
-          cliffEnd: cliffEnd.toISOString(),
+        cliffEnd.setDate(cliffEnd.getDate() + 21);
+
+        await supabase.functions.invoke("manage-user-data", {
+          body: {
+            action: "create_token_record",
+            tokenData: {
+              mintAddress: mintAddr,
+              name: name.slice(0, 32),
+              symbol: symbol.slice(0, 10),
+              creatorWallet: walletAddress,
+              metadataUri,
+              audioClipId: preloadedClipId || null,
+              audioUrl: finalAudioUrl,
+              coverImageUrl: finalImageUrl,
+              solReserves: initialSolReserves,
+              tokenReserves: initialTokenReserves,
+              isRemix,
+              originalTokenId: isRemix ? originalTokenId : null,
+              royaltyRecipient,
+              royaltyPercentage: isRemix ? 10 : 0,
+            },
+            vestingData: {
+              vestingWallet: walletAddress,
+              tokenAmount: creatorAllocation.toString(),
+              cliffEnd: cliffEnd.toISOString(),
+            },
+          },
         });
+
+        console.log("Created token and vesting record:", { mintAddress: mintAddr, walletAddress });
         
         if (isRemix) {
           toast.success("Remix token created! Original creator earns 10% on trades.");

@@ -44,3 +44,12 @@ verify_jwt = false
 
 [functions.check-migration-threshold]
 verify_jwt = false
+
+[functions.manage-user-data]
+verify_jwt = false
+
+[functions.update-points]
+verify_jwt = false
+
+[functions.update-engagement]
+verify_jwt = false
