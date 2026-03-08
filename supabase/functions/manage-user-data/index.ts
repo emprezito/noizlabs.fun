@@ -51,7 +51,8 @@ serve(async (req) => {
 
     // Common wallet validation
     const walletAddress = body.walletAddress as string | undefined;
-    if (action !== "create_token_record" && (!walletAddress || typeof walletAddress !== "string" || walletAddress.length < 20 || walletAddress.length > 50)) {
+    const skipWalletValidation = ["create_token_record"];
+    if (!skipWalletValidation.includes(action) && (!walletAddress || typeof walletAddress !== "string" || walletAddress.length < 20 || walletAddress.length > 50)) {
       return new Response(
         JSON.stringify({ error: "Invalid walletAddress" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
