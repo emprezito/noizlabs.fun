@@ -56,15 +56,16 @@ export function usePushNotifications() {
         const subscription = await (registration as any).pushManager?.getSubscription();
         
         if (subscription) {
-          // Verify subscription exists in database
-          const { data } = await supabase
-            .from("push_subscriptions")
-            .select("id")
-            .eq("wallet_address", publicKey.toBase58())
-            .eq("endpoint", subscription.endpoint)
-            .maybeSingle();
+          // Verify subscription exists via edge function
+          const { data } = await supabase.functions.invoke("manage-user-data", {
+            body: {
+              action: "check_push_subscription",
+              walletAddress: publicKey.toBase58(),
+              endpoint: subscription.endpoint,
+            },
+          });
           
-          setIsSubscribed(!!data);
+          setIsSubscribed(!!data?.exists);
         } else {
           setIsSubscribed(false);
         }
