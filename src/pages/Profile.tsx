@@ -205,10 +205,16 @@ const ProfilePage = () => {
     
     setSavingUsername(true);
     try {
-      await supabase
-        .from("user_points")
-        .update({ username: username.trim() })
-        .eq("wallet_address", publicKey.toString());
+      // Update username via server-side edge function
+      const { error } = await supabase.functions.invoke("manage-user-data", {
+        body: {
+          action: "update_username",
+          walletAddress: publicKey.toString(),
+          username: username.trim(),
+        },
+      });
+      
+      if (error) throw error;
       
       setUserStats((prev) => prev ? { ...prev, username: username.trim() } : null);
       toast.success("Username saved!");

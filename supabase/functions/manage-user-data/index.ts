@@ -246,6 +246,17 @@ serve(async (req) => {
       return new Response(JSON.stringify({ isAdmin: !!data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // === Update username ===
+    if (action === "update_username") {
+      const newUsername = body.username as string;
+      if (!newUsername || typeof newUsername !== "string" || newUsername.length > 50) {
+        return new Response(JSON.stringify({ error: "Invalid username" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { error } = await supabase.from("user_points").update({ username: newUsername.trim() }).eq("wallet_address", walletAddress!);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ error: "Unhandled action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: unknown) {
     console.error("Error in manage-user-data:", error);

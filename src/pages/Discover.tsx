@@ -442,24 +442,17 @@ const DiscoverPage = () => {
       
       await audio.play();
       
-      // Update play count
+      // Update play count via server-side edge function
       const newPlays = clip.plays + 1;
       setClips(clips.map((c) => (c.id === clipId ? { ...c, plays: newPlays } : c)));
 
-      await supabase
-        .from("audio_clips")
-        .update({ plays: newPlays })
-        .eq("id", clipId);
-
-      // Track interaction and update task progress
-      if (publicKey) {
-        await supabase.from("user_interactions").insert({
-          wallet_address: publicKey.toString(),
-          audio_clip_id: clipId,
-          interaction_type: "play",
-        });
-        await updateTaskProgress(publicKey.toString(), "listen_clips", 1);
-      }
+      await supabase.functions.invoke("update-engagement", {
+        body: {
+          action: "play",
+          clipId,
+          walletAddress: publicKey?.toString() || null,
+        },
+      });
     } catch (error) {
       console.error("Error playing audio:", error);
       toast.error("Failed to play audio");
