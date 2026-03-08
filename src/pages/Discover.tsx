@@ -387,20 +387,15 @@ const DiscoverPage = () => {
       const newShares = clip.shares + 1;
       setClips(clips.map((c) => (c.id === clipId ? { ...c, shares: newShares } : c)));
 
+      // Update via server-side edge function
       try {
-        await supabase
-          .from("audio_clips")
-          .update({ shares: newShares })
-          .eq("id", clipId);
-
-        if (publicKey) {
-          await supabase.from("user_interactions").insert({
-            wallet_address: publicKey.toString(),
-            audio_clip_id: clipId,
-            interaction_type: "share",
-          });
-          await updateTaskProgress(publicKey.toString(), "share_clips", 1);
-        }
+        await supabase.functions.invoke("update-engagement", {
+          body: {
+            action: "share",
+            clipId,
+            walletAddress: publicKey?.toString() || null,
+          },
+        });
       } catch (error) {
         console.error("Error updating share:", error);
       }
