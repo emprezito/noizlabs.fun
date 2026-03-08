@@ -230,6 +230,22 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // === Check push subscription existence ===
+    if (action === "check_push_subscription") {
+      const endpoint = body.endpoint as string;
+      if (!endpoint || typeof endpoint !== "string") {
+        return new Response(JSON.stringify({ error: "Missing endpoint" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data } = await supabase.from("push_subscriptions").select("id").eq("wallet_address", walletAddress!).eq("endpoint", endpoint).maybeSingle();
+      return new Response(JSON.stringify({ exists: !!data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // === Check admin status ===
+    if (action === "check_admin") {
+      const { data } = await supabase.from("admin_wallets").select("id").eq("wallet_address", walletAddress!).maybeSingle();
+      return new Response(JSON.stringify({ isAdmin: !!data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ error: "Unhandled action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: unknown) {
     console.error("Error in manage-user-data:", error);
