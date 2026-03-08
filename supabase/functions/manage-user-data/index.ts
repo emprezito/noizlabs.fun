@@ -39,6 +39,7 @@ serve(async (req) => {
       "track_wallet", "upsert_notification_prefs", "upsert_push_subscription",
       "delete_push_subscription", "create_notification", "mark_notification_read",
       "mark_all_notifications_read", "create_audio_clip", "create_token_record",
+      "check_push_subscription", "check_admin",
     ];
 
     if (!validActions.includes(action)) {
