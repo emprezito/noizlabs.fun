@@ -332,9 +332,10 @@ const DiscoverPage = () => {
     const clip = clips.find((c) => c.id === clipId);
     if (!clip) return;
 
-    const newLikes = clip.hasLiked ? clip.likes - 1 : clip.likes + 1;
+    const isUnlike = clip.hasLiked;
+    const newLikes = isUnlike ? clip.likes - 1 : clip.likes + 1;
 
-    // Update local state
+    // Optimistic update
     setClips(
       clips.map((c) => {
         if (c.id === clipId) {
@@ -348,21 +349,29 @@ const DiscoverPage = () => {
       })
     );
 
-    // Update database
+    // Update via server-side edge function
     try {
-      await supabase
-        .from("audio_clips")
-        .update({ likes: newLikes })
-        .eq("id", clipId);
+      const { data, error } = await supabase.functions.invoke("update-engagement", {
+        body: {
+          action: isUnlike ? "unlike" : "like",
+          clipId,
+          walletAddress: publicKey?.toString() || null,
+        },
+      });
 
-      // Track interaction
-      if (publicKey && !clip.hasLiked) {
-        await supabase.from("user_interactions").insert({
-          wallet_address: publicKey.toString(),
-          audio_clip_id: clipId,
-          interaction_type: "like",
-        });
-        await updateTaskProgress(publicKey.toString(), "like_clips", 1);
+      if (error || data?.error) {
+        // Revert optimistic update on error
+        setClips(
+          clips.map((c) => {
+            if (c.id === clipId) {
+              return { ...c, likes: clip.likes, hasLiked: clip.hasLiked };
+            }
+            return c;
+          })
+        );
+        if (data?.alreadyLiked) {
+          toast.info("Already liked this clip");
+        }
       }
     } catch (error) {
       console.error("Error updating like:", error);
