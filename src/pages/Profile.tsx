@@ -114,30 +114,19 @@ const ProfilePage = () => {
         .maybeSingle();
 
       if (!pointsData) {
-        // Generate referral code
-        const { data: codeData } = await supabase.rpc("generate_referral_code");
+        // Ensure user exists via server-side edge function
+        await supabase.functions.invoke("update-points", {
+          body: { action: "ensure_user", walletAddress },
+        });
         
-        const { data: newPoints } = await supabase
+        // Re-fetch after ensuring user exists
+        const { data: refetchedPoints } = await supabase
           .from("user_points")
-          .insert({
-            wallet_address: walletAddress,
-            total_points: 0,
-            referral_code: codeData || `${walletAddress.slice(0, 8).toUpperCase()}`,
-          })
-          .select()
-          .single();
+          .select("*")
+          .eq("wallet_address", walletAddress)
+          .maybeSingle();
         
-        pointsData = newPoints;
-      } else if (!pointsData.referral_code) {
-        // Generate referral code if missing
-        const { data: codeData } = await supabase.rpc("generate_referral_code");
-        
-        await supabase
-          .from("user_points")
-          .update({ referral_code: codeData || `${walletAddress.slice(0, 8).toUpperCase()}` })
-          .eq("wallet_address", walletAddress);
-        
-        pointsData.referral_code = codeData;
+        pointsData = refetchedPoints;
       }
 
       setUserStats({
@@ -216,10 +205,16 @@ const ProfilePage = () => {
     
     setSavingUsername(true);
     try {
-      await supabase
-        .from("user_points")
-        .update({ username: username.trim() })
-        .eq("wallet_address", publicKey.toString());
+      // Update username via server-side edge function
+      const { error } = await supabase.functions.invoke("manage-user-data", {
+        body: {
+          action: "update_username",
+          walletAddress: publicKey.toString(),
+          username: username.trim(),
+        },
+      });
+      
+      if (error) throw error;
       
       setUserStats((prev) => prev ? { ...prev, username: username.trim() } : null);
       toast.success("Username saved!");

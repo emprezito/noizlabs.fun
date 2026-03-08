@@ -39,7 +39,7 @@ serve(async (req) => {
       "track_wallet", "upsert_notification_prefs", "upsert_push_subscription",
       "delete_push_subscription", "create_notification", "mark_notification_read",
       "mark_all_notifications_read", "create_audio_clip", "create_token_record",
-      "check_push_subscription", "check_admin",
+      "check_push_subscription", "check_admin", "update_username",
     ];
 
     if (!validActions.includes(action)) {
@@ -244,6 +244,17 @@ serve(async (req) => {
     if (action === "check_admin") {
       const { data } = await supabase.from("admin_wallets").select("id").eq("wallet_address", walletAddress!).maybeSingle();
       return new Response(JSON.stringify({ isAdmin: !!data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // === Update username ===
+    if (action === "update_username") {
+      const newUsername = body.username as string;
+      if (!newUsername || typeof newUsername !== "string" || newUsername.length > 50) {
+        return new Response(JSON.stringify({ error: "Invalid username" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { error } = await supabase.from("user_points").update({ username: newUsername.trim() }).eq("wallet_address", walletAddress!);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ error: "Unhandled action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

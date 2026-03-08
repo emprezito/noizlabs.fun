@@ -58,12 +58,35 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { mintAddress, forceMigrate = false } = await req.json();
+    const { mintAddress, forceMigrate = false, walletAddress } = await req.json();
 
     if (!mintAddress) {
       return new Response(JSON.stringify({ error: 'mintAddress required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // If forceMigrate is requested, require admin wallet authorization
+    if (forceMigrate) {
+      if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.length < 20) {
+        return new Response(JSON.stringify({ error: 'walletAddress required for forceMigrate' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const { data: adminWallet } = await supabase
+        .from('admin_wallets')
+        .select('id')
+        .eq('wallet_address', walletAddress)
+        .maybeSingle();
+
+      if (!adminWallet) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: admin wallet required for force migration' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`Force migration authorized by admin: ${walletAddress}`);
     }
 
     // Fetch token
