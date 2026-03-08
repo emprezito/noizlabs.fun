@@ -39,6 +39,7 @@ serve(async (req) => {
       "track_wallet", "upsert_notification_prefs", "upsert_push_subscription",
       "delete_push_subscription", "create_notification", "mark_notification_read",
       "mark_all_notifications_read", "create_audio_clip", "create_token_record",
+      "check_push_subscription", "check_admin",
     ];
 
     if (!validActions.includes(action)) {
@@ -50,7 +51,8 @@ serve(async (req) => {
 
     // Common wallet validation
     const walletAddress = body.walletAddress as string | undefined;
-    if (action !== "create_token_record" && (!walletAddress || typeof walletAddress !== "string" || walletAddress.length < 20 || walletAddress.length > 50)) {
+    const skipWalletValidation = ["create_token_record"];
+    if (!skipWalletValidation.includes(action) && (!walletAddress || typeof walletAddress !== "string" || walletAddress.length < 20 || walletAddress.length > 50)) {
       return new Response(
         JSON.stringify({ error: "Invalid walletAddress" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -226,6 +228,22 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // === Check push subscription existence ===
+    if (action === "check_push_subscription") {
+      const endpoint = body.endpoint as string;
+      if (!endpoint || typeof endpoint !== "string") {
+        return new Response(JSON.stringify({ error: "Missing endpoint" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data } = await supabase.from("push_subscriptions").select("id").eq("wallet_address", walletAddress!).eq("endpoint", endpoint).maybeSingle();
+      return new Response(JSON.stringify({ exists: !!data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // === Check admin status ===
+    if (action === "check_admin") {
+      const { data } = await supabase.from("admin_wallets").select("id").eq("wallet_address", walletAddress!).maybeSingle();
+      return new Response(JSON.stringify({ isAdmin: !!data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ error: "Unhandled action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

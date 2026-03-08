@@ -72,12 +72,10 @@ export function MobileHeader() {
   useEffect(() => {
     const checkAdmin = async () => {
       if (!publicKey) { setIsAdmin(false); return; }
-      const { data } = await supabase
-        .from("admin_wallets")
-        .select("id")
-        .eq("wallet_address", publicKey.toBase58())
-        .maybeSingle();
-      setIsAdmin(!!data);
+      const { data } = await supabase.functions.invoke("manage-user-data", {
+        body: { action: "check_admin", walletAddress: publicKey.toBase58() },
+      });
+      setIsAdmin(!!data?.isAdmin);
     };
     checkAdmin();
   }, [publicKey]);
