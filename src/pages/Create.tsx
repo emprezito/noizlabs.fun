@@ -324,23 +324,6 @@ const CreatePage = () => {
       const initialSolReserves = 25_000_000_000; // 25 SOL in lamports
       const initialTokenReserves = 950_000_000_000_000_000; // 950M tokens with 9 decimals (95%)
       
-      // For remix tokens, fetch original token's creator wallet for royalties
-      let royaltyRecipient: string | null = null;
-      if (isRemix && originalTokenId) {
-        try {
-          const { data: originalToken } = await supabase
-            .from("tokens")
-            .select("creator_wallet")
-            .eq("id", originalTokenId)
-            .single();
-          if (originalToken) {
-            royaltyRecipient = originalToken.creator_wallet;
-          }
-        } catch (e) {
-          console.error("Error fetching original token:", e);
-        }
-      }
-      
       // Get the audio URL from upload result or preloaded URL
       const finalAudioUrl = uploadResult.audioUrl || preloadedAudioUrl || null;
       // Get the image URL from upload result or preloaded URL
