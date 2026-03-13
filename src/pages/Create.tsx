@@ -683,11 +683,9 @@ const CreatePage = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          stopRemixAudio();
                           setAudioFile(null);
                           setPreloadedAudioUrl(null);
                           setPreloadedClipId(null);
-                          setRemixAudioData(null);
                           if (audioInputRef.current) audioInputRef.current.value = "";
                         }}
                         className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/80 transition-colors z-10"
@@ -696,64 +694,16 @@ const CreatePage = () => {
                         <X className="w-4 h-4" />
                       </button>
                       
-                      {/* Remix audio player with effect layer */}
-                      {remixAudioData ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={handleRemixPlayPause}
-                              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                            >
-                              {isRemixPlaying ? (
-                                <>
-                                  <Pause className="w-4 h-4" />
-                                  Pause
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="w-4 h-4" />
-                                  Play Remix
-                                </>
-                              )}
-                            </button>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Volume2 className="w-4 h-4" />
-                              <span>AI Remixed Audio ({remixAudioData.variationType} @ {remixAudioData.speedFactor}x)</span>
-                            </div>
-                          </div>
-                          
-                          {/* Effect Volume Slider */}
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Effect Layer Volume</label>
-                            <Slider
-                              value={[effectVolume]}
-                              onValueChange={([v]) => setEffectVolume(v)}
-                              min={0}
-                              max={1}
-                              step={0.05}
-                              className="w-full"
-                            />
-                          </div>
-                          
-                          <p className="text-xs text-muted-foreground text-center">
-                            🎵 Remix audio loaded - Original + Effect layers will be combined
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          <audio controls className="w-full">
-                            <source
-                              src={preloadedAudioUrl || (audioFile ? URL.createObjectURL(audioFile) : "")}
-                              type={audioFile?.type || "audio/mpeg"}
-                            />
-                          </audio>
-                          {preloadedAudioUrl && (
-                            <p className="text-xs text-muted-foreground mt-2 text-center">
-                              Audio loaded from Discover page
-                            </p>
-                          )}
-                        </>
+                      <audio controls className="w-full">
+                        <source
+                          src={preloadedAudioUrl || (audioFile ? URL.createObjectURL(audioFile) : "")}
+                          type={audioFile?.type || "audio/mpeg"}
+                        />
+                      </audio>
+                      {preloadedAudioUrl && (
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Audio loaded from Discover page
+                        </p>
                       )}
                     </div>
                   )}
