@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/SidebarContext";
 import Index from "./pages/Index";
 import Create from "./pages/Create";
 import Explore from "./pages/Explore";
+import BrowseSounds from "./pages/BrowseSounds";
 import Trade from "./pages/Trade";
 import Portfolio from "./pages/Portfolio";
 import Leaderboard from "./pages/Leaderboard";
