@@ -26,7 +26,6 @@ import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart, INTERVAL_MINUTES } from "@/components/TradingViewChart";
 import { fetchDexScreenerData } from "@/lib/chartData";
 import { useChartData } from "@/hooks/useChartData";
-import { RemixModal } from "@/components/RemixModal";
 import { GraduationBanner } from "@/components/GraduationBanner";
 import { useGraduation } from "@/hooks/useGraduation";
 
