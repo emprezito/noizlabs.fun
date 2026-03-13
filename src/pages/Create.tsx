@@ -664,11 +664,7 @@ const CreatePage = () => {
                       />
                       <div className="relative pointer-events-none">
                         <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                        {remixAudioData ? (
-                          <p className="text-primary font-semibold">
-                            ✅ Remix audio loaded ({remixAudioData.variationType})
-                          </p>
-                        ) : preloadedAudioUrl ? (
+                        {preloadedAudioUrl ? (
                           <p className="text-primary font-semibold">
                             ✅ Audio loaded from Discover
                           </p>
