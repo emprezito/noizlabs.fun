@@ -48,8 +48,6 @@ const CreatePage = () => {
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const originalAudioRef = useRef<HTMLAudioElement | null>(null);
-  const effectAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Load audio from discover page if available
   useEffect(() => {
