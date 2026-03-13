@@ -27,9 +27,10 @@ const MIGRATION_MARKET_CAP_USD = 50_000;
 const PLATFORM_FEE_WALLET = new PublicKey("5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7");
 const BONDING_CURVE_WALLET_ADDRESS = "FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc";
 
+const heliusKey = Deno.env.get('HELIUS_API_KEY');
 const SOLANA_RPC_ENDPOINTS = [
   "https://api.devnet.solana.com",
-  "https://devnet.helius-rpc.com/?api-key=15c15e78-c0f9-4317-97e6-03510bd58a32",
+  ...(heliusKey ? [`https://devnet.helius-rpc.com/?api-key=${heliusKey}`] : []),
 ];
 
 function loadPlatformWallet(): Keypair {

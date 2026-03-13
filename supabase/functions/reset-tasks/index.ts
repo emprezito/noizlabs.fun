@@ -13,6 +13,19 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate: only allow calls with valid CRON_SECRET
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const providedSecret = req.headers.get('x-cron-secret') || 
+      req.headers.get('authorization')?.replace('Bearer ', '');
+    
+    if (!cronSecret || providedSecret !== cronSecret) {
+      console.error('Unauthorized reset-tasks attempt');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
