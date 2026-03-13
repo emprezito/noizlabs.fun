@@ -121,65 +121,6 @@ const CreatePage = () => {
     return () => clearInterval(interval);
   }, [publicKey]);
 
-  // Stop remix audio playback
-  const stopRemixAudio = () => {
-    if (originalAudioRef.current) {
-      originalAudioRef.current.pause();
-      originalAudioRef.current = null;
-    }
-    if (effectAudioRef.current) {
-      effectAudioRef.current.pause();
-      effectAudioRef.current = null;
-    }
-    setIsRemixPlaying(false);
-  };
-
-  // Play/pause remix audio with both layers
-  const handleRemixPlayPause = async () => {
-    if (!remixAudioData) return;
-
-    if (isRemixPlaying) {
-      stopRemixAudio();
-      return;
-    }
-
-    try {
-      // Create audio elements for both layers
-      originalAudioRef.current = new Audio(remixAudioData.original);
-      effectAudioRef.current = new Audio(remixAudioData.effect);
-      
-      // Apply speed adjustment to original audio
-      originalAudioRef.current.playbackRate = remixAudioData.speedFactor;
-      
-      // Set volumes
-      originalAudioRef.current.volume = 0.8;
-      effectAudioRef.current.volume = effectVolume;
-      
-      // Stop when original ends
-      originalAudioRef.current.onended = () => {
-        stopRemixAudio();
-      };
-      
-      // Play both simultaneously
-      await Promise.all([
-        originalAudioRef.current.play(),
-        effectAudioRef.current.play()
-      ]);
-      
-      setIsRemixPlaying(true);
-    } catch (error) {
-      console.error("Error playing remix:", error);
-      stopRemixAudio();
-    }
-  };
-
-  // Update effect volume in real-time
-  useEffect(() => {
-    if (effectAudioRef.current && isRemixPlaying) {
-      effectAudioRef.current.volume = effectVolume;
-    }
-  }, [effectVolume, isRemixPlaying]);
-
   const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setAudioFile(e.target.files[0]);
