@@ -59,23 +59,6 @@ const CreatePage = () => {
         if (audioData.audioUrl) setPreloadedAudioUrl(audioData.audioUrl);
         if (audioData.id) setPreloadedClipId(audioData.id);
         if (audioData.coverImageUrl) setPreloadedCoverImageUrl(audioData.coverImageUrl);
-        if (audioData.isRemix) {
-          setIsRemix(true);
-          setOriginalTokenId(audioData.originalTokenId || null);
-          setOriginalMintAddress(audioData.originalMintAddress || null);
-          // Load remix audio data if available
-          if (audioData.remixAudioData) {
-            setRemixAudioData(audioData.remixAudioData);
-          } else if (audioData.audioUrl && audioData.audioUrl.startsWith('{')) {
-            // Parse the JSON audio URL format
-            try {
-              const parsedRemix = JSON.parse(audioData.audioUrl);
-              setRemixAudioData(parsedRemix);
-            } catch (e) {
-              console.error("Error parsing remix audio data:", e);
-            }
-          }
-        }
         if (audioData.title) {
           const generatedSymbol = audioData.title
             .toUpperCase()
