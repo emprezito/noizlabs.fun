@@ -363,9 +363,6 @@ const CreatePage = () => {
 
         console.log("Created token and vesting record:", { mintAddress: mintAddr, walletAddress });
         
-        if (isRemix) {
-          toast.success("Remix token created! Original creator earns 10% on trades.");
-        }
         toast.info("Your 5% creator allocation is vested for 21 days.");
       } catch (dbError) {
         console.error("Error saving token to database:", dbError);
