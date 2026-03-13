@@ -408,10 +408,6 @@ const TradePage = () => {
           priceChange24h,
           volume24h,
           liquidity,
-          isRemix: token.is_remix || false,
-          originalTokenId: token.original_token_id || undefined,
-          originalTokenName,
-          originalMintAddress,
         });
         
         // Auto-open remix modal if requested via URL param
