@@ -392,20 +392,6 @@ const TradePage = () => {
           console.log("DexScreener data not available");
         }
         
-        // Fetch original token info if this is a remix
-        let originalTokenName: string | undefined;
-        let originalMintAddress: string | undefined;
-        if (token.is_remix && token.original_token_id) {
-          const { data: originalToken } = await supabase
-            .from("tokens")
-            .select("name, mint_address")
-            .eq("id", token.original_token_id)
-            .maybeSingle();
-          if (originalToken) {
-            originalTokenName = originalToken.name;
-            originalMintAddress = originalToken.mint_address;
-          }
-        }
         
         setTokenDbId(token.id);
         setTokenInfo({
