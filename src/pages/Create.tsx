@@ -394,14 +394,9 @@ const CreatePage = () => {
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-primary">
-                {isRemix ? "Create Remix Token" : "Create Your Audio Token"}
-              </h1>
-              {isRemix && (
-                <p className="mt-2 text-muted-foreground">
-                  Creating a remix of an existing token. Original creator earns 10% royalty on all trades.
-                </p>
-              )}
-            </div>
+              Create Your Audio Token
+            </h1>
+          </div>
 
             {/* Wallet Connection Warning */}
             {!connected && (
