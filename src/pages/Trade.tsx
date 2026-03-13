@@ -53,10 +53,6 @@ interface TokenInfo {
   priceChange24h?: number;
   volume24h?: number;
   liquidity?: number;
-  isRemix?: boolean;
-  originalTokenId?: string;
-  originalTokenName?: string;
-  originalMintAddress?: string;
 }
 
 
