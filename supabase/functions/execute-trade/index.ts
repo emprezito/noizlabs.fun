@@ -35,9 +35,10 @@ const BONDING_CURVE_WALLET = new PublicKey("FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH
 const PLATFORM_FEE_WALLET = new PublicKey("5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7");
 
 // Solana devnet RPC - use multiple for fallback
+const heliusKey = Deno.env.get('HELIUS_API_KEY');
 const SOLANA_RPC_ENDPOINTS = [
   "https://api.devnet.solana.com",
-  "https://devnet.helius-rpc.com/?api-key=15c15e78-c0f9-4317-97e6-03510bd58a32",
+  ...(heliusKey ? [`https://devnet.helius-rpc.com/?api-key=${heliusKey}`] : []),
 ];
 
 interface TradeRequest {
