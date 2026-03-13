@@ -44,17 +44,6 @@ const CreatePage = () => {
   const [preloadedAudioUrl, setPreloadedAudioUrl] = useState<string | null>(null);
   const [preloadedClipId, setPreloadedClipId] = useState<string | null>(null);
   const [preloadedCoverImageUrl, setPreloadedCoverImageUrl] = useState<string | null>(null);
-  const [isRemix, setIsRemix] = useState(false);
-  const [originalTokenId, setOriginalTokenId] = useState<string | null>(null);
-  const [originalMintAddress, setOriginalMintAddress] = useState<string | null>(null);
-  const [remixAudioData, setRemixAudioData] = useState<{
-    original: string;
-    effect: string;
-    speedFactor: number;
-    variationType: string;
-  } | null>(null);
-  const [isRemixPlaying, setIsRemixPlaying] = useState(false);
-  const [effectVolume, setEffectVolume] = useState(0.4);
   const [mintCooldown, setMintCooldown] = useState<{ canMint: boolean; hoursRemaining: number; minutesRemaining: number } | null>(null);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
