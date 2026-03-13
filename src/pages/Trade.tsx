@@ -827,26 +827,6 @@ const TradePage = () => {
                         <ExternalLink className="w-3 h-3" />
                         Explorer
                       </a>
-                      {/* AI Remix Button */}
-                      {tokenDbId && (
-                        <button
-                          onClick={() => setRemixModalOpen(true)}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          AI Remix
-                        </button>
-                      )}
-                      {/* Remix Badge with Link to Original */}
-                      {tokenInfo.isRemix && tokenInfo.originalMintAddress && (
-                        <Link
-                          to={`/trade?mint=${tokenInfo.originalMintAddress}`}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          Remix of: {tokenInfo.originalTokenName || "Original"}
-                        </Link>
-                      )}
                       {/* Share Button */}
                       <SocialShareButton
                         title={tokenInfo.name}
