@@ -987,18 +987,6 @@ const TradePage = () => {
         />
       )}
 
-      {/* AI Remix Modal */}
-      {tokenInfo && tokenDbId && (
-        <RemixModal
-          open={remixModalOpen}
-          onOpenChange={setRemixModalOpen}
-          tokenId={tokenDbId}
-          mintAddress={tokenInfo.mint}
-          tokenName={tokenInfo.name}
-          originalAudioUrl={tokenInfo.audioUri}
-          coverImageUrl={tokenInfo.imageUri}
-        />
-      )}
     </AppLayout>
   );
 };
