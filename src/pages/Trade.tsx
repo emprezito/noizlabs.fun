@@ -63,7 +63,7 @@ interface TokenInfo {
 const TradePage = () => {
   const [searchParams] = useSearchParams();
   const initialMint = searchParams.get("mint") || "";
-  const shouldOpenRemix = searchParams.get("remix") === "true";
+  
   const { connection } = useConnection();
   const { publicKey, sendTransaction, connected } = useWallet();
   const { price: solUsdPrice, formatUsd } = useSolPrice();
