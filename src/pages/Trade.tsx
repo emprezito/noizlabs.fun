@@ -119,8 +119,6 @@ const TradePage = () => {
     tokenInfo?.totalSupply || 0
   );
   
-  // Remix modal state
-  const [remixModalOpen, setRemixModalOpen] = useState(false);
 
   // Dynamic meta tags for social sharing
   useDynamicMetaTags({
