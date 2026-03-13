@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/SidebarContext";
 import Index from "./pages/Index";
 import Create from "./pages/Create";
 import Explore from "./pages/Explore";
+import BrowseSounds from "./pages/BrowseSounds";
 import Trade from "./pages/Trade";
 import Portfolio from "./pages/Portfolio";
 import Leaderboard from "./pages/Leaderboard";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/create" element={<Create />} />
             <Route path="/explore" element={<Explore />} />
+            <Route path="/browse" element={<BrowseSounds />} />
             <Route path="/trade" element={<Trade />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/leaderboard" element={<Leaderboard />} />

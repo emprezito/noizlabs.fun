@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  Headphones,
 } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,7 @@ import { useSidebarState } from "./SidebarContext";
 
 const navigation = [
   { name: "Explore", href: "/explore", icon: Compass },
+  { name: "Browse Sounds", href: "/browse", icon: Headphones },
   { name: "Create", href: "/create", icon: PlusCircle },
   { name: "Portfolio", href: "/portfolio", icon: Briefcase },
   { name: "Trade", href: "/trade", icon: ArrowLeftRight },

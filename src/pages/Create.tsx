@@ -14,8 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Music, Image, Check, Loader2, AlertCircle, Shield, AlertTriangle, X, Play, Pause, Volume2, Clock } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
+import { Music, Image, Check, Loader2, AlertCircle, Shield, AlertTriangle, X, Play, Pause, Clock } from "lucide-react";
 import { createTokenWithMetaplex, CreateTokenParams, PLATFORM_WALLET, TOTAL_SUPPLY } from "@/lib/solana/createToken";
 import { uploadTokenMetadata } from "@/lib/ipfsUpload";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -44,23 +43,10 @@ const CreatePage = () => {
   const [preloadedAudioUrl, setPreloadedAudioUrl] = useState<string | null>(null);
   const [preloadedClipId, setPreloadedClipId] = useState<string | null>(null);
   const [preloadedCoverImageUrl, setPreloadedCoverImageUrl] = useState<string | null>(null);
-  const [isRemix, setIsRemix] = useState(false);
-  const [originalTokenId, setOriginalTokenId] = useState<string | null>(null);
-  const [originalMintAddress, setOriginalMintAddress] = useState<string | null>(null);
-  const [remixAudioData, setRemixAudioData] = useState<{
-    original: string;
-    effect: string;
-    speedFactor: number;
-    variationType: string;
-  } | null>(null);
-  const [isRemixPlaying, setIsRemixPlaying] = useState(false);
-  const [effectVolume, setEffectVolume] = useState(0.4);
   const [mintCooldown, setMintCooldown] = useState<{ canMint: boolean; hoursRemaining: number; minutesRemaining: number } | null>(null);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const originalAudioRef = useRef<HTMLAudioElement | null>(null);
-  const effectAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Load audio from discover page if available
   useEffect(() => {
@@ -72,23 +58,6 @@ const CreatePage = () => {
         if (audioData.audioUrl) setPreloadedAudioUrl(audioData.audioUrl);
         if (audioData.id) setPreloadedClipId(audioData.id);
         if (audioData.coverImageUrl) setPreloadedCoverImageUrl(audioData.coverImageUrl);
-        if (audioData.isRemix) {
-          setIsRemix(true);
-          setOriginalTokenId(audioData.originalTokenId || null);
-          setOriginalMintAddress(audioData.originalMintAddress || null);
-          // Load remix audio data if available
-          if (audioData.remixAudioData) {
-            setRemixAudioData(audioData.remixAudioData);
-          } else if (audioData.audioUrl && audioData.audioUrl.startsWith('{')) {
-            // Parse the JSON audio URL format
-            try {
-              const parsedRemix = JSON.parse(audioData.audioUrl);
-              setRemixAudioData(parsedRemix);
-            } catch (e) {
-              console.error("Error parsing remix audio data:", e);
-            }
-          }
-        }
         if (audioData.title) {
           const generatedSymbol = audioData.title
             .toUpperCase()
@@ -150,65 +119,6 @@ const CreatePage = () => {
     const interval = setInterval(checkMintCooldown, 60000);
     return () => clearInterval(interval);
   }, [publicKey]);
-
-  // Stop remix audio playback
-  const stopRemixAudio = () => {
-    if (originalAudioRef.current) {
-      originalAudioRef.current.pause();
-      originalAudioRef.current = null;
-    }
-    if (effectAudioRef.current) {
-      effectAudioRef.current.pause();
-      effectAudioRef.current = null;
-    }
-    setIsRemixPlaying(false);
-  };
-
-  // Play/pause remix audio with both layers
-  const handleRemixPlayPause = async () => {
-    if (!remixAudioData) return;
-
-    if (isRemixPlaying) {
-      stopRemixAudio();
-      return;
-    }
-
-    try {
-      // Create audio elements for both layers
-      originalAudioRef.current = new Audio(remixAudioData.original);
-      effectAudioRef.current = new Audio(remixAudioData.effect);
-      
-      // Apply speed adjustment to original audio
-      originalAudioRef.current.playbackRate = remixAudioData.speedFactor;
-      
-      // Set volumes
-      originalAudioRef.current.volume = 0.8;
-      effectAudioRef.current.volume = effectVolume;
-      
-      // Stop when original ends
-      originalAudioRef.current.onended = () => {
-        stopRemixAudio();
-      };
-      
-      // Play both simultaneously
-      await Promise.all([
-        originalAudioRef.current.play(),
-        effectAudioRef.current.play()
-      ]);
-      
-      setIsRemixPlaying(true);
-    } catch (error) {
-      console.error("Error playing remix:", error);
-      stopRemixAudio();
-    }
-  };
-
-  // Update effect volume in real-time
-  useEffect(() => {
-    if (effectAudioRef.current && isRemixPlaying) {
-      effectAudioRef.current.volume = effectVolume;
-    }
-  }, [effectVolume, isRemixPlaying]);
 
   const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -413,23 +323,6 @@ const CreatePage = () => {
       const initialSolReserves = 25_000_000_000; // 25 SOL in lamports
       const initialTokenReserves = 950_000_000_000_000_000; // 950M tokens with 9 decimals (95%)
       
-      // For remix tokens, fetch original token's creator wallet for royalties
-      let royaltyRecipient: string | null = null;
-      if (isRemix && originalTokenId) {
-        try {
-          const { data: originalToken } = await supabase
-            .from("tokens")
-            .select("creator_wallet")
-            .eq("id", originalTokenId)
-            .single();
-          if (originalToken) {
-            royaltyRecipient = originalToken.creator_wallet;
-          }
-        } catch (e) {
-          console.error("Error fetching original token:", e);
-        }
-      }
-      
       // Get the audio URL from upload result or preloaded URL
       const finalAudioUrl = uploadResult.audioUrl || preloadedAudioUrl || null;
       // Get the image URL from upload result or preloaded URL
@@ -454,10 +347,10 @@ const CreatePage = () => {
               coverImageUrl: finalImageUrl,
               solReserves: initialSolReserves,
               tokenReserves: initialTokenReserves,
-              isRemix,
-              originalTokenId: isRemix ? originalTokenId : null,
-              royaltyRecipient,
-              royaltyPercentage: isRemix ? 10 : 0,
+              isRemix: false,
+              originalTokenId: null,
+              royaltyRecipient: null,
+              royaltyPercentage: 0,
             },
             vestingData: {
               vestingWallet: walletAddress,
@@ -469,9 +362,6 @@ const CreatePage = () => {
 
         console.log("Created token and vesting record:", { mintAddress: mintAddr, walletAddress });
         
-        if (isRemix) {
-          toast.success("Remix token created! Original creator earns 10% on trades.");
-        }
         toast.info("Your 5% creator allocation is vested for 21 days.");
       } catch (dbError) {
         console.error("Error saving token to database:", dbError);
@@ -503,14 +393,9 @@ const CreatePage = () => {
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-primary">
-                {isRemix ? "Create Remix Token" : "Create Your Audio Token"}
-              </h1>
-              {isRemix && (
-                <p className="mt-2 text-muted-foreground">
-                  Creating a remix of an existing token. Original creator earns 10% royalty on all trades.
-                </p>
-              )}
-            </div>
+              Create Your Audio Token
+            </h1>
+          </div>
 
             {/* Wallet Connection Warning */}
             {!connected && (
@@ -778,11 +663,7 @@ const CreatePage = () => {
                       />
                       <div className="relative pointer-events-none">
                         <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                        {remixAudioData ? (
-                          <p className="text-primary font-semibold">
-                            ✅ Remix audio loaded ({remixAudioData.variationType})
-                          </p>
-                        ) : preloadedAudioUrl ? (
+                        {preloadedAudioUrl ? (
                           <p className="text-primary font-semibold">
                             ✅ Audio loaded from Discover
                           </p>
@@ -801,11 +682,9 @@ const CreatePage = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          stopRemixAudio();
                           setAudioFile(null);
                           setPreloadedAudioUrl(null);
                           setPreloadedClipId(null);
-                          setRemixAudioData(null);
                           if (audioInputRef.current) audioInputRef.current.value = "";
                         }}
                         className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/80 transition-colors z-10"
@@ -814,64 +693,16 @@ const CreatePage = () => {
                         <X className="w-4 h-4" />
                       </button>
                       
-                      {/* Remix audio player with effect layer */}
-                      {remixAudioData ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={handleRemixPlayPause}
-                              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                            >
-                              {isRemixPlaying ? (
-                                <>
-                                  <Pause className="w-4 h-4" />
-                                  Pause
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="w-4 h-4" />
-                                  Play Remix
-                                </>
-                              )}
-                            </button>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Volume2 className="w-4 h-4" />
-                              <span>AI Remixed Audio ({remixAudioData.variationType} @ {remixAudioData.speedFactor}x)</span>
-                            </div>
-                          </div>
-                          
-                          {/* Effect Volume Slider */}
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Effect Layer Volume</label>
-                            <Slider
-                              value={[effectVolume]}
-                              onValueChange={([v]) => setEffectVolume(v)}
-                              min={0}
-                              max={1}
-                              step={0.05}
-                              className="w-full"
-                            />
-                          </div>
-                          
-                          <p className="text-xs text-muted-foreground text-center">
-                            🎵 Remix audio loaded - Original + Effect layers will be combined
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          <audio controls className="w-full">
-                            <source
-                              src={preloadedAudioUrl || (audioFile ? URL.createObjectURL(audioFile) : "")}
-                              type={audioFile?.type || "audio/mpeg"}
-                            />
-                          </audio>
-                          {preloadedAudioUrl && (
-                            <p className="text-xs text-muted-foreground mt-2 text-center">
-                              Audio loaded from Discover page
-                            </p>
-                          )}
-                        </>
+                      <audio controls className="w-full">
+                        <source
+                          src={preloadedAudioUrl || (audioFile ? URL.createObjectURL(audioFile) : "")}
+                          type={audioFile?.type || "audio/mpeg"}
+                        />
+                      </audio>
+                      {preloadedAudioUrl && (
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Audio loaded from Discover page
+                        </p>
                       )}
                     </div>
                   )}

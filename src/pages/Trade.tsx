@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Sparkles, Share2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Share2 } from "lucide-react";
 import { SocialShareButton } from "@/components/SocialShareButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useDynamicMetaTags, getTokenOgImageUrl } from "@/hooks/useDynamicMetaTags";
@@ -26,7 +26,6 @@ import { TradeConfirmDialog } from "@/components/TradeConfirmDialog";
 import { TradingViewChart, INTERVAL_MINUTES } from "@/components/TradingViewChart";
 import { fetchDexScreenerData } from "@/lib/chartData";
 import { useChartData } from "@/hooks/useChartData";
-import { RemixModal } from "@/components/RemixModal";
 import { GraduationBanner } from "@/components/GraduationBanner";
 import { useGraduation } from "@/hooks/useGraduation";
 
@@ -54,17 +53,13 @@ interface TokenInfo {
   priceChange24h?: number;
   volume24h?: number;
   liquidity?: number;
-  isRemix?: boolean;
-  originalTokenId?: string;
-  originalTokenName?: string;
-  originalMintAddress?: string;
 }
 
 
 const TradePage = () => {
   const [searchParams] = useSearchParams();
   const initialMint = searchParams.get("mint") || "";
-  const shouldOpenRemix = searchParams.get("remix") === "true";
+  
   const { connection } = useConnection();
   const { publicKey, sendTransaction, connected } = useWallet();
   const { price: solUsdPrice, formatUsd } = useSolPrice();
@@ -120,8 +115,6 @@ const TradePage = () => {
     tokenInfo?.totalSupply || 0
   );
   
-  // Remix modal state
-  const [remixModalOpen, setRemixModalOpen] = useState(false);
 
   // Dynamic meta tags for social sharing
   useDynamicMetaTags({
@@ -395,20 +388,6 @@ const TradePage = () => {
           console.log("DexScreener data not available");
         }
         
-        // Fetch original token info if this is a remix
-        let originalTokenName: string | undefined;
-        let originalMintAddress: string | undefined;
-        if (token.is_remix && token.original_token_id) {
-          const { data: originalToken } = await supabase
-            .from("tokens")
-            .select("name, mint_address")
-            .eq("id", token.original_token_id)
-            .maybeSingle();
-          if (originalToken) {
-            originalTokenName = originalToken.name;
-            originalMintAddress = originalToken.mint_address;
-          }
-        }
         
         setTokenDbId(token.id);
         setTokenInfo({
@@ -425,16 +404,8 @@ const TradePage = () => {
           priceChange24h,
           volume24h,
           liquidity,
-          isRemix: token.is_remix || false,
-          originalTokenId: token.original_token_id || undefined,
-          originalTokenName,
-          originalMintAddress,
         });
         
-        // Auto-open remix modal if requested via URL param
-        if (shouldOpenRemix) {
-          setRemixModalOpen(true);
-        }
       } else {
         toast.error("Token not found in database");
         setTokenInfo(null);
@@ -852,26 +823,6 @@ const TradePage = () => {
                         <ExternalLink className="w-3 h-3" />
                         Explorer
                       </a>
-                      {/* AI Remix Button */}
-                      {tokenDbId && (
-                        <button
-                          onClick={() => setRemixModalOpen(true)}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          AI Remix
-                        </button>
-                      )}
-                      {/* Remix Badge with Link to Original */}
-                      {tokenInfo.isRemix && tokenInfo.originalMintAddress && (
-                        <Link
-                          to={`/trade?mint=${tokenInfo.originalMintAddress}`}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          Remix of: {tokenInfo.originalTokenName || "Original"}
-                        </Link>
-                      )}
                       {/* Share Button */}
                       <SocialShareButton
                         title={tokenInfo.name}
@@ -1032,18 +983,6 @@ const TradePage = () => {
         />
       )}
 
-      {/* AI Remix Modal */}
-      {tokenInfo && tokenDbId && (
-        <RemixModal
-          open={remixModalOpen}
-          onOpenChange={setRemixModalOpen}
-          tokenId={tokenDbId}
-          mintAddress={tokenInfo.mint}
-          tokenName={tokenInfo.name}
-          originalAudioUrl={tokenInfo.audioUri}
-          coverImageUrl={tokenInfo.imageUri}
-        />
-      )}
     </AppLayout>
   );
 };

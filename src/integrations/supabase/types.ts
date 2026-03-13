@@ -403,6 +403,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sounds_registry: {
+        Row: {
+          audio_hash: string | null
+          audio_url: string
+          created_at: string
+          id: string
+          minted_at: string | null
+          minted_by: string | null
+          reservation_expires_at: string | null
+          reserved_at: string | null
+          reserved_by: string | null
+          sound_id: string
+          status: string
+          token_address: string | null
+          token_name: string | null
+          token_ticker: string | null
+        }
+        Insert: {
+          audio_hash?: string | null
+          audio_url: string
+          created_at?: string
+          id?: string
+          minted_at?: string | null
+          minted_by?: string | null
+          reservation_expires_at?: string | null
+          reserved_at?: string | null
+          reserved_by?: string | null
+          sound_id: string
+          status?: string
+          token_address?: string | null
+          token_name?: string | null
+          token_ticker?: string | null
+        }
+        Update: {
+          audio_hash?: string | null
+          audio_url?: string
+          created_at?: string
+          id?: string
+          minted_at?: string | null
+          minted_by?: string | null
+          reservation_expires_at?: string | null
+          reserved_at?: string | null
+          reserved_by?: string | null
+          sound_id?: string
+          status?: string
+          token_address?: string | null
+          token_name?: string | null
+          token_ticker?: string | null
+        }
+        Relationships: []
+      }
       token_remixes: {
         Row: {
           created_at: string
