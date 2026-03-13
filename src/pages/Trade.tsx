@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Sparkles, Share2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Play, Pause, ArrowLeft, AlertCircle, Wifi, WifiOff, ExternalLink, Share2 } from "lucide-react";
 import { SocialShareButton } from "@/components/SocialShareButton";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useDynamicMetaTags, getTokenOgImageUrl } from "@/hooks/useDynamicMetaTags";
