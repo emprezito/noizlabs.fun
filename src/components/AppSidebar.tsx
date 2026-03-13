@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  Headphones,
 } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { supabase } from "@/integrations/supabase/client";
