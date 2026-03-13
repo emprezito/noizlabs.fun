@@ -410,10 +410,6 @@ const TradePage = () => {
           liquidity,
         });
         
-        // Auto-open remix modal if requested via URL param
-        if (shouldOpenRemix) {
-          setRemixModalOpen(true);
-        }
       } else {
         toast.error("Token not found in database");
         setTokenInfo(null);
