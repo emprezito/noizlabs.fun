@@ -12,12 +12,12 @@ import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, TrendingUp, RefreshCw, Loader2, Gem } from "lucide-react";
+import { Search, TrendingUp, RefreshCw, Loader2, Gem, Clock, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { SoundCard } from "@/components/browse/SoundCard";
 import { LiveActivityFeed } from "@/components/browse/LiveActivityFeed";
 import { MintSoundModal } from "@/components/browse/MintSoundModal";
-import { useSoundBrowser, useSoundPlayer, type SoundWithStatus } from "@/hooks/useSoundBrowser";
+import { useSoundBrowser, useSoundPlayer, type SoundWithStatus, type SoundTab } from "@/hooks/useSoundBrowser";
 import { useSoundReservation } from "@/hooks/useSoundReservation";
 import { createTokenWithMetaplex, CreateTokenParams, PLATFORM_WALLET, TOTAL_SUPPLY } from "@/lib/solana/createToken";
 import { uploadTokenMetadata } from "@/lib/ipfsUpload";
@@ -75,13 +75,12 @@ const BrowseSoundsPage = () => {
 
     setIsMinting(true);
     try {
-      // Upload to IPFS
       toast.info("Uploading to IPFS...");
       const uploadResult = await uploadTokenMetadata(
         null,
         null,
         { name, symbol: ticker, description },
-        selectedSound.mp3_url,
+        selectedSound.mp3,
         null
       );
 
@@ -110,7 +109,6 @@ const BrowseSoundsPage = () => {
       const mintAddr = mintKeypair.publicKey.toString();
       const walletAddress = publicKey.toString();
 
-      // Transfer 95% to platform
       toast.info("Transferring to bonding curve...");
       try {
         const mintPubkey = mintKeypair.publicKey;
@@ -134,10 +132,9 @@ const BrowseSoundsPage = () => {
         console.error("Token transfer error:", transferErr);
       }
 
-      // Save to DB
       const initialSolReserves = 25_000_000_000;
       const initialTokenReserves = 950_000_000_000_000_000;
-      const finalAudioUrl = uploadResult.audioUrl || selectedSound.mp3_url;
+      const finalAudioUrl = uploadResult.audioUrl || selectedSound.mp3;
       const creatorAllocation = (BigInt(1_000_000_000) * BigInt(1e9) * BigInt(5)) / BigInt(100);
       const cliffEnd = new Date();
       cliffEnd.setDate(cliffEnd.getDate() + 21);
@@ -164,7 +161,6 @@ const BrowseSoundsPage = () => {
         },
       });
 
-      // Mark as minted in registry
       await completeMint(name, ticker, mintAddr);
       await updateTaskProgress(walletAddress, "mint_token", 1);
 
@@ -183,7 +179,6 @@ const BrowseSoundsPage = () => {
   return (
     <AppLayout>
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">
             Browse & Mint Sounds
@@ -194,7 +189,6 @@ const BrowseSoundsPage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main Content */}
           <div className="lg:col-span-3 space-y-4">
             {/* Search */}
             <div className="relative">
@@ -208,11 +202,19 @@ const BrowseSoundsPage = () => {
             </div>
 
             {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as any); if (v === "trending") setSearchQuery(""); }}>
+            <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as SoundTab); if (v !== "search") setSearchQuery(""); }}>
               <TabsList>
                 <TabsTrigger value="trending">
                   <TrendingUp className="w-3.5 h-3.5 mr-1" />
                   Trending
+                </TabsTrigger>
+                <TabsTrigger value="recent">
+                  <Clock className="w-3.5 h-3.5 mr-1" />
+                  Recent
+                </TabsTrigger>
+                <TabsTrigger value="best">
+                  <Trophy className="w-3.5 h-3.5 mr-1" />
+                  Best of All Time
                 </TabsTrigger>
                 <TabsTrigger value="search" disabled={!searchQuery}>
                   <Search className="w-3.5 h-3.5 mr-1" />
@@ -221,7 +223,7 @@ const BrowseSoundsPage = () => {
               </TabsList>
             </Tabs>
 
-            {/* Error State */}
+            {/* Error */}
             {error && (
               <div className="text-center py-12 bg-card rounded-2xl border border-border">
                 <p className="text-muted-foreground mb-3">Sounds unavailable right now 😔</p>
@@ -247,7 +249,7 @@ const BrowseSoundsPage = () => {
                     key={sound.id}
                     sound={sound}
                     isPlaying={playingId === sound.id}
-                    onPlay={() => play(sound.id, sound.mp3_url)}
+                    onPlay={() => play(sound.id, sound.mp3)}
                     onMint={() => handleMintClick(sound)}
                     isMinting={isReserving}
                   />
@@ -255,14 +257,20 @@ const BrowseSoundsPage = () => {
               </div>
             )}
 
-            {/* Empty State */}
+            {/* Empty States */}
             {!isLoading && !error && sounds.length === 0 && activeTab === "search" && searchQuery && (
               <div className="text-center py-16 bg-card rounded-2xl border border-border">
                 <Gem className="w-10 h-10 text-primary mx-auto mb-3" />
-                <p className="text-foreground font-bold mb-1">No results found</p>
-                <p className="text-muted-foreground text-sm">
-                  All trending sounds minted? Search for hidden gems 💎
-                </p>
+                <p className="text-foreground font-bold mb-1">No sounds found for &apos;{searchQuery}&apos;</p>
+                <p className="text-muted-foreground text-sm">Try different keywords 💎</p>
+              </div>
+            )}
+
+            {!isLoading && !error && sounds.length === 0 && activeTab !== "search" && (
+              <div className="text-center py-16 bg-card rounded-2xl border border-border">
+                <Gem className="w-10 h-10 text-primary mx-auto mb-3" />
+                <p className="text-foreground font-bold mb-1">No sounds loaded</p>
+                <p className="text-muted-foreground text-sm">Try refreshing or switching tabs</p>
               </div>
             )}
           </div>
@@ -274,7 +282,6 @@ const BrowseSoundsPage = () => {
         </div>
       </div>
 
-      {/* Mint Modal */}
       <MintSoundModal
         open={modalOpen}
         onOpenChange={setModalOpen}
