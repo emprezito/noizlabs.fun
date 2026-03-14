@@ -52,6 +52,8 @@ async function proxyFetch(endpoint: string, params?: Record<string, string>): Pr
 
   if (!Array.isArray(data)) {
     console.error("Unexpected response format:", data);
+    // Handle error objects with data field
+    if (data && Array.isArray(data.data)) return data.data;
     return [];
   }
 
