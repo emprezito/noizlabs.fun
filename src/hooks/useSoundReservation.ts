@@ -59,7 +59,7 @@ export function useSoundReservation(onRefetchRegistry: () => void) {
         body: {
           action: "reserve",
           soundId: sound.id,
-          audioUrl: sound.mp3_url,
+          audioUrl: sound.mp3,
           audioHash,
           walletAddress: publicKey.toBase58(),
         },
