@@ -41,24 +41,27 @@ export type SoundTab = "trending" | "recent" | "best" | "search";
 
 // Proxy all MyInstants API calls through our edge function
 async function proxyFetch(endpoint: string, params?: Record<string, string>): Promise<MyInstantSound[]> {
-  const { data, error } = await supabase.functions.invoke("myinstants-proxy", {
-    body: { endpoint, params },
-  });
+  try {
+    const { data, error } = await supabase.functions.invoke("myinstants-proxy", {
+      body: { endpoint, params },
+    });
 
-  if (error) {
-    console.error("Proxy fetch error:", error);
-    throw new Error(`Failed to fetch ${endpoint}: ${error.message}`);
-  }
+    if (error) {
+      console.warn(`Proxy fetch warning (${endpoint}):`, error.message);
+      return [];
+    }
 
-  if (!Array.isArray(data)) {
-    console.error("Unexpected response format:", data);
-    // Handle error objects with data field
-    if (data && Array.isArray(data.data)) return data.data;
+    if (!Array.isArray(data)) {
+      console.warn("Unexpected response format:", data);
+      return [];
+    }
+
+    console.log(`MyInstants ${endpoint} returned ${data.length} items`);
+    return data;
+  } catch (err) {
+    console.warn(`proxyFetch ${endpoint} failed:`, err);
     return [];
   }
-
-  console.log(`MyInstants ${endpoint} raw response:`, JSON.stringify(data.slice(0, 2)));
-  return data;
 }
 
 // Trending: fetch multiple regions and deduplicate
