@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-const API_BASE = "https://myinstants-api.vercel.app";
-
 export interface MyInstantSound {
   id: string;
+  url?: string;
   title: string;
-  mp3_url: string;
+  mp3: string;
   description?: string;
   tags?: string[];
   views?: number;
   favorites?: number;
+  uploader?: { name?: string; url?: string };
 }
 
 export interface SoundRegistryEntry {
@@ -37,21 +37,73 @@ export interface SoundWithStatus extends MyInstantSound {
   registryEntry?: SoundRegistryEntry;
 }
 
+export type SoundTab = "trending" | "recent" | "best" | "search";
+
+// Proxy all MyInstants API calls through our edge function
+async function proxyFetch(endpoint: string, params?: Record<string, string>): Promise<MyInstantSound[]> {
+  const { data, error } = await supabase.functions.invoke("myinstants-proxy", {
+    body: { endpoint, params },
+  });
+
+  if (error) {
+    console.error("Proxy fetch error:", error);
+    throw new Error(`Failed to fetch ${endpoint}: ${error.message}`);
+  }
+
+  if (!Array.isArray(data)) {
+    console.error("Unexpected response format:", data);
+    return [];
+  }
+
+  console.log(`MyInstants ${endpoint} raw response:`, JSON.stringify(data.slice(0, 2)));
+  return data;
+}
+
+// Trending: fetch multiple regions and deduplicate
 async function fetchTrending(): Promise<MyInstantSound[]> {
-  const res = await fetch(`${API_BASE}/trending?q=us`);
-  if (!res.ok) throw new Error("Failed to fetch trending sounds");
-  return res.json();
+  const regions = ["us", "br", "gb", "id", "fr", "de", "es", "mx"];
+
+  const results = await Promise.allSettled(
+    regions.map(q => proxyFetch("trending", { q }))
+  );
+
+  const allSounds: MyInstantSound[] = [];
+  const seenIds = new Set<string>();
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const sound of result.value) {
+        if (!seenIds.has(sound.id)) {
+          seenIds.add(sound.id);
+          allSounds.push(sound);
+        }
+      }
+    }
+  }
+
+  // Sort by views DESC
+  allSounds.sort((a, b) => (b.views || 0) - (a.views || 0));
+  return allSounds;
+}
+
+async function fetchRecent(): Promise<MyInstantSound[]> {
+  return proxyFetch("recent");
+}
+
+async function fetchBest(): Promise<MyInstantSound[]> {
+  const sounds = await proxyFetch("best");
+  // Sort by favorites DESC
+  sounds.sort((a, b) => (b.favorites || 0) - (a.favorites || 0));
+  return sounds;
 }
 
 async function searchSounds(query: string): Promise<MyInstantSound[]> {
-  const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) throw new Error("Failed to search sounds");
-  return res.json();
+  return proxyFetch("search", { q: query });
 }
 
 export function useSoundBrowser() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"trending" | "search">("trending");
+  const [activeTab, setActiveTab] = useState<SoundTab>("trending");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const queryClient = useQueryClient();
 
@@ -61,22 +113,37 @@ export function useSoundBrowser() {
       if (searchQuery.trim()) {
         setDebouncedQuery(searchQuery.trim());
         setActiveTab("search");
-      } else {
+      } else if (activeTab === "search") {
         setActiveTab("trending");
       }
     }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch trending sounds (cached 5 min)
   const trendingQuery = useQuery({
     queryKey: ["sounds", "trending"],
     queryFn: fetchTrending,
     staleTime: 5 * 60 * 1000,
     retry: 2,
+    enabled: activeTab === "trending",
   });
 
-  // Search sounds
+  const recentQuery = useQuery({
+    queryKey: ["sounds", "recent"],
+    queryFn: fetchRecent,
+    staleTime: 2 * 60 * 1000,
+    retry: 2,
+    enabled: activeTab === "recent",
+  });
+
+  const bestQuery = useQuery({
+    queryKey: ["sounds", "best"],
+    queryFn: fetchBest,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+    enabled: activeTab === "best",
+  });
+
   const searchResultsQuery = useQuery({
     queryKey: ["sounds", "search", debouncedQuery],
     queryFn: () => searchSounds(debouncedQuery),
@@ -85,17 +152,16 @@ export function useSoundBrowser() {
     retry: 2,
   });
 
-  const sounds = activeTab === "trending" 
-    ? trendingQuery.data 
-    : searchResultsQuery.data;
+  const activeQuery = {
+    trending: trendingQuery,
+    recent: recentQuery,
+    best: bestQuery,
+    search: searchResultsQuery,
+  }[activeTab];
 
-  const isLoading = activeTab === "trending" 
-    ? trendingQuery.isLoading 
-    : searchResultsQuery.isLoading;
-
-  const error = activeTab === "trending" 
-    ? trendingQuery.error 
-    : searchResultsQuery.error;
+  const sounds = activeQuery.data;
+  const isLoading = activeQuery.isLoading;
+  const error = activeQuery.error;
 
   // Check registry status for visible sounds
   const soundIds = sounds?.map(s => s.id) || [];
@@ -109,7 +175,7 @@ export function useSoundBrowser() {
       return (data?.registry || []) as SoundRegistryEntry[];
     },
     enabled: soundIds.length > 0,
-    refetchInterval: 30000, // Auto-refresh every 30s
+    refetchInterval: 30000,
   });
 
   // Merge sounds with registry status
@@ -119,7 +185,6 @@ export function useSoundBrowser() {
     if (entry) {
       if (entry.status === "minted") mintStatus = "minted";
       else if (entry.status === "reserved") {
-        // Check if reservation is expired
         if (entry.reservation_expires_at && new Date(entry.reservation_expires_at) < new Date()) {
           mintStatus = "available";
         } else {
@@ -135,12 +200,8 @@ export function useSoundBrowser() {
   }, [queryClient]);
 
   const retry = useCallback(() => {
-    if (activeTab === "trending") {
-      trendingQuery.refetch();
-    } else {
-      searchResultsQuery.refetch();
-    }
-  }, [activeTab, trendingQuery, searchResultsQuery]);
+    activeQuery.refetch();
+  }, [activeQuery]);
 
   return {
     searchQuery,
@@ -160,7 +221,7 @@ export function useSoundPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
-  const play = useCallback((id: string, url: string) => {
+  const play = useCallback((id: string, mp3Url: string) => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -171,7 +232,7 @@ export function useSoundPlayer() {
       return;
     }
 
-    const audio = new Audio(url);
+    const audio = new Audio(mp3Url);
     audio.onended = () => {
       setPlayingId(null);
       audioRef.current = null;
@@ -193,7 +254,6 @@ export function useSoundPlayer() {
     setPlayingId(null);
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
