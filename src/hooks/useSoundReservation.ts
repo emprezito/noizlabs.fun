@@ -50,7 +50,7 @@ export function useSoundReservation(onRefetchRegistry: () => void) {
       // Compute audio hash for duplicate detection
       let audioHash: string | undefined;
       try {
-        audioHash = await computeAudioHash(sound.mp3_url);
+        audioHash = await computeAudioHash(sound.mp3);
       } catch {
         console.warn("Could not compute audio hash, proceeding without it");
       }
