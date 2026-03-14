@@ -9,87 +9,85 @@ const API_BASE = "https://myinstants-api.vercel.app";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
   try {
-    const { endpoint, params } = await req.json();
+    let endpoint: string | null = null;
+    let params: Record<string, string> = {};
+
+    // Support both POST (supabase.functions.invoke) and GET (query params)
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        endpoint = body.endpoint;
+        params = body.params || {};
+      } catch {
+        return new Response(JSON.stringify([]), { headers: jsonHeaders });
+      }
+    } else {
+      const url = new URL(req.url);
+      endpoint = url.searchParams.get("endpoint");
+      url.searchParams.forEach((value, key) => {
+        if (key !== "endpoint") params[key] = value;
+      });
+    }
 
     if (!endpoint || typeof endpoint !== "string") {
-      return new Response(JSON.stringify({ error: "endpoint required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify([]), { headers: jsonHeaders });
     }
 
     const validEndpoints = ["trending", "search", "detail", "recent", "best", "uploaded", "favorites"];
     if (!validEndpoints.includes(endpoint)) {
-      return new Response(JSON.stringify({ error: "Invalid endpoint" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify([]), { headers: jsonHeaders });
     }
 
-    // recent and best require q param (region code), default to "us"
-    const finalParams = { ...(params || {}) };
-    if ((endpoint === "recent" || endpoint === "best") && !finalParams.q) {
-      finalParams.q = "us";
+    // Some endpoints need a q param to work
+    if ((endpoint === "recent" || endpoint === "best") && !params.q) {
+      params.q = "us";
     }
 
-    const queryParams = new URLSearchParams(finalParams);
+    const queryParams = new URLSearchParams(params);
     const url = `${API_BASE}/${endpoint}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-
-    console.log("Proxying request to:", url);
+    console.log("Proxying:", url);
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NoizLabs/1.0)',
-        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json, text/plain, */*',
       },
     });
 
     const rawText = await response.text();
 
     if (!response.ok) {
-      console.error("MyInstants API error:", response.status, rawText.substring(0, 200));
-      return new Response(JSON.stringify({ error: `API returned ${response.status}`, data: [] }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("API error:", response.status, rawText.substring(0, 200));
+      return new Response(JSON.stringify([]), { headers: jsonHeaders });
     }
 
-    // Try to parse as JSON, return empty array on failure
+    // Safely parse JSON - return empty array if HTML or garbage
     let data;
     try {
       data = JSON.parse(rawText);
     } catch {
-      console.error("Non-JSON response:", rawText.substring(0, 300));
-      return new Response(JSON.stringify([]), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Non-JSON response:", rawText.substring(0, 200));
+      return new Response(JSON.stringify([]), { headers: jsonHeaders });
     }
 
-    // API sometimes returns error objects like {"status":"404","message":"..."}
-    if (data && typeof data === "object" && !Array.isArray(data) && data.status === "404") {
-      console.warn("API returned 404 object:", JSON.stringify(data));
-      return new Response(JSON.stringify([]), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Handle API error objects like {"status":"404","message":"..."}
+    if (data && !Array.isArray(data) && (data.status === "404" || data.error)) {
+      console.warn("API error object:", JSON.stringify(data));
+      return new Response(JSON.stringify([]), { headers: jsonHeaders });
     }
 
-    // Wrap non-array responses
     const result = Array.isArray(data) ? data : [data];
-    console.log(`MyInstants ${endpoint} returned ${result.length} items`);
+    console.log(`${endpoint} returned ${result.length} items`);
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify(result), { headers: jsonHeaders });
   } catch (error: unknown) {
     console.error("Proxy error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message, data: [] }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify([]), { headers: jsonHeaders });
   }
 });
