@@ -241,6 +241,8 @@ export function useSoundBrowser() {
     setSearchQuery,
     activeTab,
     setActiveTab,
+    selectedCategory,
+    setSelectedCategory,
     sounds: soundsWithStatus,
     isLoading,
     error,
