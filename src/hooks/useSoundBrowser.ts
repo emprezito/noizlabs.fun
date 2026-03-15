@@ -37,7 +37,24 @@ export interface SoundWithStatus extends MyInstantSound {
   registryEntry?: SoundRegistryEntry;
 }
 
-export type SoundTab = "trending" | "recent" | "best" | "search";
+export type SoundTab = "all" | "trending" | "recent" | "search";
+
+export const SOUND_CATEGORIES = [
+  { value: "", label: "All Categories" },
+  { value: "funny", label: "Funny" },
+  { value: "memes", label: "Memes" },
+  { value: "games", label: "Games" },
+  { value: "movies", label: "Movies" },
+  { value: "music", label: "Music" },
+  { value: "anime", label: "Anime" },
+  { value: "animals", label: "Animals" },
+  { value: "cartoons", label: "Cartoons" },
+  { value: "celebrities", label: "Celebrities" },
+  { value: "tv", label: "TV Shows" },
+  { value: "sports", label: "Sports" },
+  { value: "horror", label: "Horror" },
+  { value: "sound-effects", label: "Sound Effects" },
+] as const;
 
 // Proxy all MyInstants API calls through our edge function
 async function proxyFetch(endpoint: string, params?: Record<string, string>): Promise<MyInstantSound[]> {
