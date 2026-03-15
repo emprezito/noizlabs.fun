@@ -204,27 +204,45 @@ const BrowseSoundsPage = () => {
               />
             </div>
 
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as SoundTab); if (v !== "search") setSearchQuery(""); }}>
-              <TabsList>
-                <TabsTrigger value="trending">
-                  <TrendingUp className="w-3.5 h-3.5 mr-1" />
-                  Trending
-                </TabsTrigger>
-                <TabsTrigger value="recent">
-                  <Clock className="w-3.5 h-3.5 mr-1" />
-                  Recent
-                </TabsTrigger>
-                <TabsTrigger value="best">
-                  <Trophy className="w-3.5 h-3.5 mr-1" />
-                  Best of All Time
-                </TabsTrigger>
-                <TabsTrigger value="search" disabled={!searchQuery}>
-                  <Search className="w-3.5 h-3.5 mr-1" />
-                  Results
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Tabs + Category Filter */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as SoundTab); if (v !== "search") setSearchQuery(""); }}>
+                <TabsList>
+                  <TabsTrigger value="all">
+                    <LayoutGrid className="w-3.5 h-3.5 mr-1" />
+                    All Sounds
+                  </TabsTrigger>
+                  <TabsTrigger value="trending">
+                    <TrendingUp className="w-3.5 h-3.5 mr-1" />
+                    Trending
+                  </TabsTrigger>
+                  <TabsTrigger value="recent">
+                    <Clock className="w-3.5 h-3.5 mr-1" />
+                    Recent
+                  </TabsTrigger>
+                  <TabsTrigger value="search" disabled={!searchQuery}>
+                    <Search className="w-3.5 h-3.5 mr-1" />
+                    Results
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {activeTab === "all" && (
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-[180px] h-9">
+                    <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOUND_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value || "__all__"}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
 
             {/* Error */}
             {error && (
