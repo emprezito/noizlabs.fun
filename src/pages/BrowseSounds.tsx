@@ -35,6 +35,8 @@ const BrowseSoundsPage = () => {
     setSearchQuery,
     activeTab,
     setActiveTab,
+    selectedCategory,
+    setSelectedCategory,
     sounds,
     isLoading,
     error,
