@@ -27,15 +27,13 @@ interface SoundItem {
 // Extract slugs and titles from a list page HTML
 function parseListPage(html: string): { slug: string; title: string; color: string }[] {
   const results: { slug: string; title: string; color: string }[] = [];
-  // Match each .instant block with its link
-  const instantRegex = /class="instant"[\s\S]*?<a\s+href="https?:\/\/www\.myinstants\.com\/en\/instant\/([^"\/]+)\/?"\s+class="instant-link[^"]*">([^<]+)<\/a>/g;
+  // Match links with class instant-link - href can be relative or absolute
+  const instantRegex = /<a\s+href="(?:https?:\/\/www\.myinstants\.com)?\/en\/instant\/([^"\/]+)\/?"\s+class="instant-link[^"]*">([^<]+)<\/a>/g;
   let match;
   while ((match = instantRegex.exec(html)) !== null) {
     const slug = match[1];
     const title = match[2].trim();
-    // Try to get color
-    const colorMatch = html.substring(Math.max(0, match.index - 200), match.index).match(/background-color:\s*([^;"]+)/);
-    results.push({ slug, title, color: colorMatch?.[1] || '#FF0000' });
+    results.push({ slug, title, color: '#FF0000' });
   }
   return results;
 }
