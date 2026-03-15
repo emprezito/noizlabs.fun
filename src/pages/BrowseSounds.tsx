@@ -228,7 +228,7 @@ const BrowseSoundsPage = () => {
               </Tabs>
 
               {activeTab === "all" && (
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <Select value={selectedCategory || "__all__"} onValueChange={v => setSelectedCategory(v === "__all__" ? "" : v)}>
                   <SelectTrigger className="w-[180px] h-9">
                     <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                     <SelectValue placeholder="All Categories" />
