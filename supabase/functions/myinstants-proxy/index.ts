@@ -111,14 +111,21 @@ async function scrapeListPage(path: string, limit = 30): Promise<SoundItem[]> {
     const url = `${BASE}${path}`;
     console.log("Scraping list:", url);
     const res = await fetch(url, { headers: FETCH_HEADERS });
+    console.log("List page status:", res.status);
+    const html = await res.text();
+    console.log("HTML length:", html.length, "First 500 chars:", html.substring(0, 500));
     if (!res.ok) {
       console.error("List page error:", res.status);
-      await res.text();
       return [];
     }
-    const html = await res.text();
     const entries = parseListPage(html).slice(0, limit);
     console.log(`Found ${entries.length} sounds on list page`);
+    if (entries.length === 0 && html.includes('instant-link')) {
+      // Try alternate regex
+      console.log("HTML contains instant-link but regex didn't match, checking...");
+      const sample = html.substring(html.indexOf('instant-link') - 200, html.indexOf('instant-link') + 200);
+      console.log("Sample around instant-link:", sample);
+    }
 
     if (entries.length === 0) return [];
 
