@@ -37,7 +37,24 @@ export interface SoundWithStatus extends MyInstantSound {
   registryEntry?: SoundRegistryEntry;
 }
 
-export type SoundTab = "trending" | "recent" | "best" | "search";
+export type SoundTab = "all" | "trending" | "recent" | "search";
+
+export const SOUND_CATEGORIES = [
+  { value: "", label: "All Categories" },
+  { value: "funny", label: "Funny" },
+  { value: "memes", label: "Memes" },
+  { value: "games", label: "Games" },
+  { value: "movies", label: "Movies" },
+  { value: "music", label: "Music" },
+  { value: "anime", label: "Anime" },
+  { value: "animals", label: "Animals" },
+  { value: "cartoons", label: "Cartoons" },
+  { value: "celebrities", label: "Celebrities" },
+  { value: "tv", label: "TV Shows" },
+  { value: "sports", label: "Sports" },
+  { value: "horror", label: "Horror" },
+  { value: "sound-effects", label: "Sound Effects" },
+] as const;
 
 // Proxy all MyInstants API calls through our edge function
 async function proxyFetch(endpoint: string, params?: Record<string, string>): Promise<MyInstantSound[]> {
@@ -95,11 +112,12 @@ async function fetchRecent(): Promise<MyInstantSound[]> {
   return proxyFetch("recent");
 }
 
-async function fetchBest(): Promise<MyInstantSound[]> {
-  const sounds = await proxyFetch("best");
-  // Sort by favorites DESC
-  sounds.sort((a, b) => (b.favorites || 0) - (a.favorites || 0));
-  return sounds;
+async function fetchAll(): Promise<MyInstantSound[]> {
+  return proxyFetch("all");
+}
+
+async function fetchByCategory(category: string): Promise<MyInstantSound[]> {
+  return proxyFetch("category", { q: category });
 }
 
 async function searchSounds(query: string): Promise<MyInstantSound[]> {
@@ -108,7 +126,8 @@ async function searchSounds(query: string): Promise<MyInstantSound[]> {
 
 export function useSoundBrowser() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<SoundTab>("trending");
+  const [activeTab, setActiveTab] = useState<SoundTab>("all");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const queryClient = useQueryClient();
 
@@ -119,11 +138,27 @@ export function useSoundBrowser() {
         setDebouncedQuery(searchQuery.trim());
         setActiveTab("search");
       } else if (activeTab === "search") {
-        setActiveTab("trending");
+        setActiveTab("all");
       }
     }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  const allQuery = useQuery({
+    queryKey: ["sounds", "all"],
+    queryFn: fetchAll,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+    enabled: activeTab === "all" && !selectedCategory,
+  });
+
+  const categoryQuery = useQuery({
+    queryKey: ["sounds", "category", selectedCategory],
+    queryFn: () => fetchByCategory(selectedCategory),
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+    enabled: activeTab === "all" && !!selectedCategory,
+  });
 
   const trendingQuery = useQuery({
     queryKey: ["sounds", "trending"],
@@ -141,14 +176,6 @@ export function useSoundBrowser() {
     enabled: activeTab === "recent",
   });
 
-  const bestQuery = useQuery({
-    queryKey: ["sounds", "best"],
-    queryFn: fetchBest,
-    staleTime: 5 * 60 * 1000,
-    retry: 2,
-    enabled: activeTab === "best",
-  });
-
   const searchResultsQuery = useQuery({
     queryKey: ["sounds", "search", debouncedQuery],
     queryFn: () => searchSounds(debouncedQuery),
@@ -157,12 +184,13 @@ export function useSoundBrowser() {
     retry: 2,
   });
 
-  const activeQuery = {
-    trending: trendingQuery,
-    recent: recentQuery,
-    best: bestQuery,
-    search: searchResultsQuery,
-  }[activeTab];
+  const activeQuery = activeTab === "all"
+    ? (selectedCategory ? categoryQuery : allQuery)
+    : {
+        trending: trendingQuery,
+        recent: recentQuery,
+        search: searchResultsQuery,
+      }[activeTab];
 
   const sounds = activeQuery.data;
   const isLoading = activeQuery.isLoading;
@@ -213,6 +241,8 @@ export function useSoundBrowser() {
     setSearchQuery,
     activeTab,
     setActiveTab,
+    selectedCategory,
+    setSelectedCategory,
     sounds: soundsWithStatus,
     isLoading,
     error,

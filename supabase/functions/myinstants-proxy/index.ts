@@ -186,10 +186,34 @@ serve(async (req) => {
         sounds = await scrapeListPage('/en/recent/', 25);
         break;
       }
-      case 'best': {
-        sounds = await scrapeListPage('/en/best/', 25);
-        // Sort by favorites DESC
-        sounds.sort((a, b) => b.favorites - a.favorites);
+      case 'category': {
+        const cat = params.q || '';
+        if (!cat) {
+          return new Response(JSON.stringify([]), { headers: jsonHeaders });
+        }
+        sounds = await scrapeListPage(`/en/categories/${encodeURIComponent(cat)}/`, 30);
+        break;
+      }
+      case 'all': {
+        // Fetch from multiple sources to build a broad "all sounds" list
+        const allPages = await Promise.allSettled([
+          scrapeListPage('/en/index/us/', 15),
+          scrapeListPage('/en/recent/', 15),
+          scrapeListPage(`/en/search/?name=${encodeURIComponent('nigerian')}`, 10),
+          scrapeListPage(`/en/search/?name=${encodeURIComponent('naija')}`, 10),
+        ]);
+        const seenIds = new Set<string>();
+        for (const r of allPages) {
+          if (r.status === 'fulfilled') {
+            for (const s of r.value) {
+              if (!seenIds.has(s.id)) {
+                seenIds.add(s.id);
+                sounds.push(s);
+              }
+            }
+          }
+        }
+        sounds.sort((a, b) => (b.views || 0) - (a.views || 0));
         break;
       }
       case 'search': {
