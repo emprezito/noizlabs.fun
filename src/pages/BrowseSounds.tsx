@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { SoundCard } from "@/components/browse/SoundCard";
 import { LiveActivityFeed } from "@/components/browse/LiveActivityFeed";
 import { MintSoundModal } from "@/components/browse/MintSoundModal";
-import { useSoundBrowser, useSoundPlayer, type SoundWithStatus, type SoundTab } from "@/hooks/useSoundBrowser";
+import { useSoundBrowser, useSoundPlayer, SOUND_CATEGORIES, type SoundWithStatus, type SoundTab } from "@/hooks/useSoundBrowser";
 import { useSoundReservation } from "@/hooks/useSoundReservation";
 import { createTokenWithMetaplex, CreateTokenParams, PLATFORM_WALLET, TOTAL_SUPPLY } from "@/lib/solana/createToken";
 import { uploadTokenMetadata } from "@/lib/ipfsUpload";
