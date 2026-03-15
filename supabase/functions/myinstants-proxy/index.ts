@@ -5,7 +5,142 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const API_BASE = "https://myinstants-api.vercel.app";
+const BASE = "https://www.myinstants.com";
+const FETCH_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+interface SoundItem {
+  id: string;
+  url: string;
+  title: string;
+  mp3: string;
+  description: string;
+  tags: string[];
+  views: number;
+  favorites: number;
+  uploader: { name: string; url: string };
+}
+
+// Extract slugs and titles from a list page HTML
+function parseListPage(html: string): { slug: string; title: string; color: string }[] {
+  const results: { slug: string; title: string; color: string }[] = [];
+  // Match links with class instant-link - href can be relative or absolute
+  const instantRegex = /<a\s+href="(?:https?:\/\/www\.myinstants\.com)?\/en\/instant\/([^"\/]+)\/?"\s+class="instant-link[^"]*">([^<]+)<\/a>/g;
+  let match;
+  while ((match = instantRegex.exec(html)) !== null) {
+    const slug = match[1];
+    const title = match[2].trim();
+    results.push({ slug, title, color: '#FF0000' });
+  }
+  return results;
+}
+
+// Fetch a detail page and extract mp3 URL, views, favorites, description, uploader
+async function fetchSoundDetail(slug: string): Promise<SoundItem | null> {
+  try {
+    const url = `${BASE}/en/instant/${slug}/`;
+    const res = await fetch(url, { headers: FETCH_HEADERS });
+    if (!res.ok) {
+      await res.text(); // consume body
+      return null;
+    }
+    const html = await res.text();
+
+    // Extract mp3 URL from data-url attribute
+    const mp3Match = html.match(/data-url="([^"]+\.mp3)"/);
+    if (!mp3Match) return null;
+    const mp3Path = mp3Match[1];
+    const mp3 = mp3Path.startsWith('http') ? mp3Path : `${BASE}${mp3Path}`;
+
+    // Title
+    const titleMatch = html.match(/<h1[^>]*id="instant-page-title"[^>]*>([^<]+)<\/h1>/);
+    const title = titleMatch ? titleMatch[1].trim() : slug;
+
+    // Description
+    const descMatch = html.match(/id="instant-page-description"[^>]*>\s*<p>([^<]*)<\/p>/);
+    const description = descMatch ? descMatch[1].trim() : '';
+
+    // Views
+    const viewsMatch = html.match(/([\d,]+)\s*views/);
+    const views = viewsMatch ? parseInt(viewsMatch[1].replace(/,/g, ''), 10) : 0;
+
+    // Favorites
+    const favsMatch = html.match(/<b>([\d,]+)\s*users<\/b>/);
+    const favorites = favsMatch ? parseInt(favsMatch[1].replace(/,/g, ''), 10) : 0;
+
+    // Uploader
+    const uploaderMatch = html.match(/Uploaded by <a href="([^"]+)">([^<]+)<\/a>/);
+    const uploader = uploaderMatch
+      ? { name: uploaderMatch[2], url: `${BASE}${uploaderMatch[1]}` }
+      : { name: '', url: '' };
+
+    // Tags from meta keywords or page
+    const tagsMatch = html.match(/class="instant-page-tag[^"]*"[^>]*>([^<]+)/g);
+    const tags = tagsMatch
+      ? tagsMatch.map(t => {
+          const m = t.match(/>([^<]+)/);
+          return m ? m[1].trim() : '';
+        }).filter(Boolean)
+      : [];
+
+    return {
+      id: slug,
+      url: `${BASE}/en/instant/${slug}/`,
+      title,
+      mp3,
+      description,
+      tags,
+      views,
+      favorites,
+      uploader,
+    };
+  } catch (err) {
+    console.error(`Failed to fetch detail for ${slug}:`, err);
+    return null;
+  }
+}
+
+// Fetch a list page and resolve all sound details
+async function scrapeListPage(path: string, limit = 30): Promise<SoundItem[]> {
+  try {
+    const url = `${BASE}${path}`;
+    console.log("Scraping list:", url);
+    const res = await fetch(url, { headers: FETCH_HEADERS });
+    if (!res.ok) {
+      console.error("List page error:", res.status);
+      await res.text();
+      return [];
+    }
+    const html = await res.text();
+    const entries = parseListPage(html).slice(0, limit);
+    console.log(`Found ${entries.length} sounds on list page`);
+
+    if (entries.length === 0) return [];
+
+    // Fetch detail pages in parallel (batches of 10)
+    const sounds: SoundItem[] = [];
+    const batchSize = 10;
+    for (let i = 0; i < entries.length; i += batchSize) {
+      const batch = entries.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(e => fetchSoundDetail(e.slug))
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) {
+          sounds.push(r.value);
+        }
+      }
+    }
+
+    return sounds;
+  } catch (err) {
+    console.error("Scrape error:", err);
+    return [];
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,7 +153,6 @@ serve(async (req) => {
     let endpoint: string | null = null;
     let params: Record<string, string> = {};
 
-    // Support both POST (supabase.functions.invoke) and GET (query params)
     if (req.method === 'POST') {
       try {
         const body = await req.json();
@@ -35,57 +169,48 @@ serve(async (req) => {
       });
     }
 
-    if (!endpoint || typeof endpoint !== "string") {
+    if (!endpoint) {
       return new Response(JSON.stringify([]), { headers: jsonHeaders });
     }
 
-    const validEndpoints = ["trending", "search", "detail", "recent", "best", "uploaded", "favorites"];
-    if (!validEndpoints.includes(endpoint)) {
-      return new Response(JSON.stringify([]), { headers: jsonHeaders });
+    console.log(`Endpoint: ${endpoint}, params:`, JSON.stringify(params));
+    let sounds: SoundItem[] = [];
+
+    switch (endpoint) {
+      case 'trending': {
+        const region = params.q || 'us';
+        sounds = await scrapeListPage(`/en/index/${region}/`, 25);
+        break;
+      }
+      case 'recent': {
+        sounds = await scrapeListPage('/en/recent/', 25);
+        break;
+      }
+      case 'best': {
+        sounds = await scrapeListPage('/en/best/', 25);
+        // Sort by favorites DESC
+        sounds.sort((a, b) => b.favorites - a.favorites);
+        break;
+      }
+      case 'search': {
+        const query = params.q || '';
+        if (!query) {
+          return new Response(JSON.stringify([]), { headers: jsonHeaders });
+        }
+        sounds = await scrapeListPage(`/en/search/?name=${encodeURIComponent(query)}`, 25);
+        break;
+      }
+      default:
+        return new Response(JSON.stringify([]), { headers: jsonHeaders });
     }
 
-    // Some endpoints need a q param to work
-    if ((endpoint === "recent" || endpoint === "best") && !params.q) {
-      params.q = "us";
-    }
-
-    const queryParams = new URLSearchParams(params);
-    const url = `${API_BASE}/${endpoint}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    console.log("Proxying:", url);
-
-    const response = await fetch(url, {
+    console.log(`Returning ${sounds.length} sounds for ${endpoint}`);
+    return new Response(JSON.stringify(sounds), {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json, text/plain, */*',
+        ...jsonHeaders,
+        'Cache-Control': 's-maxage=300, stale-while-revalidate=600',
       },
     });
-
-    const rawText = await response.text();
-
-    if (!response.ok) {
-      console.error("API error:", response.status, rawText.substring(0, 200));
-      return new Response(JSON.stringify([]), { headers: jsonHeaders });
-    }
-
-    // Safely parse JSON - return empty array if HTML or garbage
-    let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      console.error("Non-JSON response:", rawText.substring(0, 200));
-      return new Response(JSON.stringify([]), { headers: jsonHeaders });
-    }
-
-    // Handle API error objects like {"status":"404","message":"..."}
-    if (data && !Array.isArray(data) && (data.status === "404" || data.error)) {
-      console.warn("API error object:", JSON.stringify(data));
-      return new Response(JSON.stringify([]), { headers: jsonHeaders });
-    }
-
-    const result = Array.isArray(data) ? data : [data];
-    console.log(`${endpoint} returned ${result.length} items`);
-
-    return new Response(JSON.stringify(result), { headers: jsonHeaders });
   } catch (error: unknown) {
     console.error("Proxy error:", error);
     return new Response(JSON.stringify([]), { headers: jsonHeaders });
