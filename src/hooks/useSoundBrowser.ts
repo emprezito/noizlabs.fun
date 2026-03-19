@@ -41,6 +41,7 @@ export type SoundTab = "all" | "trending" | "recent" | "search";
 
 export const SOUND_CATEGORIES = [
   { value: "", label: "All Categories" },
+  { value: "nigerian", label: "🇳🇬 Nigerian" },
   { value: "funny", label: "Funny" },
   { value: "memes", label: "Memes" },
   { value: "games", label: "Games" },
