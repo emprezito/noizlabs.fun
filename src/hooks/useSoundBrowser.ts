@@ -74,7 +74,6 @@ async function proxyFetch(endpoint: string, params?: Record<string, string>): Pr
       return [];
     }
 
-    console.log(`MyInstants ${endpoint} returned ${data.length} items`);
     return data;
   } catch (err) {
     console.warn(`proxyFetch ${endpoint} failed:`, err);
