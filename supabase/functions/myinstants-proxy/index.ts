@@ -196,9 +196,11 @@ serve(async (req) => {
         }
         if (cat === 'nigerian') {
           const nigerianPages = await Promise.allSettled([
-            scrapeListPage(`/en/search/?name=${encodeURIComponent('nigerian')}&page=${page}`, 20),
-            scrapeListPage(`/en/search/?name=${encodeURIComponent('naija')}&page=${page}`, 20),
-            scrapeListPage(`/en/search/?name=${encodeURIComponent('nigeria')}&page=${page}`, 20),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('african')}&page=${page}`, 20),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('sapa')}&page=${page}`, 15),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('oga')}&page=${page}`, 15),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('wahala')}&page=${page}`, 10),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('lagos')}&page=${page}`, 10),
           ]);
           const seenIds = new Set<string>();
           for (const r of nigerianPages) {
