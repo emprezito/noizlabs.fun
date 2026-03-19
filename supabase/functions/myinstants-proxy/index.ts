@@ -176,14 +176,17 @@ serve(async (req) => {
     console.log(`Endpoint: ${endpoint}, params:`, JSON.stringify(params));
     let sounds: SoundItem[] = [];
 
+    const page = parseInt(params.page || '1', 10);
+    const pageSize = 30;
+
     switch (endpoint) {
       case 'trending': {
         const region = params.q || 'us';
-        sounds = await scrapeListPage(`/en/index/${region}/`, 25);
+        sounds = await scrapeListPage(`/en/index/${region}/?page=${page}`, pageSize);
         break;
       }
       case 'recent': {
-        sounds = await scrapeListPage('/en/recent/', 25);
+        sounds = await scrapeListPage(`/en/recent/?page=${page}`, pageSize);
         break;
       }
       case 'category': {
@@ -191,13 +194,32 @@ serve(async (req) => {
         if (!cat) {
           return new Response(JSON.stringify([]), { headers: jsonHeaders });
         }
-        sounds = await scrapeListPage(`/en/categories/${encodeURIComponent(cat)}/`, 30);
+        if (cat === 'nigerian') {
+          const nigerianPages = await Promise.allSettled([
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('nigerian')}&page=${page}`, 20),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('naija')}&page=${page}`, 20),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('nigeria')}&page=${page}`, 20),
+          ]);
+          const seenIds = new Set<string>();
+          for (const r of nigerianPages) {
+            if (r.status === 'fulfilled') {
+              for (const s of r.value) {
+                if (!seenIds.has(s.id)) {
+                  seenIds.add(s.id);
+                  sounds.push(s);
+                }
+              }
+            }
+          }
+          sounds.sort((a, b) => (b.views || 0) - (a.views || 0));
+        } else {
+          sounds = await scrapeListPage(`/en/categories/${encodeURIComponent(cat)}/?page=${page}`, pageSize);
+        }
         break;
       }
       case 'all': {
-        // Fetch from multiple sources to build a broad "all sounds" list
         const allPages = await Promise.allSettled([
-          scrapeListPage('/en/index/us/', 15),
+          scrapeListPage(`/en/index/us/?page=${page}`, 15),
           scrapeListPage('/en/recent/', 15),
           scrapeListPage(`/en/search/?name=${encodeURIComponent('nigerian')}`, 10),
           scrapeListPage(`/en/search/?name=${encodeURIComponent('naija')}`, 10),
@@ -221,7 +243,7 @@ serve(async (req) => {
         if (!query) {
           return new Response(JSON.stringify([]), { headers: jsonHeaders });
         }
-        sounds = await scrapeListPage(`/en/search/?name=${encodeURIComponent(query)}`, 25);
+        sounds = await scrapeListPage(`/en/search/?name=${encodeURIComponent(query)}&page=${page}`, pageSize);
         break;
       }
       default:

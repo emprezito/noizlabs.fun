@@ -41,6 +41,7 @@ export type SoundTab = "all" | "trending" | "recent" | "search";
 
 export const SOUND_CATEGORIES = [
   { value: "", label: "All Categories" },
+  { value: "nigerian", label: "🇳🇬 Nigerian" },
   { value: "funny", label: "Funny" },
   { value: "memes", label: "Memes" },
   { value: "games", label: "Games" },
@@ -73,7 +74,6 @@ async function proxyFetch(endpoint: string, params?: Record<string, string>): Pr
       return [];
     }
 
-    console.log(`MyInstants ${endpoint} returned ${data.length} items`);
     return data;
   } catch (err) {
     console.warn(`proxyFetch ${endpoint} failed:`, err);
@@ -129,7 +129,17 @@ export function useSoundBrowser() {
   const [activeTab, setActiveTab] = useState<SoundTab>("all");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [accumulatedSounds, setAccumulatedSounds] = useState<MyInstantSound[]>([]);
+  const [hasMore, setHasMore] = useState(true);
   const queryClient = useQueryClient();
+
+  // Reset pagination when tab/category/search changes
+  useEffect(() => {
+    setPage(1);
+    setAccumulatedSounds([]);
+    setHasMore(true);
+  }, [activeTab, selectedCategory]);
 
   // Debounce search
   useEffect(() => {
@@ -137,6 +147,9 @@ export function useSoundBrowser() {
       if (searchQuery.trim()) {
         setDebouncedQuery(searchQuery.trim());
         setActiveTab("search");
+        setPage(1);
+        setAccumulatedSounds([]);
+        setHasMore(true);
       } else if (activeTab === "search") {
         setActiveTab("all");
       }
@@ -144,57 +157,75 @@ export function useSoundBrowser() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const allQuery = useQuery({
-    queryKey: ["sounds", "all"],
-    queryFn: fetchAll,
+  const fetchPage = useCallback(async (tab: SoundTab, category: string, query: string, pg: number): Promise<MyInstantSound[]> => {
+    const pageStr = String(pg);
+    switch (tab) {
+      case "all":
+        if (category) {
+          return proxyFetch("category", { q: category, page: pageStr });
+        }
+        return proxyFetch("all", { page: pageStr });
+      case "trending": {
+        const regions = ["us", "br", "gb", "id", "fr", "de", "es", "mx"];
+        const results = await Promise.allSettled(
+          regions.map(q => proxyFetch("trending", { q, page: pageStr }))
+        );
+        const all: MyInstantSound[] = [];
+        const seen = new Set<string>();
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            for (const s of r.value) {
+              if (!seen.has(s.id)) { seen.add(s.id); all.push(s); }
+            }
+          }
+        }
+        all.sort((a, b) => (b.views || 0) - (a.views || 0));
+        return all;
+      }
+      case "recent":
+        return proxyFetch("recent", { page: pageStr });
+      case "search":
+        return query ? proxyFetch("search", { q: query, page: pageStr }) : [];
+      default:
+        return [];
+    }
+  }, []);
+
+  const currentQuery = useQuery({
+    queryKey: ["sounds", activeTab, selectedCategory, debouncedQuery, page],
+    queryFn: () => fetchPage(activeTab, selectedCategory, debouncedQuery, page),
     staleTime: 5 * 60 * 1000,
     retry: 2,
-    enabled: activeTab === "all" && !selectedCategory,
   });
 
-  const categoryQuery = useQuery({
-    queryKey: ["sounds", "category", selectedCategory],
-    queryFn: () => fetchByCategory(selectedCategory),
-    staleTime: 5 * 60 * 1000,
-    retry: 2,
-    enabled: activeTab === "all" && !!selectedCategory,
-  });
+  // Accumulate sounds when new page data arrives
+  useEffect(() => {
+    if (currentQuery.data) {
+      if (page === 1) {
+        setAccumulatedSounds(currentQuery.data);
+      } else {
+        setAccumulatedSounds(prev => {
+          const seenIds = new Set(prev.map(s => s.id));
+          const newSounds = currentQuery.data!.filter(s => !seenIds.has(s.id));
+          return [...prev, ...newSounds];
+        });
+      }
+      if (currentQuery.data.length === 0) {
+        setHasMore(false);
+      }
+    }
+  }, [currentQuery.data, page]);
 
-  const trendingQuery = useQuery({
-    queryKey: ["sounds", "trending"],
-    queryFn: fetchTrending,
-    staleTime: 5 * 60 * 1000,
-    retry: 2,
-    enabled: activeTab === "trending",
-  });
+  const sounds = accumulatedSounds;
+  const isLoading = currentQuery.isLoading && page === 1;
+  const isLoadingMore = currentQuery.isLoading && page > 1;
+  const error = currentQuery.error;
 
-  const recentQuery = useQuery({
-    queryKey: ["sounds", "recent"],
-    queryFn: fetchRecent,
-    staleTime: 2 * 60 * 1000,
-    retry: 2,
-    enabled: activeTab === "recent",
-  });
-
-  const searchResultsQuery = useQuery({
-    queryKey: ["sounds", "search", debouncedQuery],
-    queryFn: () => searchSounds(debouncedQuery),
-    enabled: !!debouncedQuery && activeTab === "search",
-    staleTime: 2 * 60 * 1000,
-    retry: 2,
-  });
-
-  const activeQuery = activeTab === "all"
-    ? (selectedCategory ? categoryQuery : allQuery)
-    : {
-        trending: trendingQuery,
-        recent: recentQuery,
-        search: searchResultsQuery,
-      }[activeTab];
-
-  const sounds = activeQuery.data;
-  const isLoading = activeQuery.isLoading;
-  const error = activeQuery.error;
+  const loadMore = useCallback(() => {
+    if (!currentQuery.isLoading && hasMore) {
+      setPage(p => p + 1);
+    }
+  }, [currentQuery.isLoading, hasMore]);
 
   // Check registry status for visible sounds
   const soundIds = sounds?.map(s => s.id) || [];
@@ -233,8 +264,11 @@ export function useSoundBrowser() {
   }, [queryClient]);
 
   const retry = useCallback(() => {
-    activeQuery.refetch();
-  }, [activeQuery]);
+    setPage(1);
+    setAccumulatedSounds([]);
+    setHasMore(true);
+    currentQuery.refetch();
+  }, [currentQuery]);
 
   return {
     searchQuery,
@@ -245,6 +279,9 @@ export function useSoundBrowser() {
     setSelectedCategory,
     sounds: soundsWithStatus,
     isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
     error,
     retry,
     refetchRegistry,

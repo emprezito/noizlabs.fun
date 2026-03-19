@@ -39,6 +39,9 @@ const BrowseSoundsPage = () => {
     setSelectedCategory,
     sounds,
     isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
     error,
     retry,
     refetchRegistry,
@@ -264,18 +267,41 @@ const BrowseSoundsPage = () => {
 
             {/* Sound Grid */}
             {!isLoading && !error && sounds.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {sounds.map(sound => (
-                  <SoundCard
-                    key={sound.id}
-                    sound={sound}
-                    isPlaying={playingId === sound.id}
-                    onPlay={() => play(sound.id, sound.mp3)}
-                    onMint={() => handleMintClick(sound)}
-                    isMinting={isReserving}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {sounds.map(sound => (
+                    <SoundCard
+                      key={sound.id}
+                      sound={sound}
+                      isPlaying={playingId === sound.id}
+                      onPlay={() => play(sound.id, sound.mp3)}
+                      onMint={() => handleMintClick(sound)}
+                      isMinting={isReserving}
+                    />
+                  ))}
+                </div>
+
+                {hasMore && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={loadMore}
+                      disabled={isLoadingMore}
+                      className="min-w-[200px]"
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Loading more...
+                        </>
+                      ) : (
+                        "Load More Sounds"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Empty States */}
