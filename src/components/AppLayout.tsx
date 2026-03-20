@@ -35,7 +35,7 @@ export function AppLayout({ children, showTicker = true }: AppLayoutProps) {
         </div>
 
         {/* Page Content */}
-        <main className="flex-1 min-w-0 overflow-x-hidden pb-16 md:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 overflow-x-clip pb-16 md:pb-0">{children}</main>
       </div>
 
       {/* Mobile Tab Bar */}
