@@ -196,11 +196,18 @@ serve(async (req) => {
         }
         if (cat === 'nigerian') {
           const nigerianPages = await Promise.allSettled([
-            scrapeListPage(`/en/search/?name=${encodeURIComponent('african')}&page=${page}`, 20),
-            scrapeListPage(`/en/search/?name=${encodeURIComponent('sapa')}&page=${page}`, 15),
-            scrapeListPage(`/en/search/?name=${encodeURIComponent('oga')}&page=${page}`, 15),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('african')}&page=${page}`, 15),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('sapa')}&page=${page}`, 10),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('oga')}&page=${page}`, 10),
             scrapeListPage(`/en/search/?name=${encodeURIComponent('wahala')}&page=${page}`, 10),
-            scrapeListPage(`/en/search/?name=${encodeURIComponent('lagos')}&page=${page}`, 10),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('lagos')}&page=${page}`, 8),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('davido')}&page=${page}`, 8),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('wizkid')}&page=${page}`, 8),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('mark angel')}&page=${page}`, 8),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('e don happen')}&page=${page}`, 6),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('no vex')}&page=${page}`, 6),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('naija')}&page=${page}`, 8),
+            scrapeListPage(`/en/search/?name=${encodeURIComponent('burna boy')}&page=${page}`, 6),
           ]);
           const seenIds = new Set<string>();
           for (const r of nigerianPages) {
