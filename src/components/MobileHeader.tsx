@@ -122,7 +122,7 @@ export function MobileHeader() {
 
   return (
     <div className="md:hidden">
-      <div className="flex items-center justify-between h-16 px-3 sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-xl">
+      <div className="flex items-center justify-between h-16 px-3 border-b border-border/40 bg-background/60 backdrop-blur-xl">
         {/* Left: Hamburger + Logo icon */}
         <div className="flex items-center gap-1.5">
           <Sheet open={open} onOpenChange={setOpen}>
