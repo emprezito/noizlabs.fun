@@ -16,7 +16,7 @@ export function AppLayout({ children, showTicker = true }: AppLayoutProps) {
   const { collapsed } = useSidebarState();
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip">
       {/* Left Sidebar - Desktop only (fixed position) */}
       <AppSidebar />
 
@@ -28,13 +28,11 @@ export function AppLayout({ children, showTicker = true }: AppLayoutProps) {
         )}
       >
         {/* Desktop Header */}
-        <DesktopHeader />
-
-        {/* Mobile Header with hamburger menu */}
-        <MobileHeader />
-
-        {/* Top Token Ticker */}
-        {showTicker && <TokenTicker />}
+        <div className="sticky top-0 z-50">
+          <DesktopHeader />
+          <MobileHeader />
+          {showTicker && <TokenTicker />}
+        </div>
 
         {/* Page Content */}
         <main className="flex-1 min-w-0 overflow-x-hidden pb-16 md:pb-0">{children}</main>

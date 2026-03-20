@@ -73,7 +73,7 @@ export function DesktopHeader() {
   };
 
   return (
-    <header className="hidden md:flex items-center justify-between h-[68px] px-6 sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-xl">
+    <header className="hidden md:flex items-center justify-between h-[68px] px-6 border-b border-border/40 bg-background/60 backdrop-blur-xl">
       {/* LEFT: Logo */}
       <Link to="/" className="flex items-center gap-2.5">
         <span className="text-2xl">🎵</span>
