@@ -82,7 +82,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    overflow-x: hidden;
+    overflow-x: clip;
     min-width: 320px;
     width: 100%;
     max-width: 100vw;
