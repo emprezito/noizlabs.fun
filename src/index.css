@@ -69,7 +69,7 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
     /* Scale up entire platform by ~50% */
     font-size: 20px;
   }
