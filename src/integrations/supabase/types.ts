@@ -403,6 +403,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          count: number | null
+          key: string
+          window_start: string | null
+        }
+        Insert: {
+          count?: number | null
+          key: string
+          window_start?: string | null
+        }
+        Update: {
+          count?: number | null
+          key?: string
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       sounds_registry: {
         Row: {
           audio_hash: string | null
@@ -870,6 +888,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      execute_trade_atomic: {
+        Args: {
+          p_basis_points_divisor?: number
+          p_creator_fee_bps?: number
+          p_mint_address: string
+          p_platform_fee_bps?: number
+          p_sol_amount: number
+          p_token_amount: number
+          p_trade_type: string
+        }
+        Returns: {
+          creator_fee: number
+          creator_wallet: string
+          current_tokens_sold: number
+          current_total_volume: number
+          is_active: boolean
+          new_sol_reserves: number
+          new_token_reserves: number
+          old_sol_reserves: number
+          old_token_reserves: number
+          platform_fee: number
+          price_impact: number
+          sol_out: number
+          token_id: string
+          tokens_out: number
+        }[]
+      }
       generate_referral_code: { Args: never; Returns: string }
     }
     Enums: {

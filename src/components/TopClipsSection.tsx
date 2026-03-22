@@ -36,15 +36,23 @@ const TopClipsSection = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'audio_clips'
         },
         (payload) => {
-          console.log('Real-time update:', payload);
-          // Refetch to get updated rankings
-          fetchTopClips();
+          // Update in-place instead of refetching
+          setTopClips(prev => prev.map(clip =>
+            clip.id === (payload.new as any).id
+              ? { ...clip, likes: (payload.new as any).likes, plays: (payload.new as any).plays, shares: (payload.new as any).shares }
+              : clip
+          ));
         }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'audio_clips' },
+        () => fetchTopClips()
       )
       .subscribe();
 

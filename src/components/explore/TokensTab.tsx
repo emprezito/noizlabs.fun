@@ -59,7 +59,24 @@ const TokensTab = () => {
 
     const channel = supabase
       .channel("tokens-list")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tokens" }, () => fetchAllTokens())
+      .on("postgres_changes", { 
+        event: "UPDATE", 
+        schema: "public", 
+        table: "tokens",
+        filter: "is_active=eq.true"
+      }, (payload) => {
+        // Update only the changed token instead of refetching all
+        setTokens(prev => prev.map(t => 
+          t.mint_address === (payload.new as any).mint_address
+            ? { ...t, ...(payload.new as any) }
+            : t
+        ));
+      })
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "tokens"
+      }, () => fetchAllTokens())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
