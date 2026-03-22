@@ -22,19 +22,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Bonding curve constants - 1% total fee split
-const TOTAL_FEE_BPS = 100; // 1% total fee
-const PLATFORM_FEE_BPS = 40; // 0.4% to platform
-const CREATOR_FEE_BPS = 60; // 0.6% to token creator
-const BASIS_POINTS_DIVISOR = 10000;
-
 // Platform wallet that holds tokens for bonding curve
 const BONDING_CURVE_WALLET = new PublicKey("FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc");
-
-// Platform fee wallet - receives trading fees
 const PLATFORM_FEE_WALLET = new PublicKey("5NC3whTedkRHALefgSPjRmV2WEfFMczBNQ2sYT4EdoD7");
 
-// Solana devnet RPC - use multiple for fallback
+// Trade limits
+const MAX_TRADE_SOL = 10 * LAMPORTS_PER_SOL; // 10 SOL max per trade
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 10; // 10 trades per minute
+
+// Solana RPC endpoints
 const heliusKey = Deno.env.get('HELIUS_API_KEY');
 const SOLANA_RPC_ENDPOINTS = [
   "https://api.devnet.solana.com",
@@ -45,101 +42,167 @@ interface TradeRequest {
   mintAddress: string;
   walletAddress: string;
   tradeType: 'buy' | 'sell';
-  amount: number; // SOL amount in lamports for buy, token amount (with decimals) for sell
+  amount: number;
   signature: string;
 }
 
-interface BondingCurveResult {
-  tokensOut?: number;
-  solOut?: number;
-  newSolReserves: number;
-  newTokenReserves: number;
-  platformFee: number;
-  priceImpact: number;
-}
-
-/**
- * Pump.fun style bonding curve: x * y = k (constant product)
- * Price = sol_reserves / token_reserves
- * As people buy, sol_reserves ↑ and token_reserves ↓, so price ↑
- */
-function calculateBuy(solAmount: number, solReserves: number, tokenReserves: number, creatorWallet: string): BondingCurveResult & { creatorFee: number } {
-  // 1% total fee: 0.4% platform + 0.6% creator
-  const platformFee = Math.floor(solAmount * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
-  const creatorFee = Math.floor(solAmount * CREATOR_FEE_BPS / BASIS_POINTS_DIVISOR);
-  
-  const solAfterFees = solAmount - platformFee - creatorFee;
-  
-  // Constant product: k = x * y
-  const k = solReserves * tokenReserves;
-  const newSolReserves = solReserves + solAfterFees;
-  const newTokenReserves = Math.floor(k / newSolReserves);
-  const tokensOut = tokenReserves - newTokenReserves;
-  
-  // Calculate price impact
-  const spotPrice = solReserves / tokenReserves;
-  const executionPrice = tokensOut > 0 ? solAfterFees / tokensOut : 0;
-  const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
-  
-  return {
-    tokensOut,
-    newSolReserves,
-    newTokenReserves,
-    platformFee,
-    priceImpact,
-    creatorFee,
-  };
-}
-
-/**
- * Sell tokens back to the curve
- */
-function calculateSell(tokenAmount: number, solReserves: number, tokenReserves: number, creatorWallet: string): BondingCurveResult & { creatorFee: number } {
-  const k = solReserves * tokenReserves;
-  const newTokenReserves = tokenReserves + tokenAmount;
-  const newSolReserves = Math.floor(k / newTokenReserves);
-  const solOutBeforeFees = solReserves - newSolReserves;
-  
-  // 1% total fee: 0.4% platform + 0.6% creator
-  const platformFee = Math.floor(solOutBeforeFees * PLATFORM_FEE_BPS / BASIS_POINTS_DIVISOR);
-  const creatorFee = Math.floor(solOutBeforeFees * CREATOR_FEE_BPS / BASIS_POINTS_DIVISOR);
-  
-  const solOut = solOutBeforeFees - platformFee - creatorFee;
-  
-  const spotPrice = solReserves / tokenReserves;
-  const executionPrice = tokenAmount > 0 ? solOutBeforeFees / tokenAmount : 0;
-  const priceImpact = spotPrice > 0 ? Math.abs((executionPrice - spotPrice) / spotPrice) * 100 : 0;
-  
-  return {
-    solOut,
-    newSolReserves,
-    newTokenReserves,
-    platformFee,
-    priceImpact,
-    creatorFee,
-  };
-}
-
-/**
- * Load platform wallet from private key secret
- */
 function loadPlatformWallet(): Keypair {
   const privateKeyStr = Deno.env.get('PLATFORM_WALLET_PRIVATE_KEY');
-  if (!privateKeyStr) {
-    throw new Error('PLATFORM_WALLET_PRIVATE_KEY not configured');
-  }
-  
-  // Parse the private key (expected as JSON array of numbers)
-  let secretKey: Uint8Array;
+  if (!privateKeyStr) throw new Error('PLATFORM_WALLET_PRIVATE_KEY not configured');
   try {
     const keyArray = JSON.parse(privateKeyStr);
-    secretKey = new Uint8Array(keyArray);
+    return Keypair.fromSecretKey(new Uint8Array(keyArray));
   } catch {
-    // Try base58 decode if not JSON
     throw new Error('Invalid PLATFORM_WALLET_PRIVATE_KEY format. Expected JSON array.');
   }
+}
+
+function errorResponse(message: string, status = 400) {
+  return new Response(
+    JSON.stringify({ error: message }),
+    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+/** Check and update rate limit for a wallet. Returns true if allowed. */
+async function checkRateLimit(supabase: any, walletAddress: string): Promise<boolean> {
+  const key = `trade_rate_${walletAddress}`;
   
-  return Keypair.fromSecretKey(secretKey);
+  const { data } = await supabase
+    .from('rate_limits')
+    .select('count, window_start')
+    .eq('key', key)
+    .maybeSingle();
+
+  const now = new Date();
+
+  if (!data) {
+    await supabase.from('rate_limits').upsert({ key, count: 1, window_start: now.toISOString() });
+    return true;
+  }
+
+  const windowAge = now.getTime() - new Date(data.window_start).getTime();
+  
+  if (windowAge >= RATE_LIMIT_WINDOW_MS) {
+    // Reset window
+    await supabase.from('rate_limits').upsert({ key, count: 1, window_start: now.toISOString() });
+    return true;
+  }
+
+  if (data.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+
+  await supabase.from('rate_limits').upsert({ key, count: data.count + 1, window_start: data.window_start });
+  return true;
+}
+
+/** Connect to Solana with retry across multiple endpoints */
+async function getConnection(): Promise<Connection> {
+  for (const endpoint of SOLANA_RPC_ENDPOINTS) {
+    try {
+      const conn = new Connection(endpoint, 'confirmed');
+      await conn.getLatestBlockhash();
+      console.log('Connected to RPC:', endpoint);
+      return conn;
+    } catch {
+      console.log('RPC endpoint failed:', endpoint);
+    }
+  }
+  throw new Error('All Solana RPC endpoints failed');
+}
+
+/** Send transaction with retry logic */
+async function sendWithRetry(
+  connection: Connection,
+  transaction: Transaction,
+  signers: Keypair[],
+  maxRetries = 2
+): Promise<string> {
+  let lastError: Error | null = null;
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await sendAndConfirmTransaction(connection, transaction, signers, { commitment: 'confirmed' });
+    } catch (err: any) {
+      lastError = err;
+      console.error(`Transaction attempt ${i + 1} failed:`, err.message);
+      if (i < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * (i + 1))); // exponential backoff
+      }
+    }
+  }
+  throw lastError!;
+}
+
+/** Build buy transaction: transfer tokens from platform to user + fee transfers */
+async function buildBuyTransaction(
+  connection: Connection,
+  platformWallet: Keypair,
+  mintPubkey: PublicKey,
+  userPubkey: PublicKey,
+  tokensOut: bigint,
+  platformFee: number,
+  creatorFee: number,
+  creatorWallet: string | null,
+): Promise<Transaction> {
+  const platformATA = await getAssociatedTokenAddress(mintPubkey, platformWallet.publicKey);
+  const userATA = await getAssociatedTokenAddress(mintPubkey, userPubkey);
+
+  // Verify platform has tokens
+  try {
+    const acct = await getAccount(connection, platformATA);
+    console.log('Platform token balance:', acct.amount.toString());
+  } catch {
+    throw new Error('Platform wallet has no tokens for this mint.');
+  }
+
+  const tx = new Transaction();
+
+  // Create user ATA if needed
+  try {
+    await getAccount(connection, userATA);
+  } catch {
+    tx.add(createAssociatedTokenAccountInstruction(platformWallet.publicKey, userATA, userPubkey, mintPubkey));
+  }
+
+  // Transfer tokens
+  tx.add(createTransferInstruction(platformATA, userATA, platformWallet.publicKey, tokensOut, [], TOKEN_PROGRAM_ID));
+
+  // Platform fee
+  if (platformFee > 0) {
+    tx.add(SystemProgram.transfer({ fromPubkey: platformWallet.publicKey, toPubkey: PLATFORM_FEE_WALLET, lamports: platformFee }));
+  }
+
+  // Creator fee
+  if (creatorFee > 0 && creatorWallet) {
+    tx.add(SystemProgram.transfer({ fromPubkey: platformWallet.publicKey, toPubkey: new PublicKey(creatorWallet), lamports: creatorFee }));
+  }
+
+  return tx;
+}
+
+/** Build sell transaction: transfer SOL from platform to user + fee transfers */
+function buildSellTransaction(
+  platformWallet: Keypair,
+  userPubkey: PublicKey,
+  solOut: number,
+  platformFee: number,
+  creatorFee: number,
+  creatorWallet: string | null,
+): Transaction {
+  const tx = new Transaction();
+
+  tx.add(SystemProgram.transfer({ fromPubkey: platformWallet.publicKey, toPubkey: userPubkey, lamports: solOut }));
+
+  if (platformFee > 0) {
+    tx.add(SystemProgram.transfer({ fromPubkey: platformWallet.publicKey, toPubkey: PLATFORM_FEE_WALLET, lamports: platformFee }));
+  }
+
+  if (creatorFee > 0 && creatorWallet) {
+    tx.add(SystemProgram.transfer({ fromPubkey: platformWallet.publicKey, toPubkey: new PublicKey(creatorWallet), lamports: creatorFee }));
+  }
+
+  return tx;
 }
 
 serve(async (req) => {
@@ -152,335 +215,129 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const body = await req.json();
-    const { mintAddress, walletAddress, tradeType, amount, signature } = body as TradeRequest;
-
+    const { mintAddress, walletAddress, tradeType, amount, signature } = await req.json() as TradeRequest;
     console.log(`Processing ${tradeType} trade:`, { mintAddress, walletAddress, amount, signature });
 
-    // Validate inputs
+    // --- Input validation ---
     if (!mintAddress || typeof mintAddress !== 'string' || mintAddress.length < 32 || mintAddress.length > 50) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid mintAddress' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Invalid mintAddress');
     }
     if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.length < 32 || walletAddress.length > 50) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid walletAddress' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Invalid walletAddress');
     }
     if (tradeType !== 'buy' && tradeType !== 'sell') {
-      return new Response(
-        JSON.stringify({ error: 'tradeType must be buy or sell' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('tradeType must be buy or sell');
     }
     if (typeof amount !== 'number' || amount <= 0 || amount > 1e15 || !Number.isFinite(amount)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid amount' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Invalid amount');
     }
     if (!signature || typeof signature !== 'string' || signature.length < 64 || signature.length > 128) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid signature' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Invalid signature');
     }
 
-    // Get current token state
-    const { data: token, error: tokenError } = await supabase
-      .from('tokens')
-      .select('*')
-      .eq('mint_address', mintAddress)
-      .maybeSingle();
-
-    if (tokenError || !token) {
-      console.error('Token not found:', tokenError);
-      return new Response(
-        JSON.stringify({ error: 'Token not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // --- Trade size limit ---
+    if (tradeType === 'buy' && amount > MAX_TRADE_SOL) {
+      return errorResponse(`Trade too large. Maximum ${MAX_TRADE_SOL / LAMPORTS_PER_SOL} SOL per trade.`);
     }
 
-    if (!token.is_active) {
-      return new Response(
-        JSON.stringify({ error: 'Token trading is disabled' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // --- Rate limiting ---
+    const allowed = await checkRateLimit(supabase, walletAddress);
+    if (!allowed) {
+      return errorResponse('Rate limit exceeded. Max 10 trades per minute.', 429);
     }
 
-    // Load platform wallet for token transfers
+    // --- Connect to Solana ---
+    const connection = await getConnection();
     const platformWallet = loadPlatformWallet();
-    
-    // Try multiple RPC endpoints
-    let connection: Connection | null = null;
-    for (const endpoint of SOLANA_RPC_ENDPOINTS) {
-      try {
-        const testConn = new Connection(endpoint, 'confirmed');
-        await testConn.getLatestBlockhash();
-        connection = testConn;
-        console.log('Connected to RPC:', endpoint);
-        break;
-      } catch (e) {
-        console.log('RPC endpoint failed:', endpoint);
+
+    // --- Verify user's transaction ---
+    try {
+      const txStatus = await connection.getSignatureStatus(signature);
+      if (!txStatus?.value || txStatus.value.err) {
+        return errorResponse('Transaction not confirmed or failed. Please try again.');
       }
+      console.log('Transaction verified:', signature);
+    } catch (verifyError) {
+      console.error('Transaction verification failed:', verifyError);
+      // Continue - might be too recent
     }
-    
-    if (!connection) {
-      throw new Error('All Solana RPC endpoints failed');
+
+    // --- ATOMIC trade calculation via DB function ---
+    const { data: tradeResult, error: tradeError } = await supabase.rpc('execute_trade_atomic', {
+      p_mint_address: mintAddress,
+      p_trade_type: tradeType,
+      p_sol_amount: tradeType === 'buy' ? amount : 0,
+      p_token_amount: tradeType === 'sell' ? amount : 0,
+    });
+
+    if (tradeError) {
+      console.error('Atomic trade failed:', tradeError);
+      // Check if it's a known error
+      if (tradeError.message?.includes('not found or inactive')) {
+        return errorResponse('Token not found or trading is disabled', 404);
+      }
+      if (tradeError.message?.includes('Insufficient liquidity')) {
+        return errorResponse('Insufficient liquidity for this trade');
+      }
+      return errorResponse(`Trade calculation failed: ${tradeError.message}`, 500);
     }
-    
+
+    if (!tradeResult || tradeResult.length === 0) {
+      return errorResponse('Trade failed - token may have been updated by another trade. Please retry.');
+    }
+
+    const result = tradeResult[0];
     const mintPubkey = new PublicKey(mintAddress);
     const userPubkey = new PublicKey(walletAddress);
 
-    console.log('Platform wallet public key:', platformWallet.publicKey.toString());
-    console.log('Expected platform wallet: FL2wxMs6q8sR2pfypRSWUpYN7qcpA52rnLYH9WLQufUc');
-    
-    // Verify the user's transaction signature exists and is confirmed
+    // --- Execute on-chain transfer ---
+    let platformTxSignature: string;
     try {
-      const txStatus = await connection.getSignatureStatus(signature);
-      if (!txStatus || !txStatus.value || txStatus.value.err) {
-        return new Response(
-          JSON.stringify({ error: 'Transaction not confirmed or failed. Please try again.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      if (tradeType === 'buy') {
+        console.log(`Buy: ${result.tokens_out} tokens for ${amount} lamports`);
+        const tx = await buildBuyTransaction(
+          connection, platformWallet, mintPubkey, userPubkey,
+          BigInt(result.tokens_out), Number(result.platform_fee), Number(result.creator_fee), result.creator_wallet
         );
-      }
-      console.log('Transaction verified:', signature, 'confirmations:', txStatus.value.confirmations);
-    } catch (verifyError) {
-      console.error('Transaction verification failed:', verifyError);
-      // Continue anyway - the transaction might be too recent
-    }
-
-    const solReserves = Number(token.sol_reserves);
-    const tokenReserves = Number(token.token_reserves);
-    
-    // Get creator wallet for fee distribution
-    const creatorWallet = token.creator_wallet;
-
-    let result: (BondingCurveResult & { creatorFee: number });
-    let tradeRecord: any;
-    let platformTxSignature: string | null = null;
-
-    if (tradeType === 'buy') {
-      result = calculateBuy(amount, solReserves, tokenReserves, creatorWallet);
-      
-      if (!result.tokensOut || result.tokensOut <= 0) {
-        return new Response(
-          JSON.stringify({ error: 'Insufficient liquidity for this trade' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        platformTxSignature = await sendWithRetry(connection, tx, [platformWallet]);
+      } else {
+        console.log(`Sell: ${result.sol_out} lamports for ${amount} tokens`);
+        const tx = buildSellTransaction(
+          platformWallet, userPubkey,
+          Number(result.sol_out), Number(result.platform_fee), Number(result.creator_fee), result.creator_wallet
         );
+        platformTxSignature = await sendWithRetry(connection, tx, [platformWallet]);
       }
-
-      console.log(`Buy calculation: ${result.tokensOut} tokens for ${amount} lamports, creator fee: ${result.creatorFee}`);
-
-      // Transfer tokens from platform wallet to user
+      console.log('On-chain transfer confirmed:', platformTxSignature);
+    } catch (transferError: any) {
+      console.error('On-chain transfer failed:', transferError);
+      // CRITICAL: The DB reserves were already updated. We need to roll back.
+      // Re-run atomic trade in reverse direction to restore reserves
       try {
-        const platformATA = await getAssociatedTokenAddress(mintPubkey, platformWallet.publicKey);
-        const userATA = await getAssociatedTokenAddress(mintPubkey, userPubkey);
-
-        console.log('Platform ATA:', platformATA.toString());
-        console.log('User ATA:', userATA.toString());
-
-        // Check platform wallet token balance first
-        try {
-          const platformAccountInfo = await getAccount(connection, platformATA);
-          console.log('Platform token balance:', platformAccountInfo.amount.toString());
-        } catch (e) {
-          console.error('Platform ATA does not exist or has no tokens!');
-          return new Response(
-            JSON.stringify({ 
-              error: 'Platform wallet has no tokens for this mint. Token may not have been set up correctly.',
-              details: 'The bonding curve wallet needs tokens to facilitate trades. Please ensure token creation completed successfully.'
-            }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const transaction = new Transaction();
-
-        // Create user ATA if it doesn't exist
-        try {
-          await getAccount(connection, userATA);
-        } catch {
-          console.log('Creating user ATA...');
-          transaction.add(
-            createAssociatedTokenAccountInstruction(
-              platformWallet.publicKey, // payer
-              userATA,
-              userPubkey,
-              mintPubkey
-            )
-          );
-        }
-
-        // Transfer tokens from platform to user
-        transaction.add(
-          createTransferInstruction(
-            platformATA,
-            userATA,
-            platformWallet.publicKey,
-            BigInt(result.tokensOut),
-            [],
-            TOKEN_PROGRAM_ID
-          )
-        );
-
-        // Add platform fee transfer (from bonding curve wallet to fee wallet)
-        if (result.platformFee > 0) {
-          transaction.add(
-            SystemProgram.transfer({
-              fromPubkey: platformWallet.publicKey,
-              toPubkey: PLATFORM_FEE_WALLET,
-              lamports: result.platformFee,
-            })
-          );
-        }
-
-        // Add creator fee transfer (0.6% to token creator)
-        if (result.creatorFee > 0 && creatorWallet) {
-          console.log(`Sending ${result.creatorFee} lamports creator fee to ${creatorWallet}`);
-          transaction.add(
-            SystemProgram.transfer({
-              fromPubkey: platformWallet.publicKey,
-              toPubkey: new PublicKey(creatorWallet),
-              lamports: result.creatorFee,
-            })
-          );
-        }
-
-        console.log('Sending token transfer transaction...');
-        platformTxSignature = await sendAndConfirmTransaction(
-          connection,
-          transaction,
-          [platformWallet],
-          { commitment: 'confirmed' }
-        );
-        console.log('Token transfer confirmed:', platformTxSignature);
-
-      } catch (transferError: any) {
-        console.error('Token transfer failed:', transferError);
-        return new Response(
-          JSON.stringify({ error: `Token transfer failed: ${transferError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        await supabase.rpc('execute_trade_atomic', {
+          p_mint_address: mintAddress,
+          p_trade_type: tradeType === 'buy' ? 'sell' : 'buy',
+          p_sol_amount: tradeType === 'sell' ? amount : 0,
+          p_token_amount: tradeType === 'buy' ? amount : 0,
+        });
+        console.log('Reserves rolled back after failed transfer');
+      } catch (rollbackError) {
+        console.error('CRITICAL: Failed to rollback reserves:', rollbackError);
       }
-
-      // Store: amount = tokens received, price_lamports = SOL spent
-      tradeRecord = {
-        mint_address: mintAddress,
-        wallet_address: walletAddress,
-        trade_type: 'buy',
-        amount: result.tokensOut,
-        price_lamports: amount,
-        signature: platformTxSignature || signature,
-        token_id: token.id,
-      };
-
-      console.log(`Buy result: ${result.tokensOut} tokens for ${amount} lamports`);
-
-    } else {
-      result = calculateSell(amount, solReserves, tokenReserves, creatorWallet);
-      
-      if (!result.solOut || result.solOut <= 0) {
-        return new Response(
-          JSON.stringify({ error: 'Insufficient liquidity for this trade' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log(`Sell calculation: ${result.solOut} lamports for ${amount} tokens, creator fee: ${result.creatorFee}`);
-
-      // Transfer SOL from platform wallet to user
-      try {
-        const transaction = new Transaction();
-        
-        // Transfer SOL to user
-        transaction.add(
-          SystemProgram.transfer({
-            fromPubkey: platformWallet.publicKey,
-            toPubkey: userPubkey,
-            lamports: result.solOut,
-          })
-        );
-
-        // Add platform fee transfer (from bonding curve wallet to fee wallet)
-        if (result.platformFee > 0) {
-          transaction.add(
-            SystemProgram.transfer({
-              fromPubkey: platformWallet.publicKey,
-              toPubkey: PLATFORM_FEE_WALLET,
-              lamports: result.platformFee,
-            })
-          );
-        }
-
-        // Add creator fee transfer (0.6% to token creator)
-        if (result.creatorFee > 0 && creatorWallet) {
-          console.log(`Sending ${result.creatorFee} lamports creator fee to ${creatorWallet}`);
-          transaction.add(
-            SystemProgram.transfer({
-              fromPubkey: platformWallet.publicKey,
-              toPubkey: new PublicKey(creatorWallet),
-              lamports: result.creatorFee,
-            })
-          );
-        }
-
-        console.log('Sending SOL transfer transaction...');
-        platformTxSignature = await sendAndConfirmTransaction(
-          connection,
-          transaction,
-          [platformWallet],
-          { commitment: 'confirmed' }
-        );
-        console.log('SOL transfer confirmed:', platformTxSignature);
-
-      } catch (transferError: any) {
-        console.error('SOL transfer failed:', transferError);
-        return new Response(
-          JSON.stringify({ error: `SOL transfer failed: ${transferError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Store: amount = tokens sold, price_lamports = SOL received
-      tradeRecord = {
-        mint_address: mintAddress,
-        wallet_address: walletAddress,
-        trade_type: 'sell',
-        amount: amount,
-        price_lamports: result.solOut,
-        signature: platformTxSignature || signature,
-        token_id: token.id,
-      };
-
-      console.log(`Sell result: ${result.solOut} lamports for ${amount} tokens`);
+      return errorResponse(`Transfer failed: ${transferError.message}`, 500);
     }
 
-    // Update token reserves
-    const { error: updateError } = await supabase
-      .from('tokens')
-      .update({
-        sol_reserves: result.newSolReserves,
-        token_reserves: result.newTokenReserves,
-        tokens_sold: tradeType === 'buy' 
-          ? (token.tokens_sold || 0) + (result.tokensOut || 0)
-          : (token.tokens_sold || 0) - amount,
-        total_volume: (token.total_volume || 0) + (tradeType === 'buy' ? amount : result.solOut!),
-      })
-      .eq('mint_address', mintAddress);
+    // --- Record trade history ---
+    const tradeRecord = {
+      mint_address: mintAddress,
+      wallet_address: walletAddress,
+      trade_type: tradeType,
+      amount: tradeType === 'buy' ? Number(result.tokens_out) : amount,
+      price_lamports: tradeType === 'buy' ? amount : Number(result.sol_out),
+      signature: platformTxSignature,
+      token_id: result.token_id,
+    };
 
-    if (updateError) {
-      console.error('Failed to update reserves:', updateError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to update reserves' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Record trade in history
     const { data: tradeData, error: historyError } = await supabase
       .from('trade_history')
       .insert(tradeRecord)
@@ -491,34 +348,33 @@ serve(async (req) => {
       console.error('Failed to record trade:', historyError);
     }
 
-    // Record creator earnings if there's a fee
-    if (result.creatorFee > 0 && creatorWallet && tradeData) {
+    // --- Record creator earnings ---
+    if (Number(result.creator_fee) > 0 && result.creator_wallet && tradeData) {
       const { error: earningsError } = await supabase
         .from('creator_earnings')
         .insert({
-          wallet_address: creatorWallet,
-          token_id: token.id,
+          wallet_address: result.creator_wallet,
+          token_id: result.token_id,
           mint_address: mintAddress,
-          amount_lamports: result.creatorFee,
+          amount_lamports: Number(result.creator_fee),
           trade_id: tradeData.id,
         });
 
-      if (earningsError) {
-        console.error('Failed to record creator earnings:', earningsError);
-      }
+      if (earningsError) console.error('Failed to record creator earnings:', earningsError);
     }
 
+    // --- Response ---
     const response = {
       success: true,
       tradeType,
-      tokensOut: result.tokensOut,
-      solOut: result.solOut,
-      platformFee: result.platformFee,
-      creatorFee: result.creatorFee,
-      priceImpact: result.priceImpact,
-      newSolReserves: result.newSolReserves,
-      newTokenReserves: result.newTokenReserves,
-      signature: platformTxSignature || signature,
+      tokensOut: Number(result.tokens_out),
+      solOut: Number(result.sol_out),
+      platformFee: Number(result.platform_fee),
+      creatorFee: Number(result.creator_fee),
+      priceImpact: Number(result.price_impact),
+      newSolReserves: Number(result.new_sol_reserves),
+      newTokenReserves: Number(result.new_token_reserves),
+      signature: platformTxSignature,
     };
 
     console.log('Trade completed successfully:', response);
