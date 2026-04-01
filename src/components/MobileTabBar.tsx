@@ -1,9 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { Compass, Headphones, Plus, ArrowLeftRight, User } from "lucide-react";
+import { Compass, Plus, ArrowLeftRight, User } from "lucide-react";
 
 const tabs = [
   { name: "Explore", href: "/explore", icon: Compass },
-  { name: "Browse", href: "/browse", icon: Headphones },
   { name: "Create", href: "/create", icon: Plus },
   { name: "Trade", href: "/trade", icon: ArrowLeftRight },
   { name: "Profile", href: "/profile", icon: User },

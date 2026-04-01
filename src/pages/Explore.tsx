@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import TokensTab from "@/components/explore/TokensTab";
 import ClipsTab from "@/components/explore/ClipsTab";
+import BrowseMintTab from "@/components/explore/BrowseMintTab";
 
 const ExplorePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,6 +33,7 @@ const ExplorePage = () => {
               <TabsList>
                 <TabsTrigger value="tokens">🎵 Tokens</TabsTrigger>
                 <TabsTrigger value="clips">🎧 Clips</TabsTrigger>
+                <TabsTrigger value="browse">🔊 Browse & Mint</TabsTrigger>
               </TabsList>
               {defaultTab === "clips" && (
                 <Button size="sm" onClick={() => setShowUploadModal(true)}>
@@ -50,6 +52,10 @@ const ExplorePage = () => {
                 showUploadModal={showUploadModal} 
                 setShowUploadModal={setShowUploadModal} 
               />
+            </TabsContent>
+
+            <TabsContent value="browse">
+              <BrowseMintTab />
             </TabsContent>
         </Tabs>
       </div>

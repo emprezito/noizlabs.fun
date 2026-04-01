@@ -7,8 +7,6 @@ import {
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { AppLayout } from "@/components/AppLayout";
-import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +23,7 @@ import { uploadTokenMetadata } from "@/lib/ipfsUpload";
 import { updateTaskProgress } from "@/lib/taskUtils";
 import { supabase } from "@/integrations/supabase/client";
 
-const BrowseSoundsPage = () => {
+const BrowseMintTab = () => {
   const { connection } = useConnection();
   const { publicKey, sendTransaction, connected } = useWallet();
   const { playingId, play } = useSoundPlayer();
@@ -76,14 +74,14 @@ const BrowseSoundsPage = () => {
     }
   }, [connected, publicKey, reserve]);
 
-  const handleSubmitMint = useCallback(async (name: string, ticker: string, description: string) => {
+  const handleSubmitMint = useCallback(async (name: string, ticker: string, description: string, imageFile?: File | null) => {
     if (!publicKey || !reservation || !selectedSound) return;
 
     setIsMinting(true);
     try {
       toast.info("Uploading to IPFS...");
       const uploadResult = await uploadTokenMetadata(
-        null,
+        imageFile || null,
         null,
         { name, symbol: ticker, description },
         selectedSound.mp3,
@@ -141,6 +139,7 @@ const BrowseSoundsPage = () => {
       const initialSolReserves = 25_000_000_000;
       const initialTokenReserves = 950_000_000_000_000_000;
       const finalAudioUrl = uploadResult.audioUrl || selectedSound.mp3;
+      const coverImageUrl = uploadResult.imageUrl || null;
       const creatorAllocation = (BigInt(1_000_000_000) * BigInt(1e9) * BigInt(5)) / BigInt(100);
       const cliffEnd = new Date();
       cliffEnd.setDate(cliffEnd.getDate() + 21);
@@ -155,6 +154,7 @@ const BrowseSoundsPage = () => {
             creatorWallet: walletAddress,
             metadataUri,
             audioUrl: finalAudioUrl,
+            coverImageUrl,
             solReserves: initialSolReserves,
             tokenReserves: initialTokenReserves,
             isRemix: false,
@@ -183,149 +183,138 @@ const BrowseSoundsPage = () => {
   }, [publicKey, reservation, selectedSound, connection, sendTransaction, completeMint, releaseReservation]);
 
   return (
-    <AppLayout>
-      <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground">
-            Browse & Mint Sounds
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            First Come, First Served — mint any sound as a Solana token before someone else does
-          </p>
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3 space-y-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search sounds... (e.g. bruh, airhorn, vine)"
+              className="pl-10"
+            />
+          </div>
+
+          {/* Tabs + Category Filter */}
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as SoundTab); if (v !== "search") setSearchQuery(""); }}>
+              <TabsList>
+                <TabsTrigger value="all">
+                  <LayoutGrid className="w-3.5 h-3.5 mr-1" />
+                  All Sounds
+                </TabsTrigger>
+                <TabsTrigger value="trending">
+                  <TrendingUp className="w-3.5 h-3.5 mr-1" />
+                  Trending
+                </TabsTrigger>
+                <TabsTrigger value="recent">
+                  <Clock className="w-3.5 h-3.5 mr-1" />
+                  Recent
+                </TabsTrigger>
+                <TabsTrigger value="search" disabled={!searchQuery}>
+                  <Search className="w-3.5 h-3.5 mr-1" />
+                  Results
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {activeTab === "all" && (
+              <Select value={selectedCategory || "__all__"} onValueChange={v => setSelectedCategory(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="w-[180px] h-9">
+                  <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SOUND_CATEGORIES.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value || "__all__"}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="text-center py-12 bg-card rounded-2xl border border-border">
+              <p className="text-muted-foreground mb-3">Sounds unavailable right now 😔</p>
+              <Button variant="outline" onClick={retry}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          )}
+
+          {/* Sound Grid */}
+          {!isLoading && !error && sounds.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {sounds.map(sound => (
+                  <SoundCard
+                    key={sound.id}
+                    sound={sound}
+                    isPlaying={playingId === sound.id}
+                    onPlay={() => play(sound.id, sound.mp3)}
+                    onMint={() => handleMintClick(sound)}
+                    isMinting={isReserving}
+                  />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center pt-4">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={loadMore}
+                    disabled={isLoadingMore}
+                    className="min-w-[200px]"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      "Load More Sounds"
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Empty States */}
+          {!isLoading && !error && sounds.length === 0 && activeTab === "search" && searchQuery && (
+            <div className="text-center py-16 bg-card rounded-2xl border border-border">
+              <Gem className="w-10 h-10 text-primary mx-auto mb-3" />
+              <p className="text-foreground font-bold mb-1">No sounds found for &apos;{searchQuery}&apos;</p>
+              <p className="text-muted-foreground text-sm">Try different keywords 💎</p>
+            </div>
+          )}
+
+          {!isLoading && !error && sounds.length === 0 && activeTab !== "search" && (
+            <div className="text-center py-16 bg-card rounded-2xl border border-border">
+              <Gem className="w-10 h-10 text-primary mx-auto mb-3" />
+              <p className="text-foreground font-bold mb-1">No sounds loaded</p>
+              <p className="text-muted-foreground text-sm">Try refreshing or switching tabs</p>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3 space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search sounds... (e.g. bruh, airhorn, vine)"
-                className="pl-10"
-              />
-            </div>
-
-            {/* Tabs + Category Filter */}
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-              <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as SoundTab); if (v !== "search") setSearchQuery(""); }}>
-                <TabsList>
-                  <TabsTrigger value="all">
-                    <LayoutGrid className="w-3.5 h-3.5 mr-1" />
-                    All Sounds
-                  </TabsTrigger>
-                  <TabsTrigger value="trending">
-                    <TrendingUp className="w-3.5 h-3.5 mr-1" />
-                    Trending
-                  </TabsTrigger>
-                  <TabsTrigger value="recent">
-                    <Clock className="w-3.5 h-3.5 mr-1" />
-                    Recent
-                  </TabsTrigger>
-                  <TabsTrigger value="search" disabled={!searchQuery}>
-                    <Search className="w-3.5 h-3.5 mr-1" />
-                    Results
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {activeTab === "all" && (
-                <Select value={selectedCategory || "__all__"} onValueChange={v => setSelectedCategory(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="w-[180px] h-9">
-                    <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SOUND_CATEGORIES.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value || "__all__"}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="text-center py-12 bg-card rounded-2xl border border-border">
-                <p className="text-muted-foreground mb-3">Sounds unavailable right now 😔</p>
-                <Button variant="outline" onClick={retry}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Try Again
-                </Button>
-              </div>
-            )}
-
-            {/* Loading */}
-            {isLoading && (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            )}
-
-            {/* Sound Grid */}
-            {!isLoading && !error && sounds.length > 0 && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {sounds.map(sound => (
-                    <SoundCard
-                      key={sound.id}
-                      sound={sound}
-                      isPlaying={playingId === sound.id}
-                      onPlay={() => play(sound.id, sound.mp3)}
-                      onMint={() => handleMintClick(sound)}
-                      isMinting={isReserving}
-                    />
-                  ))}
-                </div>
-
-                {hasMore && (
-                  <div className="flex justify-center pt-4">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={loadMore}
-                      disabled={isLoadingMore}
-                      className="min-w-[200px]"
-                    >
-                      {isLoadingMore ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Loading more...
-                        </>
-                      ) : (
-                        "Load More Sounds"
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Empty States */}
-            {!isLoading && !error && sounds.length === 0 && activeTab === "search" && searchQuery && (
-              <div className="text-center py-16 bg-card rounded-2xl border border-border">
-                <Gem className="w-10 h-10 text-primary mx-auto mb-3" />
-                <p className="text-foreground font-bold mb-1">No sounds found for &apos;{searchQuery}&apos;</p>
-                <p className="text-muted-foreground text-sm">Try different keywords 💎</p>
-              </div>
-            )}
-
-            {!isLoading && !error && sounds.length === 0 && activeTab !== "search" && (
-              <div className="text-center py-16 bg-card rounded-2xl border border-border">
-                <Gem className="w-10 h-10 text-primary mx-auto mb-3" />
-                <p className="text-foreground font-bold mb-1">No sounds loaded</p>
-                <p className="text-muted-foreground text-sm">Try refreshing or switching tabs</p>
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-4">
-            <LiveActivityFeed />
-          </div>
+        {/* Sidebar */}
+        <div className="space-y-4">
+          <LiveActivityFeed />
         </div>
       </div>
 
@@ -340,10 +329,8 @@ const BrowseSoundsPage = () => {
         isMinting={isMinting}
         mintResult={mintResult}
       />
-
-      <Footer />
-    </AppLayout>
+    </>
   );
 };
 
-export default BrowseSoundsPage;
+export default BrowseMintTab;
