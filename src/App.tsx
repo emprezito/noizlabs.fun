@@ -31,7 +31,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/create" element={<Create />} />
             <Route path="/explore" element={<Explore />} />
-            <Route path="/browse" element={<BrowseSounds />} />
+            <Route path="/browse" element={<Navigate to="/explore?tab=browse" replace />} />
             <Route path="/trade" element={<Trade />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
