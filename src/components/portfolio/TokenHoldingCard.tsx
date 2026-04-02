@@ -10,7 +10,8 @@ import {
   ArrowRightLeft,
   Calendar,
   Target,
-  Flame
+  Flame,
+  Music2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PortfolioPnLCard } from "./PortfolioPnLCard";
@@ -153,7 +154,7 @@ export const TokenHoldingCard = ({
   const isAtAth = tradeInfo?.athPrice ? tradeInfo.athPrice <= holding.price : false;
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden rounded-2xl border border-border hover:border-primary/30 transition-all duration-200">
       <CardContent className="p-0">
         {/* Main Row */}
         <div className="flex items-center gap-4 p-4">
@@ -167,7 +168,7 @@ export const TokenHoldingCard = ({
               />
             ) : (
               <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center">
-                <span className="text-xl">🎵</span>
+                <Music2 className="w-5 h-5 text-primary" />
               </div>
             )}
             <button

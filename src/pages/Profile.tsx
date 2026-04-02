@@ -765,7 +765,7 @@ const ProfilePage = () => {
                   {/* Coming Soon Notice */}
                   <div className="mt-4 p-3 bg-muted rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">
-                      🔒 NFT minting unlocks after testnet phase
+                      NFT minting unlocks after testnet phase
                     </p>
                   </div>
                 </div>

@@ -1,11 +1,8 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
+import { Info, Rocket, Compass } from "lucide-react";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 
 const HeroSection = () => {
@@ -15,13 +12,11 @@ const HeroSection = () => {
         <div className="max-w-5xl mx-auto text-center">
           {/* Badge */}
           <div className="inline-flex items-center space-x-2 bg-card rounded-full px-4 py-1.5 border border-border mb-6 animate-fade-in">
-            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-            <span className="text-xs font-semibold text-foreground">
-              Now Live on Testnet
-            </span>
+            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+            <span className="text-xs font-semibold text-foreground">Now Live on Testnet</span>
           </div>
 
-          {/* Main Heading */}
+          {/* Heading */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight animate-fade-in" style={{ animationDelay: "0.1s" }}>
             <span className="text-primary">Turn Audio Memes</span>
             <br />
@@ -36,24 +31,26 @@ const HeroSection = () => {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center animate-fade-in" style={{ animationDelay: "0.3s" }}>
             <Link to="/create">
-              <Button size="default" className="px-6">
-                🚀 Create Token
+              <Button size="default" className="px-6 gap-2">
+                <Rocket className="w-4 h-4" />
+                Create Token
               </Button>
             </Link>
             <Link to="/explore">
-              <Button variant="outline" size="default" className="px-6">
-                🔍 Explore
+              <Button variant="outline" size="default" className="px-6 gap-2">
+                <Compass className="w-4 h-4" />
+                Explore
               </Button>
             </Link>
           </div>
 
-          {/* Stats - Compact inline */}
+          {/* Stats */}
           <div className="mt-12 flex flex-wrap justify-center gap-3 max-w-2xl mx-auto">
-            <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.4s" }}>
+            <div className="bg-card rounded-xl px-5 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.4s" }}>
               <span className="text-xl font-bold text-primary">0.02 SOL</span>
               <span className="text-muted-foreground text-sm ml-2">Creation Fee</span>
             </div>
-            <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in flex items-center gap-1" style={{ animationDelay: "0.5s" }}>
+            <div className="bg-card rounded-xl px-5 py-3 border border-border animate-fade-in flex items-center gap-1" style={{ animationDelay: "0.5s" }}>
               <span className="text-xl font-bold text-accent">1%</span>
               <span className="text-muted-foreground text-sm ml-2">Trading Fee</span>
               <TooltipProvider>
@@ -67,7 +64,7 @@ const HeroSection = () => {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="bg-card rounded-lg px-4 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.6s" }}>
+            <div className="bg-card rounded-xl px-5 py-3 border border-border animate-fade-in" style={{ animationDelay: "0.6s" }}>
               <span className="text-xl font-bold text-foreground">Instant</span>
               <span className="text-muted-foreground text-sm ml-2">Liquidity</span>
             </div>

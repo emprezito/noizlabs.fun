@@ -309,7 +309,7 @@ const LeaderboardPage = () => {
                   <p className="text-2xl font-bold text-yellow-500">
                     {leaderboard[0].total_points.toLocaleString()}
                   </p>
-                  <p className="text-xs text-muted-foreground">🏆 1st Place</p>
+                  <p className="text-xs text-muted-foreground">1st Place</p>
                 </div>
 
                 {/* 3rd Place */}

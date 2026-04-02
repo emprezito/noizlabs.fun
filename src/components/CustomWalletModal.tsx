@@ -163,7 +163,7 @@ export const CustomWalletModal: FC<CustomWalletModalProps> = ({ open, onOpenChan
     
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
               <CheckCircle className="w-10 h-10 text-green-500" />
@@ -187,7 +187,7 @@ export const CustomWalletModal: FC<CustomWalletModalProps> = ({ open, onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-center">Connect Wallet</DialogTitle>
         </DialogHeader>
@@ -212,7 +212,7 @@ export const CustomWalletModal: FC<CustomWalletModalProps> = ({ open, onOpenChan
           {mobile && mobileAdapter && (
             <Button
               variant="outline"
-              className="w-full h-16 justify-start gap-4 px-4"
+              className="w-full h-[68px] justify-start gap-4 px-4 rounded-xl border-border/60 hover:border-primary/50 hover:bg-muted/60 transition-all"
               onClick={handleMobileAdapterConnect}
               disabled={isConnecting}
             >
@@ -240,7 +240,7 @@ export const CustomWalletModal: FC<CustomWalletModalProps> = ({ open, onOpenChan
               <Button
                 key={wallet.adapter.name}
                 variant="outline"
-                className="w-full h-16 justify-start gap-4 px-4"
+                className="w-full h-[68px] justify-start gap-4 px-4 rounded-xl border-border/60 hover:border-primary/50 hover:bg-muted/60 transition-all"
                 onClick={() => handleWalletSelect(wallet)}
                 disabled={isConnecting}
               >

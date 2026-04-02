@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ExternalLink, GraduationCap, Volume2, Clock, Trophy } from "lucide-react";
+import { ExternalLink, GraduationCap, Volume2, Clock, Trophy, Music2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface GraduatedToken {
@@ -90,7 +90,7 @@ export default function Graduated() {
                     {t.cover_image_url ? (
                       <img src={t.cover_image_url} alt={t.name} className="w-10 h-10 rounded-lg object-cover" />
                     ) : (
-                      <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-lg">🎵</div>
+                      <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center"><Music2 className="w-5 h-5 text-primary" /></div>
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-foreground truncate">{t.name}</p>
@@ -141,7 +141,7 @@ export default function Graduated() {
                           {t.cover_image_url ? (
                             <img src={t.cover_image_url} alt={t.name} className="w-8 h-8 rounded-lg object-cover" />
                           ) : (
-                            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">🎵</div>
+                            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center"><Music2 className="w-4 h-4 text-primary" /></div>
                           )}
                           <div>
                             <p className="font-semibold text-foreground">{t.name}</p>

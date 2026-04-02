@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Copy, Check, ExternalLink, Trophy } from "lucide-react";
+import { Search, RefreshCw, TrendingUp, Sparkles, Play, Pause, Copy, Check, ExternalLink, Trophy , Music2 } from "lucide-react";
 import { GraduationProgressBar } from "@/components/GraduationBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -129,7 +129,7 @@ const TokensPage = () => {
         <div className="container mx-auto px-4">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2 text-foreground">🎵 Audio Tokens</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2 text-foreground">Audio Tokens</h1>
             <p className="text-muted-foreground text-sm md:text-base">
               Discover and trade audio meme tokens created on NoizLabs
             </p>
@@ -223,7 +223,7 @@ const TokensPage = () => {
                 <div className="col-span-2 text-right">Price</div>
                 <div className="col-span-2 text-right">Market Cap</div>
                 <div className="col-span-2 text-right">Volume</div>
-                <div className="col-span-2">🎓 Progress</div>
+                <div className="col-span-2">Progress</div>
                 <div className="col-span-1 text-right">Actions</div>
               </div>
             </div>
@@ -351,7 +351,7 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
-                <span className="text-xl">🎵</span>
+                <Music2 className="w-5 h-5 text-primary" />
               </div>
             )}
             <button
@@ -438,7 +438,7 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
-                <span className="text-lg">🎵</span>
+                <Music2 className="w-4 h-4 text-primary" />
               </div>
             )}
             <button
@@ -505,7 +505,7 @@ function TokenRow({ token, formatUsd }: { token: TokenData; formatUsd: (sol: num
             <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
           </a>
           <Button size="sm" className="text-xs px-2 h-7" onClick={(e) => e.stopPropagation()}>
-            {isGraduated ? '🎓' : 'Trade'}
+            {isGraduated ? 'Graduated' : 'Trade'}
           </Button>
         </div>
       </div>

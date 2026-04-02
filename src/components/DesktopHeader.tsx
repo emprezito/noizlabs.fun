@@ -74,20 +74,8 @@ export function DesktopHeader() {
 
   return (
     <header className="hidden md:flex items-center justify-between h-[68px] px-6 border-b border-border/40 bg-background/60 backdrop-blur-xl">
-      {/* LEFT: Logo */}
-      <Link to="/" className="flex items-center gap-2.5">
-        <span className="text-2xl">🎵</span>
-        <span
-          className="text-lg font-bold tracking-tight"
-          style={{
-            background: "linear-gradient(135deg, hsl(252 76% 61%), hsl(250 80% 75%))",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          NoizLabs
-        </span>
-      </Link>
+      {/* Logo lives in sidebar - spacer for layout balance */}
+      <div />
 
       {/* CENTER: Testnet pill */}
       <div className="flex items-center">

@@ -39,7 +39,7 @@ export function SoundCard({ sound, isPlaying, onPlay, onMint, isMinting }: Sound
         )}
         {mintStatus === "minted" && (
           <Badge className="bg-muted text-muted-foreground border-border text-xs">
-            🔒 Already Minted
+            Already Minted
           </Badge>
         )}
         <button

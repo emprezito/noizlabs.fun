@@ -277,3 +277,16 @@
 .animate-ticker:hover {
   animation-play-state: paused;
 }
+/* ── Premium UI Upgrades ── */
+
+/* Masonry column layout for Explore */
+.columns-1 { columns: 1; }
+.columns-2 { columns: 2; }
+.columns-3 { columns: 3; }
+.break-inside-avoid { break-inside: avoid; }
+
+/* Smooth sidebar transitions */
+aside { will-change: width; }
+
+/* Card hover lift */
+.hover\:-translate-y-0\.5:hover { transform: translateY(-2px); }

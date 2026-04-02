@@ -281,7 +281,7 @@ export function TokenTicker() {
   if (tokens.length === 0) {
     return (
       <div className="h-10 bg-muted/30 border-b border-border flex items-center justify-center">
-        <span className="text-xs text-muted-foreground">🎵 Create the first token on NoizLabs!</span>
+        <span className="text-xs text-muted-foreground">Create the first token on NoizLabs!</span>
       </div>
     );
   }
