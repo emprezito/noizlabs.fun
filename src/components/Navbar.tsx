@@ -166,7 +166,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <span className="text-xl">🎵</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             <span className="text-lg font-bold text-primary">NoizLabs</span>
           </Link>
 
@@ -281,7 +281,7 @@ const Navbar = () => {
               <SheetContent side="right" className="w-[280px] sm:w-[320px]">
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
-                    <span className="text-xl">🎵</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
                     <span className="text-primary">NoizLabs</span>
                   </SheetTitle>
                 </SheetHeader>

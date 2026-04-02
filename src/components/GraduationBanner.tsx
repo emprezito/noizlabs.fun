@@ -24,7 +24,7 @@ export function GraduationBanner({ graduation, tokenName, tokenSymbol }: Graduat
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-yellow-400 font-bold text-sm">🎓 Graduated to Raydium</span>
+                <span className="text-yellow-400 font-bold text-sm">Graduated to Raydium</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 font-medium">
                   GRADUATED
                 </span>
@@ -106,7 +106,7 @@ export function GraduationBanner({ graduation, tokenName, tokenSymbol }: Graduat
             ? `$${remaining.toLocaleString(undefined, { maximumFractionDigits: 0 })} until Raydium graduation`
             : 'Ready to graduate!'}
         </span>
-        <span className="text-[10px]">🎓 $50K target</span>
+        <span className="text-[10px]">$50K target</span>
       </div>
     </div>
   );
